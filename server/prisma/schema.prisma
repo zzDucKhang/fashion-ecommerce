@@ -1,0 +1,608 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. ENUMS
+// ==========================================
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum VerificationCodeType {
+  REGISTER
+  FORGOT_PASSWORD
+  LOGIN
+  DISABLE_2FA
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  OUT_OF_STOCK
+  ARCHIVED
+}
+
+enum InventoryTransType {
+  IMPORT
+  EXPORT_ORDER
+  RETURN_INBOUND
+  ADJUSTMENT
+}
+
+enum PaymentMethod {
+  COD
+  VNPAY
+  MOMO
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum ShipmentStatus {
+  PENDING
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum PointTransType {
+  EARN
+  REDEEM
+  REFUND
+  EXPIRE
+}
+
+// ==========================================
+// 2. IDENTITY & ACCESS MANAGEMENT
+// ==========================================
+
+model User {
+  id               Int               @id @default(autoincrement())
+  fullName         String            @db.VarChar(255)
+  email            String            @unique @db.VarChar(255)
+  phoneNumber      String            @db.VarChar(50)
+  passwordHash     String            @db.VarChar(255)
+  avatarUrl        String?           @db.VarChar(1000)
+  rewardPoints     Int               @default(0)
+  status           UserStatus        @default(ACTIVE)
+  roleId           Int
+  role             Role              @relation(fields: [roleId], references: [id])
+  
+  shippingAddresses ShippingAddress[]
+  deviceSessions   DeviceSession[]
+  cart             Cart?
+  orders           Order[]
+  pointTransactions PointTransaction[]
+  reviews          ProductReview[]
+  sentMessages     Message[]         @relation("SenderMessages")
+  receivedMessages Message[]         @relation("ReceiverMessages")
+  websocketSessions WebsocketSession[]
+
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model Role {
+  id          Int          @id @default(autoincrement())
+  code        String       @unique @db.VarChar(100)
+  name        String       @db.VarChar(255)
+  isActive    Boolean      @default(true)
+  
+  users       User[]
+  permissions Permission[] @relation("RolePermissions")
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(150)
+  module      String   @db.VarChar(100)
+  description String?  @db.Text
+  
+  roles       Role[]   @relation("RolePermissions")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ShippingAddress {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  receiverName String   @db.VarChar(255)
+  phoneNumber  String   @db.VarChar(50)
+  province     String   @db.VarChar(150)
+  district     String   @db.VarChar(150)
+  ward         String   @db.VarChar(150)
+  detailAddress String  @db.VarChar(500)
+  isDefault    Boolean  @default(false)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model DeviceSession {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique @db.VarChar(1000)
+  ipAddress    String   @db.VarChar(100)
+  isActive     Boolean  @default(true)
+  expiresAt    DateTime
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VerificationCode {
+  id        Int                  @id @default(autoincrement())
+  email     String               @db.VarChar(255)
+  code      String               @db.VarChar(50)
+  type      VerificationCodeType
+  isUsed    Boolean              @default(false)
+  expiresAt DateTime
+  
+  createdAt DateTime             @default(now())
+
+  @@index([email, type])
+}
+
+// ==========================================
+// 3. PRODUCT CATALOG & LOCALIZATION
+// ==========================================
+
+model Language {
+  id                   String                @id @db.VarChar(10) // 'vi', 'en'
+  name                 String                @db.VarChar(100)
+  isDefault            Boolean               @default(false)
+
+  categoryTranslations CategoryTranslation[]
+  brandTranslations    BrandTranslation[]
+  productTranslations  ProductTranslation[]
+}
+
+model Category {
+  id            Int                   @id @default(autoincrement())
+  defaultName   String                @db.VarChar(255)
+  iconUrl       String?               @db.VarChar(1000)
+  isVisible     Boolean               @default(true)
+  parentId      Int?
+  parent        Category?             @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children      Category[]            @relation("CategoryHierarchy")
+  
+  translations  CategoryTranslation[]
+  products      Product[]
+
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+}
+
+model CategoryTranslation {
+  id          Int      @id @default(autoincrement())
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  languageId  String   @db.VarChar(10)
+  language    Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+
+  @@unique([categoryId, languageId])
+}
+
+model Brand {
+  id           Int                @id @default(autoincrement())
+  defaultName  String             @db.VarChar(255)
+  logoUrl      String?            @db.VarChar(1000)
+  
+  translations BrandTranslation[]
+  products     Product[]
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model BrandTranslation {
+  id          Int      @id @default(autoincrement())
+  brandId     Int
+  brand       Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  languageId  String   @db.VarChar(10)
+  language    Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+
+  @@unique([brandId, languageId])
+}
+
+model Tag {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique @db.VarChar(100)
+  products  Product[] @relation("ProductTags")
+}
+
+model Product {
+  id           Int                  @id @default(autoincrement())
+  defaultName  String               @db.VarChar(255)
+  thumbnailUrl String?              @db.VarChar(1000)
+  status       ProductStatus        @default(DRAFT)
+  
+  categoryId   Int
+  category     Category             @relation(fields: [categoryId], references: [id])
+  brandId      Int?
+  brand        Brand?               @relation(fields: [brandId], references: [id])
+  
+  images       ProductImage[]
+  translations ProductTranslation[]
+  variants     ProductVariant[]
+  tags         Tag[]                @relation("ProductTags")
+  reviews      ProductReview[]
+
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+}
+
+model ProductTranslation {
+  id          Int      @id @default(autoincrement())
+  productId   Int
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  languageId  String   @db.VarChar(10)
+  language    Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  name        String   @db.VarChar(255)
+  shortDesc   String?  @db.VarChar(500)
+  detailDesc  String?  @db.Text
+
+  @@unique([productId, languageId])
+}
+
+model ProductImage {
+  id           Int      @id @default(autoincrement())
+  productId    Int
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  imageUrl     String   @db.VarChar(1000)
+  displayOrder Int      @default(0)
+}
+
+model Attribute {
+  id        Int              @id @default(autoincrement())
+  name      String           @unique @db.VarChar(100) // Ví dụ: Màu sắc, Size
+  values    AttributeValue[]
+}
+
+model AttributeValue {
+  id          Int              @id @default(autoincrement())
+  attributeId Int
+  attribute   Attribute        @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  value       String           @db.VarChar(150) // Ví dụ: Đen, Trắng, XL, L
+  
+  variants    ProductVariant[] @relation("VariantAttributeValues")
+
+  @@unique([attributeId, value])
+}
+
+model ProductVariant {
+  id             Int              @id @default(autoincrement())
+  productId      Int
+  product        Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku            String           @unique @db.VarChar(150)
+  stockQuantity  Int              @default(0)
+  originalPrice  Decimal          @db.Decimal(12, 2)
+  sellingPrice   Decimal          @db.Decimal(12, 2)
+  weightGram     Int              @default(0)
+  imageUrl       String?          @db.VarChar(1000)
+  
+  attributeValues AttributeValue[] @relation("VariantAttributeValues")
+  inventoryLogs  InventoryLog[]
+  flashSaleItems FlashSaleItem[]
+  cartItems      CartItem[]
+  orderItems     OrderItem[]
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+// ==========================================
+// 4. INVENTORY & FLASH SALE
+// ==========================================
+
+model InventoryLog {
+  id             Int                @id @default(autoincrement())
+  variantId      Int
+  variant        ProductVariant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  transType      InventoryTransType
+  quantityChange Int
+  note           String?            @db.VarChar(500)
+  
+  createdAt      DateTime           @default(now())
+}
+
+model FlashSaleCampaign {
+  id        Int             @id @default(autoincrement())
+  name      String          @db.VarChar(255)
+  bannerUrl String?         @db.VarChar(1000)
+  startTime DateTime
+  endTime   DateTime
+  isActive  Boolean         @default(true)
+  
+  items     FlashSaleItem[]
+
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model FlashSaleItem {
+  id             Int               @id @default(autoincrement())
+  campaignId     Int
+  campaign       FlashSaleCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  variantId      Int
+  variant        ProductVariant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  flashSalePrice Decimal           @db.Decimal(12, 2)
+  promoQuantity  Int
+  soldQuantity   Int               @default(0)
+
+  @@unique([campaignId, variantId])
+}
+
+// ==========================================
+// 5. CART & ORDER PROCESSING
+// ==========================================
+
+model Cart {
+  id        Int        @id @default(autoincrement())
+  userId    Int        @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String?    @db.VarChar(255)
+  
+  cartItems CartItem[]
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        Int            @id @default(autoincrement())
+  cartId    Int
+  cart      Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variantId Int
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity  Int            @default(1)
+
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([cartId, variantId])
+}
+
+model Order {
+  id               Int                  @id @default(autoincrement())
+  orderCode        String               @unique @db.VarChar(100)
+  userId           Int
+  user             User                 @relation(fields: [userId], references: [id])
+  
+  // Snapshot Address
+  receiverName     String               @db.VarChar(255)
+  receiverPhone    String               @db.VarChar(50)
+  province         String               @db.VarChar(150)
+  district         String               @db.VarChar(150)
+  ward             String               @db.VarChar(150)
+  detailAddress    String               @db.VarChar(500)
+  
+  // Financial Calculations
+  subTotal         Decimal              @db.Decimal(12, 2)
+  shippingFee      Decimal              @db.Decimal(12, 2)
+  shippingDiscount Decimal              @default(0) @db.Decimal(12, 2)
+  voucherCode      String?              @db.VarChar(100)
+  voucherDiscount  Decimal              @default(0) @db.Decimal(12, 2)
+  pointUsed        Int                  @default(0)
+  pointDiscount    Decimal              @default(0) @db.Decimal(12, 2)
+  pointEarned      Int                  @default(0)
+  totalAmount      Decimal              @db.Decimal(12, 2)
+  
+  paymentMethod    PaymentMethod
+  paymentStatus    PaymentStatus        @default(PENDING)
+  status           OrderStatus          @default(PENDING_PAYMENT)
+  customerNote     String?              @db.Text
+  orderDate        DateTime             @default(now())
+
+  orderItems       OrderItem[]
+  shipment         Shipment?
+  paymentTransactions PaymentTransaction[]
+  pointTransactions PointTransaction[]
+
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+}
+
+model OrderItem {
+  id              Int            @id @default(autoincrement())
+  orderId         Int
+  order           Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId       Int?
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  
+  // Frozen Snapshot
+  productName     String         @db.VarChar(255)
+  skuCode         String         @db.VarChar(150)
+  variantValue    String         @db.VarChar(255) // "Đen, Size L"
+  productImageUrl String?        @db.VarChar(1000)
+  unitPrice       Decimal        @db.Decimal(12, 2)
+  quantity        Int
+
+  returnRequests  ReturnRequest[]
+
+  createdAt       DateTime       @default(now())
+}
+
+// ==========================================
+// 6. FULFILLMENT & PAYMENT
+// ==========================================
+
+model Shipment {
+  id                Int            @id @default(autoincrement())
+  orderId           Int            @unique
+  order             Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  carrier           String         @db.VarChar(100) // GHN, GHTK, ViettelPost
+  trackingCode      String         @unique @db.VarChar(150)
+  actualShippingFee Decimal        @db.Decimal(12, 2)
+  status            ShipmentStatus @default(PENDING)
+  estimatedDelivery DateTime?
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model ReturnRequest {
+  id          Int           @id @default(autoincrement())
+  orderItemId Int
+  orderItem   OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  quantity    Int
+  reason      String        @db.VarChar(255)
+  description String?       @db.Text
+  status      ReturnStatus  @default(PENDING)
+  
+  medias      ReturnMedia[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model ReturnMedia {
+  id              Int           @id @default(autoincrement())
+  returnRequestId Int
+  returnRequest   ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  mediaUrl        String        @db.VarChar(1000)
+  mediaType       String        @db.VarChar(50) // IMAGE, VIDEO
+}
+
+model PaymentTransaction {
+  id              Int           @id @default(autoincrement())
+  orderId         Int
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider        String        @db.VarChar(100)
+  providerTransId String        @unique @db.VarChar(255)
+  amount          Decimal       @db.Decimal(12, 2)
+  status          PaymentStatus @default(PENDING)
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+// ==========================================
+// 7. LOYALTY, ENGAGE & REAL-TIME
+// ==========================================
+
+model PointTransaction {
+  id              Int            @id @default(autoincrement())
+  userId          Int
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId         Int?
+  order           Order?         @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  pointChange     Int
+  currentPoint    Int
+  transactionType PointTransType
+  description     String         @db.VarChar(255)
+  
+  createdAt       DateTime       @default(now())
+}
+
+model Voucher {
+  id              Int          @id @default(autoincrement())
+  code            String       @unique @db.VarChar(100)
+  discountType    DiscountType
+  discountValue   Decimal      @db.Decimal(12, 2)
+  minOrderValue   Decimal      @default(0) @db.Decimal(12, 2)
+  maxDiscountAmt  Decimal?     @db.Decimal(12, 2)
+  totalUsageLimit Int          @default(0)
+  usedCount       Int          @default(0)
+  userUsageLimit  Int          @default(1)
+  startDate       DateTime
+  endDate         DateTime
+  isActive        Boolean      @default(true)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model ProductReview {
+  id         Int           @id @default(autoincrement())
+  productId  Int
+  product    Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId     Int
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating     Int           @db.SmallInt // 1 - 5 sao
+  content    String        @db.Text
+  shopReply  String?       @db.Text
+  isHidden   Boolean       @default(false)
+  
+  medias     ReviewMedia[]
+
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([productId, userId])
+}
+
+model ReviewMedia {
+  id        Int           @id @default(autoincrement())
+  reviewId  Int
+  review    ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  mediaUrl  String        @db.VarChar(1000)
+  mediaType String        @db.VarChar(50)
+}
+
+model Message {
+  id            Int      @id @default(autoincrement())
+  senderId      Int
+  sender        User     @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId    Int
+  receiver      User     @relation("ReceiverMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  content       String   @db.Text
+  attachmentUrl String?  @db.VarChar(1000)
+  readAt        DateTime?
+  
+  createdAt     DateTime @default(now())
+}
+
+model WebsocketSession {
+  socketId    String   @id @db.VarChar(255)
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectedAt DateTime @default(now())
+}
