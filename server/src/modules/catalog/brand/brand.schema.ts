@@ -36,7 +36,7 @@ export const getBrandParamsSchema = z.object({
 
 export const createBrandBodySchema = z.object({
   defaultName: z.string().min(1, 'Tên thương hiệu không được để trống').max(500),
-  logo: z.string().min(1, 'Logo URL không được để trống').max(1000),
+  logo: z.string().min(1, 'Logo URL không được để trống').max(1000).optional()
 })
 
 export const updateBrandBodySchema = createBrandBodySchema.partial()
