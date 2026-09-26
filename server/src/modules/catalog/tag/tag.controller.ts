@@ -4,19 +4,20 @@ import { TagService } from './tag.service'
 export class TagController {
   constructor(private tagService = new TagService()) {}
 
-  getAll = async (req: Request, res: Response, next: NextFunction) => {
+  list = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = await this.tagService.getAllTags()
-      res.status(200).json({ success: true, data })
+      const result = await this.tagService.list(req.query as any)
+      return res.status(200).json(result)
     } catch (err) {
       next(err)
     }
   }
 
-  getOne = async (req: Request, res: Response, next: NextFunction) => {
+  findById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = await this.tagService.getTagById(Number(req.params.id))
-      res.status(200).json({ success: true, data })
+      const tagId = Number(req.params.tagId)
+      const data = await this.tagService.findById(tagId)
+      return res.status(200).json({ statusCode: 200, data })
     } catch (err) {
       next(err)
     }
@@ -24,8 +25,9 @@ export class TagController {
 
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = await this.tagService.createTag(req.body)
-      res.status(201).json({ success: true, data })
+      const userId = (req as any).user?.userId ?? 1
+      const data = await this.tagService.create(userId, req.body)
+      return res.status(201).json({ statusCode: 201, message: 'Tạo thẻ tag thành công', data })
     } catch (err) {
       next(err)
     }
@@ -33,8 +35,10 @@ export class TagController {
 
   update = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = await this.tagService.updateTag(Number(req.params.id), req.body)
-      res.status(200).json({ success: true, data })
+      const userId = (req as any).user?.userId ?? 1
+      const tagId = Number(req.params.tagId)
+      const data = await this.tagService.update({ id: tagId, updatedById: userId, data: req.body })
+      return res.status(200).json({ statusCode: 200, message: 'Cập nhật thẻ tag thành công', data })
     } catch (err) {
       next(err)
     }
@@ -42,8 +46,10 @@ export class TagController {
 
   delete = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await this.tagService.deleteTag(Number(req.params.id))
-      res.status(200).json({ success: true, message: 'Xóa thẻ tag thành công' })
+      const userId = (req as any).user?.userId ?? 1
+      const tagId = Number(req.params.tagId)
+      const result = await this.tagService.delete(userId, tagId)
+      return res.status(200).json(result)
     } catch (err) {
       next(err)
     }
