@@ -10,7 +10,7 @@ export const getCategoryParamsSchema = z.object({
 })
 
 export const createCategoryBodySchema = z.object({
-  name: z.string().min(1, 'Tên danh mục không được để trống').max(500),
+  defaultName: z.string().min(1, 'Tên danh mục không được để trống').max(500),
   logo: z.string().max(1000).optional().nullable(),
   parentCategoryId: z.coerce.number().int().positive().optional().nullable(),
 })

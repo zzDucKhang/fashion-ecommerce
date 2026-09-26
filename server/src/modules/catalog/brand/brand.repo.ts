@@ -5,7 +5,8 @@ import {
   UpdateBrandBodyType,
   UpsertBrandTranslationType,
 } from './brand.schema'
-import { ALL_LANGUAGE_CODE } from '@/common/helpers/prisma-error'
+import { ALL_LANGUAGE_CODE } from '@/common/helpers'
+
 
 export class BrandRepo {
   async list(pagination: GetBrandQueryType, languageId?: string) {
@@ -21,7 +22,7 @@ export class BrandRepo {
         skip,
         take,
         include: {
-          brandTranslations: {
+          translations: {
             where:
               languageId === ALL_LANGUAGE_CODE
                 ? { deletedAt: null }
@@ -45,7 +46,7 @@ export class BrandRepo {
     return prisma.brand.findUnique({
       where: { id: brandId, deletedAt: null },
       include: {
-        brandTranslations: {
+        translations: {
           where:
             languageId === ALL_LANGUAGE_CODE
               ? { deletedAt: null }

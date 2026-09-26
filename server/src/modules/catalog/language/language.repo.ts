@@ -26,7 +26,7 @@ export class LanguageRepo {
   }
 
   async update({
-    updateById,
+ 
     id,
     data,
   }: {
@@ -37,14 +37,14 @@ export class LanguageRepo {
     return prisma.language.update({
       where: { id, deletedAt: null },
       data: {
-        ...data,
-        updatedById,
+        ...data
+        
       },
     })
   }
 
   async delete({
-    deleteById,
+   
     id,
     isHard = true, // Vì mã string dùng làm FK nên dự án gốc cho phép xóa cứng nếu cần
   }: {
@@ -57,7 +57,7 @@ export class LanguageRepo {
       : prisma.language.update({
           where: { id, deletedAt: null },
           data: {
-            deletedById,
+            
             deletedAt: new Date(),
           },
         })

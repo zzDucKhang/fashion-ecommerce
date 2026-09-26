@@ -5,8 +5,7 @@ import {
   UpdateCategoryBodyType,
   UpsertCategoryTranslationType,
 } from './category.schema'
-import { AppError } from '@/common/errors'
-import { isNotFoundPrismaError, isUniqueConstraintPrismaError } from '@/common/helpers/prisma-error'
+import { AppError, isNotFoundPrismaError, isUniqueConstraintPrismaError } from '@/common/errors'
 
 export class CategoryService {
   constructor(private categoryRepo = new CategoryRepo()) {}

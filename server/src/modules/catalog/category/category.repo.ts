@@ -18,10 +18,10 @@ export class CategoryRepo {
     const categories = await prisma.category.findMany({
       where: {
         deletedAt: null,
-        parentCategoryId: parentCategoryId ?? null,
+        parentId: parentCategoryId ?? null,
       },
       include: {
-        categoryTranslations: {
+        translations: {
           where:
             languageId === ALL_LANGUAGE_CODE
               ? { deletedAt: null }
@@ -41,7 +41,7 @@ export class CategoryRepo {
     return prisma.category.findUnique({
       where: { id, deletedAt: null },
       include: {
-        categoryTranslations: {
+        translations: {
           where:
             languageId === ALL_LANGUAGE_CODE
               ? { deletedAt: null }
@@ -64,7 +64,7 @@ export class CategoryRepo {
         createdById,
       },
       include: {
-        categoryTranslations: { where: { deletedAt: null } },
+        translations: { where: { deletedAt: null } },
       },
     })
   }
@@ -85,7 +85,7 @@ export class CategoryRepo {
         updatedById,
       },
       include: {
-        categoryTranslations: { where: { deletedAt: null } },
+        translations: { where: { deletedAt: null } },
       },
     })
   }

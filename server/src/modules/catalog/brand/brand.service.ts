@@ -6,7 +6,7 @@ import {
   UpsertBrandTranslationType,
 } from './brand.schema'
 
-import { AppError } from '@/common/errors'
+import { AppError, isNotFoundPrismaError, isUniqueConstraintPrismaError } from '@/common/errors'
 
 export class BrandService {
   constructor(private brandRepo = new BrandRepo()) {}
