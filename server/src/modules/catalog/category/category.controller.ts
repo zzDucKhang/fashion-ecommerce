@@ -1,0 +1,75 @@
+import { Request, Response, NextFunction } from 'express'
+import { CategoryService } from './category.service'
+
+export class CategoryController {
+  constructor(private categoryService = new CategoryService()) {}
+
+  findAll = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.categoryService.findAll(req.query as any)
+      return res.status(200).json(data)
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  findById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const categoryId = Number(req.params.categoryId)
+      const lang = String(req.query.lang || req.headers['accept-language'] || 'vi')
+      const data = await this.categoryService.findById(categoryId, lang)
+      return res.status(200).json({ statusCode: 200, data })
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  create = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.userId ?? 1
+      const data = await this.categoryService.create({ data: req.body, createdById: userId })
+      return res.status(201).json({ statusCode: 201, message: 'Tạo danh mục thành công', data })
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  update = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.userId ?? 1
+      const categoryId = Number(req.params.categoryId)
+      const data = await this.categoryService.update({ id: categoryId, data: req.body, updatedById: userId })
+      return res.status(200).json({ statusCode: 200, message: 'Cập nhật danh mục thành công', data })
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  delete = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.userId ?? 1
+      const categoryId = Number(req.params.categoryId)
+      const result = await this.categoryService.delete({ id: categoryId, deletedById: userId })
+      return res.status(200).json(result)
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  upsertTranslation = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.userId ?? 1
+      const categoryId = Number(req.params.categoryId)
+      const languageId = req.params.languageId
+      const data = await this.categoryService.upsertTranslation({
+        categoryId,
+        languageId,
+        userId,
+        data: req.body,
+      })
+      return res.status(200).json({ statusCode: 200, message: 'Cập nhật bản dịch thành công', data })
+    } catch (err) {
+      next(err)
+    }
+  }
+}
