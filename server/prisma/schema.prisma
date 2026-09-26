@@ -103,7 +103,7 @@ model User {
   rewardPoints     Int               @default(0)
   status           UserStatus        @default(ACTIVE)
   roleId           Int
-  role             Role              @relation(fields: [roleId], references: [id])
+  role             Role              @relation(fields: [roleId], references: [id], onUpdate: NoAction)
   
   shippingAddresses ShippingAddress[]
   deviceSessions   DeviceSession[]
@@ -115,8 +115,16 @@ model User {
   receivedMessages Message[]         @relation("ReceiverMessages")
   websocketSessions WebsocketSession[]
 
+  // Audit trail & Soft delete
+  createdById      Int?
+  updatedById      Int?
+  deletedById      Int?
+  deletedAt        DateTime?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+
+  @@index([deletedAt])
+  @@index([email])
 }
 
 model Role {
@@ -128,8 +136,14 @@ model Role {
   users       User[]
   permissions Permission[] @relation("RolePermissions")
 
+  createdById Int?
+  updatedById Int?
+  deletedById Int?
+  deletedAt   DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+
+  @@index([deletedAt])
 }
 
 model Permission {
@@ -140,24 +154,32 @@ model Permission {
   
   roles       Role[]   @relation("RolePermissions")
 
+  createdById Int?
+  updatedById Int?
+  deletedById Int?
+  deletedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([deletedAt])
 }
 
 model ShippingAddress {
-  id           Int      @id @default(autoincrement())
-  userId       Int
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  receiverName String   @db.VarChar(255)
-  phoneNumber  String   @db.VarChar(50)
-  province     String   @db.VarChar(150)
-  district     String   @db.VarChar(150)
-  ward         String   @db.VarChar(150)
-  detailAddress String  @db.VarChar(500)
-  isDefault    Boolean  @default(false)
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  receiverName  String   @db.VarChar(255)
+  phoneNumber   String   @db.VarChar(50)
+  province      String   @db.VarChar(150)
+  district      String   @db.VarChar(150)
+  ward          String   @db.VarChar(150)
+  detailAddress String   @db.VarChar(500)
+  isDefault     Boolean  @default(false)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model DeviceSession {
@@ -171,6 +193,9 @@ model DeviceSession {
   
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model VerificationCode {
@@ -184,6 +209,7 @@ model VerificationCode {
   createdAt DateTime             @default(now())
 
   @@index([email, type])
+  @@index([expiresAt])
 }
 
 // ==========================================
@@ -198,22 +224,38 @@ model Language {
   categoryTranslations CategoryTranslation[]
   brandTranslations    BrandTranslation[]
   productTranslations  ProductTranslation[]
+
+  createdById          Int?
+  updatedById          Int?
+  deletedById          Int?
+  deletedAt            DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([deletedAt])
 }
 
 model Category {
-  id            Int                   @id @default(autoincrement())
-  defaultName   String                @db.VarChar(255)
-  iconUrl       String?               @db.VarChar(1000)
-  isVisible     Boolean               @default(true)
-  parentId      Int?
-  parent        Category?             @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children      Category[]            @relation("CategoryHierarchy")
+  id                   Int                   @id @default(autoincrement())
+  defaultName          String                @db.VarChar(255)
+  iconUrl              String?               @db.VarChar(1000)
+  isVisible            Boolean               @default(true)
+  parentId             Int?
+  parent               Category?             @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children             Category[]            @relation("CategoryHierarchy")
   
-  translations  CategoryTranslation[]
-  products      Product[]
+  translations         CategoryTranslation[]
+  products             Product[]
 
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  createdById          Int?
+  updatedById          Int?
+  deletedById          Int?
+  deletedAt            DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([deletedAt])
+  @@index([parentId])
 }
 
 model CategoryTranslation {
@@ -225,7 +267,15 @@ model CategoryTranslation {
   name        String   @db.VarChar(255)
   description String?  @db.Text
 
+  createdById Int?
+  updatedById Int?
+  deletedById Int?
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   @@unique([categoryId, languageId])
+  @@index([deletedAt])
 }
 
 model Brand {
@@ -236,8 +286,14 @@ model Brand {
   translations BrandTranslation[]
   products     Product[]
 
+  createdById  Int?
+  updatedById  Int?
+  deletedById  Int?
+  deletedAt    DateTime?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
+
+  @@index([deletedAt])
 }
 
 model BrandTranslation {
@@ -249,13 +305,30 @@ model BrandTranslation {
   name        String   @db.VarChar(255)
   description String?  @db.Text
 
+  createdById Int?
+  updatedById Int?
+  deletedById Int?
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   @@unique([brandId, languageId])
+  @@index([deletedAt])
 }
 
 model Tag {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique @db.VarChar(100)
-  products  Product[] @relation("ProductTags")
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  products    Product[] @relation("ProductTags")
+
+  createdById Int?
+  updatedById Int?
+  deletedById Int?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([deletedAt])
 }
 
 model Product {
@@ -265,9 +338,9 @@ model Product {
   status       ProductStatus        @default(DRAFT)
   
   categoryId   Int
-  category     Category             @relation(fields: [categoryId], references: [id])
+  category     Category             @relation(fields: [categoryId], references: [id], onUpdate: NoAction)
   brandId      Int?
-  brand        Brand?               @relation(fields: [brandId], references: [id])
+  brand        Brand?               @relation(fields: [brandId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   
   images       ProductImage[]
   translations ProductTranslation[]
@@ -275,8 +348,17 @@ model Product {
   tags         Tag[]                @relation("ProductTags")
   reviews      ProductReview[]
 
+  createdById  Int?
+  updatedById  Int?
+  deletedById  Int?
+  deletedAt    DateTime?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
+
+  @@index([deletedAt])
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([status])
 }
 
 model ProductTranslation {
@@ -289,7 +371,15 @@ model ProductTranslation {
   shortDesc   String?  @db.VarChar(500)
   detailDesc  String?  @db.Text
 
+  createdById Int?
+  updatedById Int?
+  deletedById Int?
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   @@unique([productId, languageId])
+  @@index([deletedAt])
 }
 
 model ProductImage {
@@ -298,44 +388,57 @@ model ProductImage {
   product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   imageUrl     String   @db.VarChar(1000)
   displayOrder Int      @default(0)
+
+  createdAt    DateTime @default(now())
+
+  @@index([productId])
 }
 
 model Attribute {
   id        Int              @id @default(autoincrement())
-  name      String           @unique @db.VarChar(100) // Ví dụ: Màu sắc, Size
+  name      String           @unique @db.VarChar(100) // Màu sắc, Size
   values    AttributeValue[]
+
+  deletedAt DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 }
 
 model AttributeValue {
   id          Int              @id @default(autoincrement())
   attributeId Int
   attribute   Attribute        @relation(fields: [attributeId], references: [id], onDelete: Cascade)
-  value       String           @db.VarChar(150) // Ví dụ: Đen, Trắng, XL, L
+  value       String           @db.VarChar(150) // Đen, Trắng, XL
   
   variants    ProductVariant[] @relation("VariantAttributeValues")
 
   @@unique([attributeId, value])
+  @@index([attributeId])
 }
 
 model ProductVariant {
-  id             Int              @id @default(autoincrement())
-  productId      Int
-  product        Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku            String           @unique @db.VarChar(150)
-  stockQuantity  Int              @default(0)
-  originalPrice  Decimal          @db.Decimal(12, 2)
-  sellingPrice   Decimal          @db.Decimal(12, 2)
-  weightGram     Int              @default(0)
-  imageUrl       String?          @db.VarChar(1000)
+  id              Int              @id @default(autoincrement())
+  productId       Int
+  product         Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku             String           @unique @db.VarChar(150)
+  stockQuantity   Int              @default(0)
+  originalPrice   Decimal          @db.Decimal(12, 2)
+  sellingPrice    Decimal          @db.Decimal(12, 2)
+  weightGram      Int              @default(0)
+  imageUrl        String?          @db.VarChar(1000)
   
   attributeValues AttributeValue[] @relation("VariantAttributeValues")
-  inventoryLogs  InventoryLog[]
-  flashSaleItems FlashSaleItem[]
-  cartItems      CartItem[]
-  orderItems     OrderItem[]
+  inventoryLogs   InventoryLog[]
+  flashSaleItems  FlashSaleItem[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
 
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  deletedAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([productId])
+  @@index([deletedAt])
 }
 
 // ==========================================
@@ -351,6 +454,8 @@ model InventoryLog {
   note           String?            @db.VarChar(500)
   
   createdAt      DateTime           @default(now())
+
+  @@index([variantId])
 }
 
 model FlashSaleCampaign {
@@ -363,8 +468,12 @@ model FlashSaleCampaign {
   
   items     FlashSaleItem[]
 
+  deletedAt DateTime?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+
+  @@index([startTime, endTime])
+  @@index([isActive])
 }
 
 model FlashSaleItem {
@@ -378,6 +487,7 @@ model FlashSaleItem {
   soldQuantity   Int               @default(0)
 
   @@unique([campaignId, variantId])
+  @@index([campaignId])
 }
 
 // ==========================================
@@ -408,46 +518,56 @@ model CartItem {
   updatedAt DateTime       @updatedAt
 
   @@unique([cartId, variantId])
+  @@index([cartId])
 }
 
 model Order {
-  id               Int                  @id @default(autoincrement())
-  orderCode        String               @unique @db.VarChar(100)
-  userId           Int
-  user             User                 @relation(fields: [userId], references: [id])
+  id                  Int                  @id @default(autoincrement())
+  orderCode           String               @unique @db.VarChar(100)
+  userId              Int
+  user                User                 @relation(fields: [userId], references: [id], onUpdate: NoAction)
   
   // Snapshot Address
-  receiverName     String               @db.VarChar(255)
-  receiverPhone    String               @db.VarChar(50)
-  province         String               @db.VarChar(150)
-  district         String               @db.VarChar(150)
-  ward             String               @db.VarChar(150)
-  detailAddress    String               @db.VarChar(500)
+  receiverName        String               @db.VarChar(255)
+  receiverPhone       String               @db.VarChar(50)
+  province            String               @db.VarChar(150)
+  district            String               @db.VarChar(150)
+  ward                String               @db.VarChar(150)
+  detailAddress       String               @db.VarChar(500)
   
   // Financial Calculations
-  subTotal         Decimal              @db.Decimal(12, 2)
-  shippingFee      Decimal              @db.Decimal(12, 2)
-  shippingDiscount Decimal              @default(0) @db.Decimal(12, 2)
-  voucherCode      String?              @db.VarChar(100)
-  voucherDiscount  Decimal              @default(0) @db.Decimal(12, 2)
-  pointUsed        Int                  @default(0)
-  pointDiscount    Decimal              @default(0) @db.Decimal(12, 2)
-  pointEarned      Int                  @default(0)
-  totalAmount      Decimal              @db.Decimal(12, 2)
+  subTotal            Decimal              @db.Decimal(12, 2)
+  shippingFee         Decimal              @db.Decimal(12, 2)
+  shippingDiscount    Decimal              @default(0) @db.Decimal(12, 2)
+  voucherCode         String?              @db.VarChar(100)
+  voucherDiscount     Decimal              @default(0) @db.Decimal(12, 2)
+  pointUsed           Int                  @default(0)
+  pointDiscount       Decimal              @default(0) @db.Decimal(12, 2)
+  pointEarned         Int                  @default(0)
+  totalAmount         Decimal              @db.Decimal(12, 2)
   
-  paymentMethod    PaymentMethod
-  paymentStatus    PaymentStatus        @default(PENDING)
-  status           OrderStatus          @default(PENDING_PAYMENT)
-  customerNote     String?              @db.Text
-  orderDate        DateTime             @default(now())
+  paymentMethod       PaymentMethod
+  paymentStatus       PaymentStatus        @default(PENDING)
+  status              OrderStatus          @default(PENDING_PAYMENT)
+  customerNote        String?              @db.Text
+  orderDate           DateTime             @default(now())
 
-  orderItems       OrderItem[]
-  shipment         Shipment?
+  orderItems          OrderItem[]
+  shipment            Shipment?
   paymentTransactions PaymentTransaction[]
-  pointTransactions PointTransaction[]
+  pointTransactions   PointTransaction[]
+  reviews             ProductReview[]
 
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  createdById         Int?
+  updatedById         Int?
+  deletedById         Int?
+  deletedAt           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([userId])
+  @@index([status, deletedAt])
+  @@index([deletedAt])
 }
 
 model OrderItem {
@@ -460,7 +580,7 @@ model OrderItem {
   // Frozen Snapshot
   productName     String         @db.VarChar(255)
   skuCode         String         @db.VarChar(150)
-  variantValue    String         @db.VarChar(255) // "Đen, Size L"
+  variantValue    String         @db.VarChar(255)
   productImageUrl String?        @db.VarChar(1000)
   unitPrice       Decimal        @db.Decimal(12, 2)
   quantity        Int
@@ -468,6 +588,9 @@ model OrderItem {
   returnRequests  ReturnRequest[]
 
   createdAt       DateTime       @default(now())
+
+  @@index([orderId])
+  @@index([variantId])
 }
 
 // ==========================================
@@ -478,7 +601,7 @@ model Shipment {
   id                Int            @id @default(autoincrement())
   orderId           Int            @unique
   order             Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  carrier           String         @db.VarChar(100) // GHN, GHTK, ViettelPost
+  carrier           String         @db.VarChar(100)
   trackingCode      String         @unique @db.VarChar(150)
   actualShippingFee Decimal        @db.Decimal(12, 2)
   status            ShipmentStatus @default(PENDING)
@@ -486,6 +609,8 @@ model Shipment {
 
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
+
+  @@index([status])
 }
 
 model ReturnRequest {
@@ -501,6 +626,8 @@ model ReturnRequest {
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  @@index([orderItemId])
 }
 
 model ReturnMedia {
@@ -508,7 +635,7 @@ model ReturnMedia {
   returnRequestId Int
   returnRequest   ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
   mediaUrl        String        @db.VarChar(1000)
-  mediaType       String        @db.VarChar(50) // IMAGE, VIDEO
+  mediaType       String        @db.VarChar(50)
 }
 
 model PaymentTransaction {
@@ -522,6 +649,8 @@ model PaymentTransaction {
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
+  @@index([orderId])
 }
 
 // ==========================================
@@ -540,6 +669,8 @@ model PointTransaction {
   description     String         @db.VarChar(255)
   
   createdAt       DateTime       @default(now())
+
+  @@index([userId])
 }
 
 model Voucher {
@@ -556,27 +687,38 @@ model Voucher {
   endDate         DateTime
   isActive        Boolean      @default(true)
 
+  deletedAt       DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+
+  @@index([code])
+  @@index([deletedAt])
 }
 
 model ProductReview {
-  id         Int           @id @default(autoincrement())
-  productId  Int
-  product    Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  userId     Int
-  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rating     Int           @db.SmallInt // 1 - 5 sao
-  content    String        @db.Text
-  shopReply  String?       @db.Text
-  isHidden   Boolean       @default(false)
+  id          Int           @id @default(autoincrement())
+  productId   Int
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId     Int?
+  order       Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
   
-  medias     ReviewMedia[]
+  rating      Int           @db.SmallInt
+  content     String        @db.Text
+  shopReply   String?       @db.Text
+  updateCount Int           @default(0)
+  isHidden    Boolean       @default(false)
+  
+  medias      ReviewMedia[]
 
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  @@unique([productId, userId])
+  // Đảm bảo mỗi đơn hàng người dùng chỉ đánh giá sản phẩm đó 1 lần
+  @@unique([orderId, productId])
+  @@index([productId])
+  @@index([userId])
 }
 
 model ReviewMedia {
@@ -588,16 +730,19 @@ model ReviewMedia {
 }
 
 model Message {
-  id            Int      @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
   senderId      Int
-  sender        User     @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  sender        User      @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
   receiverId    Int
-  receiver      User     @relation("ReceiverMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-  content       String   @db.Text
-  attachmentUrl String?  @db.VarChar(1000)
+  receiver      User      @relation("ReceiverMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  content       String    @db.Text
+  attachmentUrl String?   @db.VarChar(1000)
   readAt        DateTime?
   
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
+
+  @@index([senderId])
+  @@index([receiverId])
 }
 
 model WebsocketSession {
@@ -605,4 +750,6 @@ model WebsocketSession {
   userId      Int
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   connectedAt DateTime @default(now())
+
+  @@index([userId])
 }
