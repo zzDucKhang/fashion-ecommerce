@@ -4,26 +4,37 @@ import helmet from 'helmet'
 import pinoHttp from 'pino-http'
 import { errorFilter } from '@/middlewares/filters/error.filter'
 
+// Import 6 router tổng của 6 phân hệ
+import { identityRouter } from '@/modules/identity/identity.routes'
+import { catalogRouter } from '@/modules/catalog/catalog.routes'
+import { cartOrderRouter } from '@/modules/cart-order/cart-order.routes'
+import { inventorySaleRouter } from '@/modules/inventory-sale/inventory-sale.routes'
+import { fulfillmentRouter } from '@/modules/fulfillment/fulfillment.routes'
+import { loyaltyEngageRouter } from '@/modules/loyalty-engage/loyalty-engage.routes'
+
 export const createApp = (): Express => {
   const app = express()
 
-  // 1. Security & Common Middlewares
   app.use(helmet())
   app.use(cors())
   app.use(express.json({ limit: '10mb' }))
   app.use(express.urlencoded({ extended: true }))
-  app.use(pinoHttp())
+  app.use(pinoHttp({ autoLogging: false }))
 
-  // 2. Health check route
+  // Health check
   app.get('/health', (_, res) => {
     res.status(200).json({ status: 'ok', uptime: process.uptime() })
   })
 
-  // 3. Mount module routes ở đây (Thành viên sẽ đăng ký router vào đây)
-  // app.use('/api/v1/auth', authRouter)
-  // app.use('/api/v1/products', productRouter)
+  // Đăng ký 6 Route tổng
+  app.use('/api/v1/identity', identityRouter)
+  app.use('/api/v1/catalog', catalogRouter)
+  app.use('/api/v1/cart-order', cartOrderRouter)
+  app.use('/api/v1/inventory-sale', inventorySaleRouter)
+  app.use('/api/v1/fulfillment', fulfillmentRouter)
+  app.use('/api/v1/loyalty-engage', loyaltyEngageRouter)
 
-  // 4. Global Exception Handler (Luôn đặt ở cuối cùng)
+  // Global Error Handler
   app.use(errorFilter)
 
   return app

@@ -26,7 +26,7 @@ const envSchema = z.object({
 const parseResult = envSchema.safeParse(process.env)
 
 if (!parseResult.success) {
-  console.error('❌ Các biến môi trường khai báo trong .env không hợp lệ:')
+  console.error('❌ Các biến môi trường khai báo trong .env không hợp lệ: (tự tạo file env theo hàm envSchema trên trong file env.config.ts)')
   console.error(parseResult.error.flatten().fieldErrors)
   process.exit(1)
 }
