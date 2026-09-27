@@ -18,7 +18,7 @@ export class AuthRepo {
     return prisma.user.create({
       data: {
         email: data.email,
-        fullName: `${data.firstName} ${data.lastName}`,
+        fullName: data.fullName,
         phoneNumber: data.phoneNumber,
         passwordHash,
         roleId,
