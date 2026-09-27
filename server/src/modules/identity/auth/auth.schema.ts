@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const regsterUserBodySchema = z.object({
+export const registerUserBodySchema = z.object({
     email: z.string().trim().email('Email không đúng định dạng').max(255),
     password: z
         .string()
@@ -10,8 +10,7 @@ export const regsterUserBodySchema = z.object({
         .regex(/[a-z]/, 'Mật khẩu cần ít nhất 1 chữ in thường')
         .regex(/[0-9]/, 'Mật khẩu cần ít nhất 1 chữ số')
         .regex(/[^A-Za-z0-9]/, 'Mật khẩu cần ít nhất 1 ký tự đặc biệt'),
-    firstName: z.string().trim().min(1).max(100),
-    lastName: z.string().trim().min(1).max(100),
+    fullName: z.string().trim().min(1).max(100),
     phoneNumber: z.string().trim().min(1, 'Số điện thoại là bắt buộc').max(50),
 })
 
@@ -59,7 +58,7 @@ export const changePasswordBodySchema = z.object({
     path: ['confirmPassword'],
     })
 
-export type RegisterUserBodyType = z.infer<typeof regsterUserBodySchema>
+export type RegisterUserBodyType = z.infer<typeof registerUserBodySchema>
 export type LoginUserBodyType = z.infer<typeof loginUserBodySchema>
 export type RefreshTokenBodyType = z.infer<typeof refreshTokenBodySchema>
 export type ForgotPasswordBodyType = z.infer<typeof forgotPasswordBodySchema>

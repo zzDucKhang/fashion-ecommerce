@@ -6,14 +6,14 @@ import {
   forgotPasswordBodySchema,
   loginUserBodySchema,
   refreshTokenBodySchema,
-  regsterUserBodySchema,
+  registerUserBodySchema,
   resetPasswordBodySchema,
 } from './auth.schema'
 
 export const authRouter = Router()
 const controller = new AuthController()
 
-authRouter.post('/register', validateRequest({ body: regsterUserBodySchema }), controller.register)
+authRouter.post('/register', validateRequest({ body: registerUserBodySchema }), controller.register)
 authRouter.post('/login', validateRequest({ body: loginUserBodySchema }), controller.login)
 authRouter.post('/refresh', validateRequest({ body: refreshTokenBodySchema }), controller.refresh)
 authRouter.post('/forgot-password', validateRequest({ body: forgotPasswordBodySchema }), controller.forgotPassword)
