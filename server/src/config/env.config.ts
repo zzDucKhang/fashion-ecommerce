@@ -21,6 +21,9 @@ const envSchema = z.object({
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
   S3_BUCKET_NAME: z.string().optional(),
+
+  MAIL_USER: z.string().email(),
+  MAIL_PASS: z.string().min(1),
 })
 
 const parseResult = envSchema.safeParse(process.env)
