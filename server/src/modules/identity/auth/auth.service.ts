@@ -6,6 +6,7 @@ import { envConfig } from '@/config/env.config'
 import { AppError } from '@/common/errors'
 import { AuthRepo } from './auth.repo'
 import { ChangePasswordBodyType, LoginUserBodyType, RegisterUserBodyType, ResetPasswordBodyType, VerificationCodeParamsType } from './auth.schema'
+import { sendVerificationEmail } from '@/common/service/mail'
 
 type TokenUser = { userId: number; roleId: number }
 
@@ -60,7 +61,8 @@ export class AuthService {
                 passwordHash: await bcrypt.hash(data.password, 12),
                 status: 'INACTIVE',
             })
-            await this.CreateVerificationCode(email, 'REGISTER')
+            const code = await this.CreateVerificationCode(email, 'REGISTER')
+            sendVerificationEmail(email, code)
             return { user: this.sanitizeUser(user)}
         } catch (error: any) {
             if (error?.code === 'P2002') throw new AppError('Email đã được sử dụng', 409)
@@ -127,6 +129,7 @@ export class AuthService {
         const user = await this.authRepo.findUserByEmail(email.toLowerCase())
         if (!user) return { message: 'Nếu email tồn tại, mã đặt lại mật khẩu đã được tạo' }
         const code = await this.CreateVerificationCode(user.email, 'FORGOT_PASSWORD')
+        sendVerificationEmail(user.email, code)
         return { message: 'Mã đặt lại mật khẩu đã được tạo' }
     }
 
