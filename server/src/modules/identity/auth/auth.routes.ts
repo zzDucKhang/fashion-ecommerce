@@ -8,6 +8,7 @@ import {
   refreshTokenBodySchema,
   registerUserBodySchema,
   resetPasswordBodySchema,
+  verificationCodeParamsSchema,
 } from './auth.schema'
 
 export const authRouter = Router()
@@ -19,3 +20,5 @@ authRouter.post('/refresh', validateRequest({ body: refreshTokenBodySchema }), c
 authRouter.post('/forgot-password', validateRequest({ body: forgotPasswordBodySchema }), controller.forgotPassword)
 authRouter.post('/reset-password', validateRequest({ body: resetPasswordBodySchema }), controller.resetPassword)
 authRouter.post('/change-password', validateRequest({ body: changePasswordBodySchema }), controller.changePassword)
+authRouter.post('/verify-code', validateRequest({ body: verificationCodeParamsSchema }), controller.verifyCode)
+authRouter.post('/logout', validateRequest({ body: refreshTokenBodySchema }), controller.logout)

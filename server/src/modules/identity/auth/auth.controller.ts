@@ -41,4 +41,16 @@ export class AuthController {
       return res.status(200).json({ statusCode: 200, data: await this.authService.changePassword(token, req.body) })
     } catch (error) { next(error) }
   }
+
+  verifyCode = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      return res.status(200).json({ statusCode: 200, data: await this.authService.verifyVerificationCodeAndContinue(req.body) })
+    } catch (error) { next(error) }
+  }
+
+  logout = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      return res.status(200).json({ statusCode: 200, data: await this.authService.logout(req.body.refreshToken) })
+    } catch (error) { next(error) }
+  }
 }
