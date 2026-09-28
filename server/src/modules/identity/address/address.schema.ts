@@ -26,12 +26,12 @@ export const createAddressBodySchema = z.object({
 })
 
 export const updateAddressBodySchema = z.object({
-    receiverName: z.string().trim().min(1, 'Tên người nhận là bắt buộc').max(100).optional(),
+    receiverName: z.string().trim().min(1, 'Tên người nhận là bắt buộc').max(255).optional(),
     phoneNumber: z.string().trim().min(1, 'Số điện thoại là bắt buộc').max(50).optional(),
-    province: z.string().trim().min(1, 'Tỉnh/Thành phố là bắt buộc').max(100).optional(),
-    district: z.string().trim().min(1, 'Quận/Huyện là bắt buộc').max(100).optional(),
-    ward: z.string().trim().min(1, 'Phường/Xã là bắt buộc').max(100).optional(),
-    detailAddress: z.string().trim().min(1, 'Địa chỉ là bắt buộc').max(255).optional(),
+    province: z.string().trim().min(1, 'Tỉnh/Thành phố là bắt buộc').max(150).optional(),
+    district: z.string().trim().min(1, 'Quận/Huyện là bắt buộc').max(150).optional(),
+    ward: z.string().trim().min(1, 'Phường/Xã là bắt buộc').max(150).optional(),
+    detailAddress: z.string().trim().min(1, 'Địa chỉ là bắt buộc').max(500).optional(),
     isDefault: z.boolean().optional(),
 })
 

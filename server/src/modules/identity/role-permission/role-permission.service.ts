@@ -35,6 +35,9 @@ export class RolePermissionService {
   async deleteRole(id: number, actorId: number) {
     const role = await this.getRole(id)
     if (role.code === 'CUSTOMER' || role.code === 'ADMIN') throw new AppError('Không được xóa role hệ thống', 400)
+    if (role._count?.users > 0) {
+      throw new AppError('Không thể xóa vai trò đang có người dùng sử dụng', 400)
+    }
     await this.repo.softDeleteRole(id, actorId)
     return { message: 'Xóa vai trò thành công' }
   }

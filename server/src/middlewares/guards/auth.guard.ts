@@ -3,7 +3,7 @@ import jwt, { JwtPayload } from 'jsonwebtoken'
 import { envConfig } from '@/config/env.config'
 import { UnauthorizedError } from '@/common/errors'
 
-type AuthenticatedRequest = Request & { user?: { id: number; roleId: number } }
+type AuthenticatedRequest = Request & { user?: { userId: number; roleId: number } }
 
 export const authGuard = (req: Request, _res: Response, next: NextFunction) => {
 	try {
@@ -12,11 +12,11 @@ export const authGuard = (req: Request, _res: Response, next: NextFunction) => {
 		if (!token) throw new UnauthorizedError('Thiếu access token')
 
 		const payload = jwt.verify(token, envConfig.ACCESS_TOKEN_SECRET) as JwtPayload
-		if (typeof payload.id !== 'number' || typeof payload.roleId !== 'number') {
+		if (typeof payload.userId !== 'number' || typeof payload.roleId !== 'number') {
 			throw new UnauthorizedError('Access token không hợp lệ')
 		}
 
-		;(req as AuthenticatedRequest).user = { id: payload.id, roleId: payload.roleId }
+		;(req as AuthenticatedRequest).user = { userId: payload.userId, roleId: payload.roleId }
 		next()
 	} catch (error) {
 		next(error instanceof UnauthorizedError ? error : new UnauthorizedError('Access token không hợp lệ hoặc đã hết hạn'))

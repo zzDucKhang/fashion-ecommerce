@@ -28,8 +28,9 @@ export const forgotPasswordBodySchema = z.object({
 })
 
 export const verificationCodeParamsSchema = z.object({
+    email: z.string().trim().email('Email không đúng định dạng').max(255),
     type: z.enum(['REGISTER', 'FORGOT_PASSWORD']),
-    code: z.string().trim().min(1, 'Mã xác thực là bắt buộc'),
+    code: z.string().trim().length(6, 'Mã xác thực phải là 6 chữ số').regex(/^\d+$/, 'Mã xác thực chỉ gồm chữ số'),
 })
 
 export const resetPasswordBodySchema = z.object({
@@ -37,6 +38,7 @@ export const resetPasswordBodySchema = z.object({
     newPassword: z
       .string()
       .min(8, 'Mật khẩu mới tối thiểu 8 ký tự')
+      .max(72, 'Mật khẩu tối đa 72 ký tự')
       .regex(/[A-Z]/, 'Cần ít nhất 1 chữ hoa')
       .regex(/[a-z]/, 'Cần ít nhất 1 chữ thường')
       .regex(/[0-9]/, 'Cần ít nhất 1 chữ số')
@@ -45,6 +47,7 @@ export const resetPasswordBodySchema = z.object({
   })
     .refine((data) => data.newPassword === data.confirmPassword, {
         message: 'Mật khẩu xác nhận không khớp',
+        path: ['confirmPassword'],
     })
 
 export const changePasswordBodySchema = z.object({
@@ -52,6 +55,7 @@ export const changePasswordBodySchema = z.object({
     newPassword: z
       .string()
       .min(8, 'Mật khẩu mới tối thiểu 8 ký tự')
+      .max(72, 'Mật khẩu tối đa 72 ký tự')
       .regex(/[A-Z]/, 'Cần ít nhất 1 chữ hoa')
       .regex(/[a-z]/, 'Cần ít nhất 1 chữ thường')
       .regex(/[0-9]/, 'Cần ít nhất 1 chữ số')
