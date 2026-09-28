@@ -82,7 +82,7 @@ export class UserRepo {
         data: UpdateUserBodyType
     }) {
         return prisma.user.update({
-            where: { id, deletedAt: null },
+            where: { id },
             data: {
                 ...data,
                 updatedById,
@@ -108,23 +108,37 @@ export class UserRepo {
         updatedById: number
         data: UpdateUserStatusBodyType
     }) {
-        return prisma.user.update({
-            where: { id, deletedAt: null },
-            data: {
-                status: data.status,
-                updatedById,
-            },
+        return prisma.$transaction(async (tx) => {
+            if (data.status === 'BLOCKED' || data.status === 'INACTIVE') {
+                await tx.deviceSession.updateMany({
+                    where: { userId: id, isActive: true },
+                    data: { isActive: false },
+                })
+            }
+            return tx.user.update({
+                where: { id },
+                data: {
+                    status: data.status,
+                    updatedById,
+                },
+            })
         })
     }
 
     // 6. Xóa mềm (Soft Delete)
     async deleteUser({ id, deletedById }: { id: number; deletedById: number }) {
-        return prisma.user.update({
-            where: { id, deletedAt: null },
-            data: {
-                deletedAt: new Date(),
-                deletedById,
-            },
+        return prisma.$transaction(async (tx) => {
+            await tx.deviceSession.updateMany({
+                where: { userId: id, isActive: true },
+                data: { isActive: false },
+            })
+            return tx.user.update({
+                where: { id },
+                data: {
+                    deletedAt: new Date(),
+                    deletedById,
+                },
+            })
         })
     }
 }

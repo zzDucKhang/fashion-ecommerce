@@ -41,11 +41,11 @@ export class AddressRepo {
       if (data.isDefault) {
         await transaction.shippingAddress.updateMany({ where: { userId }, data: { isDefault: false } })
       }
-      return transaction.shippingAddress.update({ where: { id }, data })
+      return transaction.shippingAddress.update({ where: { id, userId }, data })
     })
   }
 
   async deleteAddress(id: number, userId: number) {
-    return prisma.shippingAddress.delete({ where: { id } })
+    return prisma.shippingAddress.deleteMany({ where: { id, userId } })
   }
 }

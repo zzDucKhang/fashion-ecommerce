@@ -2,15 +2,14 @@ import { Request, Response, NextFunction } from 'express'
 import { AppError } from '@/common/errors'
 import { RolePermissionService } from './role-permission.service'
 
- type UserRequest = Request & { user?: { id: number; roleId: number } }
-
 export class RolePermissionController {
   constructor(private service = new RolePermissionService()) {}
 
-  private getActorId(req: UserRequest) {
-    const id = req.user?.id
+  private getActorId(req: Request) {
+    const user = (req as any).user
+    const id = user?.userId ?? user?.id
     if (!id) throw new AppError('Chưa xác thực người dùng', 401)
-    return id
+    return Number(id)
   }
 
   listRoles = async (req: Request, res: Response, next: NextFunction) => {
@@ -29,7 +28,7 @@ export class RolePermissionController {
     }
   }
 
-  createRole = async (req: UserRequest, res: Response, next: NextFunction) => {
+  createRole = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = await this.service.createRole(req.body, this.getActorId(req))
       return res.status(201).json({ statusCode: 201, message: 'Tạo vai trò thành công', data })
@@ -38,7 +37,7 @@ export class RolePermissionController {
     }
   }
 
-  updateRole = async (req: UserRequest, res: Response, next: NextFunction) => {
+  updateRole = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = await this.service.updateRole(Number(req.params.roleId), req.body, this.getActorId(req))
       return res.status(200).json({ statusCode: 200, message: 'Cập nhật vai trò thành công', data })
@@ -47,7 +46,7 @@ export class RolePermissionController {
     }
   }
 
-  deleteRole = async (req: UserRequest, res: Response, next: NextFunction) => {
+  deleteRole = async (req: Request, res: Response, next: NextFunction) => {
     try {
       return res.status(200).json({ statusCode: 200, ...(await this.service.deleteRole(Number(req.params.roleId), this.getActorId(req))) })
     } catch (error) {
@@ -71,7 +70,7 @@ export class RolePermissionController {
     }
   }
 
-  createPermission = async (req: UserRequest, res: Response, next: NextFunction) => {
+  createPermission = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = await this.service.createPermission(req.body, this.getActorId(req))
       return res.status(201).json({ statusCode: 201, message: 'Tạo permission thành công', data })
@@ -80,7 +79,7 @@ export class RolePermissionController {
     }
   }
 
-  updatePermission = async (req: UserRequest, res: Response, next: NextFunction) => {
+  updatePermission = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = await this.service.updatePermission(Number(req.params.permissionId), req.body, this.getActorId(req))
       return res.status(200).json({ statusCode: 200, message: 'Cập nhật permission thành công', data })
@@ -89,7 +88,7 @@ export class RolePermissionController {
     }
   }
 
-  deletePermission = async (req: UserRequest, res: Response, next: NextFunction) => {
+  deletePermission = async (req: Request, res: Response, next: NextFunction) => {
     try {
       return res.status(200).json({ statusCode: 200, ...(await this.service.deletePermission(Number(req.params.permissionId), this.getActorId(req))) })
     } catch (error) {

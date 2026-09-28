@@ -15,7 +15,6 @@ export const getUserQuerySchema = z.object({
 export const updateUserBodySchema = z.object({
     fullName: z.string().trim().min(1).max(100).optional(),
     phoneNumber: z.string().trim().min(1, 'Số điện thoại là bắt buộc').max(50).optional(),
-    status: z.enum(['ACTIVE', 'INACTIVE', 'BLOCKED']).optional(),
     avatarUrl: z.string().url('Avatar không hợp lệ').optional().nullable(),
 })
 

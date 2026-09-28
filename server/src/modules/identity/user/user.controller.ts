@@ -3,16 +3,22 @@ import { UserService } from './user.service'
 import { GetUserQueryType, UpdateUserBodyType, UpdateUserStatusBodyType } from './user.schema'
 import { AppError } from '@/common/errors'
 
-type UserRequest = Request & { user?: { id: number; roleId: number } }
-
 export class UserController {
     constructor(private userService = new UserService()) { }
-    async getListUsers(req: Request, res: Response, next: NextFunction) {
+
+    private getCurrentUser(req: Request) {
+        const user = (req as any).user
+        const userId = user?.userId ?? user?.id
+        if (!userId) throw new AppError('Chưa xác thực người dùng', 401)
+        return { userId: Number(userId), roleId: Number(user?.roleId) }
+    }
+
+    getListUsers = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const query = req.query as unknown as GetUserQueryType
             const result = await this.userService.listUsers(query)
             return res.status(200).json({
-                success: true,
+                statusCode: 200,
                 data: result,
             })
         }
@@ -20,12 +26,14 @@ export class UserController {
             next(error)
         }
     }
-    async getUserById(req: Request<{ userId: string }>, res: Response, next: NextFunction) {
+
+    getUserById = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const userId = parseInt(req.params.userId)
-            const result = await this.userService.getUserById(userId)
+            const currentUser = this.getCurrentUser(req)
+            const result = await this.userService.getUserById(userId, currentUser)
             return res.status(200).json({
-                success: true,
+                statusCode: 200,
                 data: result,
             })
         }
@@ -33,15 +41,16 @@ export class UserController {
             next(error)
         }
     }
-    async updateUser(req: UserRequest & Request<{ userId: string }, {}, UpdateUserBodyType>, res: Response, next: NextFunction) {
+
+    updateUser = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const userId = parseInt(req.params.userId)
-            const currentUserId = req.user?.id
-            if (!currentUserId) throw new AppError('Chưa xác thực người dùng', 401)
+            const currentUser = this.getCurrentUser(req)
             const data: UpdateUserBodyType = req.body
-            const result = await this.userService.updateUser(userId, currentUserId, data)
+            const result = await this.userService.updateUser(userId, currentUser, data)
             return res.status(200).json({
-                success: true,
+                statusCode: 200,
+                message: 'Cập nhật thông tin thành công',
                 data: result,
             })
         }
@@ -49,15 +58,16 @@ export class UserController {
             next(error)
         }
     }
-    async updateStatus(req: UserRequest & Request<{ userId: string }, {}, UpdateUserStatusBodyType>, res: Response, next: NextFunction) {
+
+    updateStatus = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const userId = parseInt(req.params.userId)
-            const currentUserId = req.user?.id
-            if (!currentUserId) throw new AppError('Chưa xác thực người dùng', 401)
+            const currentUser = this.getCurrentUser(req)
             const data: UpdateUserStatusBodyType = req.body
-            const result = await this.userService.updateStatus(userId, currentUserId, data)
+            const result = await this.userService.updateStatus(userId, currentUser.userId, data)
             return res.status(200).json({
-                success: true,
+                statusCode: 200,
+                message: 'Cập nhật trạng thái thành công',
                 data: result,
             })
         }
@@ -65,15 +75,15 @@ export class UserController {
             next(error)
         }
     }
-    async deleteUser(req: UserRequest & Request<{ userId: string }>, res: Response, next: NextFunction) {
+
+    deleteUser = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const userId = parseInt(req.params.userId)
-            const currentUserId = req.user?.id
-            if (!currentUserId) throw new AppError('Chưa xác thực người dùng', 401)
-            await this.userService.deleteUser(userId, currentUserId)
+            const currentUser = this.getCurrentUser(req)
+            await this.userService.deleteUser(userId, currentUser.userId)
             return res.status(200).json({
-                success: true,
-                message: 'User deleted successfully',
+                statusCode: 200,
+                message: 'Xóa người dùng thành công',
             })
         }
         catch (error) {

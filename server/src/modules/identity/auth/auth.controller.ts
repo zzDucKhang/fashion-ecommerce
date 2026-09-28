@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express'
+import { AppError } from '@/common/errors'
 import { AuthService } from './auth.service'
 
 export class AuthController {
@@ -36,15 +37,16 @@ export class AuthController {
 
   changePassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const token = req.headers.authorization?.replace(/^Bearer\s+/i, '')
-      if (!token) return res.status(401).json({ statusCode: 401, message: 'Access token là bắt buộc' })
-      return res.status(200).json({ statusCode: 200, data: await this.authService.changePassword(token, req.body) })
+      const user = (req as any).user
+      const userId = user?.userId ?? user?.id
+      if (!userId) throw new AppError('Chưa xác thực người dùng', 401)
+      return res.status(200).json({ statusCode: 200, data: await this.authService.changePassword(Number(userId), req.body) })
     } catch (error) { next(error) }
   }
 
   verifyCode = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      return res.status(200).json({ statusCode: 200, data: await this.authService.verifyVerificationCodeAndContinue(req.body) })
+      return res.status(200).json({ statusCode: 200, data: await this.authService.verifyCode(req.body) })
     } catch (error) { next(error) }
   }
 

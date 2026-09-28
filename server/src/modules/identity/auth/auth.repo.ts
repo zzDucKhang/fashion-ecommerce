@@ -48,13 +48,25 @@ export class AuthRepo {
     return prisma.user.update({ where: { id: userId }, data: { passwordHash } })
   }
 
+  async updateInactiveUser(userId: number, data: { fullName: string; phoneNumber?: string; passwordHash: string }) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        fullName: data.fullName,
+        phoneNumber: data.phoneNumber ?? '',
+        passwordHash: data.passwordHash,
+      },
+      include: { role: true },
+    })
+  }
+
   async createVerificationCode(data: { email: string; code: string; type: VerificationCodeType; expiresAt: Date }) {
     return prisma.verificationCode.create({ data })
   }
 
-  async findValidVerificationCode(code: string, type: VerificationCodeType) {
+  async findValidVerificationCode(email: string, code: string, type: VerificationCodeType) {
     return prisma.verificationCode.findFirst({
-      where: { code, type, isUsed: false, expiresAt: { gt: new Date() } },
+      where: { email, code, type, isUsed: false, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
     })
   }
@@ -63,7 +75,29 @@ export class AuthRepo {
     return prisma.verificationCode.update({ where: { id }, data: { isUsed: true } })
   }
 
+  async deactivateAllVerificationCodes(email: string, type: VerificationCodeType) {
+    return prisma.verificationCode.updateMany({
+      where: { email, type, isUsed: false },
+      data: { isUsed: true },
+    })
+  }
+
   async activateUser(userId: number) {
     return prisma.user.update({ where: { id: userId }, data: { status: 'ACTIVE' } })
+  }
+
+  async deactivateAllUserSessions(userId: number) {
+    return prisma.deviceSession.updateMany({ where: { userId, isActive: true }, data: { isActive: false } })
+  }
+
+  async findVerificationCodeById(id: number) {
+    return prisma.verificationCode.findUnique({ where: { id } })
+  }
+
+  async findValidVerificationCodeByEmail(email: string, type: VerificationCodeType) {
+    return prisma.verificationCode.findFirst({
+      where: { email, type, isUsed: false, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    })
   }
 }
