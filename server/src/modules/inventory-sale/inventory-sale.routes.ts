@@ -4,5 +4,5 @@ import { flashSaleRouter } from './flash-sale/flash-sale.routes'
 
 export const inventorySaleRouter = Router()
 
-inventorySaleRouter.use('/inventory', inventoryRouter)
-inventorySaleRouter.use('/flash-sale', flashSaleRouter)
+inventorySaleRouter.use('/inventories', inventoryRouter)
+inventorySaleRouter.use('/flash-sales', flashSaleRouter)
