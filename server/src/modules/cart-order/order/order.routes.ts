@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import { OrderController } from './order.controller'
-import { requireAuth, requireAdmin } from '@/common/middlewares/auth.middleware'
+import { requireAuth } from '@/middlewares/guards/auth.guard'
+import { requireAdmin } from '@/middlewares/guards/role.guard'
+
 
 export const orderRouter = Router()
 const controller = new OrderController()

@@ -1,7 +1,6 @@
 import Redis from 'ioredis'
+import { default as Redlock } from 'redlock'
 import { envConfig } from '@/config/env.config'
-
-const Redlock = require('redlock')
 
 export const redisClient = new Redis(envConfig.REDIS_URL, {
   maxRetriesPerRequest: null, // Bắt buộc cho BullMQ

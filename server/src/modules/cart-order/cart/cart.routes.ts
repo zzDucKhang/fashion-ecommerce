@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { CartController } from './cart.controller'
-import { optionalAuth } from '@/common/middlewares/auth.middleware' // Middleware giải mã Token nếu có
+import { optionalAuth } from '@/middlewares/guards/auth.guard'
+
 
 export const cartRouter = Router()
 const controller = new CartController()
@@ -16,7 +17,7 @@ cartRouter.get('/', controller.get)
 cartRouter.post('/items', controller.add)
 
 // 3. Gộp giỏ hàng từ Guest sang User khi vừa Login xong
-cartRouter.post('/merge', controller.merge) // Cần bổ sung hàm merge vào CartController
+// cartRouter.post('/merge', controller.merge) // Cần bổ sung hàm merge vào CartController
 
 // 4. Cập nhật số lượng/thông tin của 1 món trong giỏ
 cartRouter.patch('/items/:itemId', controller.update)
@@ -25,4 +26,4 @@ cartRouter.patch('/items/:itemId', controller.update)
 cartRouter.delete('/items/:itemId', controller.remove)
 
 // 6. Xóa toàn bộ giỏ hàng (Dùng khi Clear Cart hoặc sau Checkout)
-cartRouter.delete('/', controller.clear) // Cần bổ sung hàm clear vào CartController
+// cartRouter.delete('/', controller.clear) // Cần bổ sung hàm clear vào CartController
