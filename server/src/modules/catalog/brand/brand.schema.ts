@@ -27,7 +27,7 @@ export const brandTranslationSchema = z.object({
 export const getBrandQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().default(10),
-  lang: z.string().optional().default('vi'),
+  lang: z.string().optional().default('all'),
 })
 
 export const getBrandParamsSchema = z.object({
