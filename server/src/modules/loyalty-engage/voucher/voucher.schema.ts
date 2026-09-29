@@ -40,8 +40,29 @@ export const createVoucherBodySchema = voucherBaseSchema
     { message: 'Phần trăm giảm phải từ 1 đến 100', path: ['discountValue'] },
   )
 
-/** Admin cập nhật voucher (partial) – sử dụng .partial() trước khi .refine() */
-export const updateVoucherBodySchema = voucherBaseSchema.partial()
+/**
+ * Admin cập nhật voucher (partial) – giữ các luật validate khi trường được truyền vào.
+ * FIX 2.4: Thêm .refine() để kiểm tra endDate > startDate và % giảm từ 1-100.
+ */
+export const updateVoucherBodySchema = voucherBaseSchema
+  .partial()
+  .refine(
+    (data) => {
+      // Chỉ kiểm tra khi CẢ HAI trường cùng được cung cấp
+      if (data.endDate && data.startDate) {
+        return new Date(data.endDate) > new Date(data.startDate)
+      }
+      return true
+    },
+    { message: 'endDate phải sau startDate', path: ['endDate'] },
+  )
+  .refine(
+    (data) =>
+      data.discountType !== 'PERCENTAGE' ||
+      data.discountValue === undefined ||
+      (data.discountValue > 0 && data.discountValue <= 100),
+    { message: 'Phần trăm giảm phải từ 1 đến 100', path: ['discountValue'] },
+  )
 
 /** Params id voucher */
 export const voucherIdParamSchema = z.object({

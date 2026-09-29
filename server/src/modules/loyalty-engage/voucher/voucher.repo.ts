@@ -26,6 +26,24 @@ export class VoucherRepo {
     return prisma.voucher.findFirst({ where: { code, deletedAt: null } })
   }
 
+  /**
+   * FIX 2.3: Tìm voucher theo code kể cả đã xóa mềm.
+   * Dùng để kiểm tra trùng code trước khi tạo/sửa, ngăn lỗi P2002 Unique Constraint.
+   */
+  async findByCodeIncludingDeleted(code: string) {
+    return prisma.voucher.findFirst({ where: { code } })
+  }
+
+  /**
+   * FIX 2.1: Đếm số lần user đã sử dụng mã voucher này trong bảng Order (voucherCode).
+   * Dùng để enforce userUsageLimit.
+   */
+  async countUserVoucherUsage(userId: number, voucherCode: string): Promise<number> {
+    return prisma.order.count({
+      where: { userId, voucherCode, deletedAt: null },
+    })
+  }
+
   /** Tạo voucher mới */
   async create(data: CreateVoucherBodyType) {
     return prisma.voucher.create({

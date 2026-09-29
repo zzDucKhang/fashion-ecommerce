@@ -11,7 +11,6 @@ import {
   validateVoucherBodySchema,
   voucherIdParamSchema,
 } from './voucher.schema'
-import { z } from 'zod'
 
 export const voucherRouter = Router()
 const controller = new VoucherController()
@@ -29,13 +28,6 @@ voucherRouter.post(
   controller.validateVoucher,
 )
 
-/** POST /vouchers/apply – Áp dụng voucher (sau khi đặt hàng) */
-voucherRouter.post(
-  '/apply',
-  requireAuth,
-  validateRequest({ body: z.object({ code: z.string().trim().min(1, 'Mã voucher là bắt buộc').toUpperCase() }) }),
-  controller.applyVoucher,
-)
 
 // ─── Admin routes (yêu cầu đăng nhập + role ADMIN) ───────────────────────────
 

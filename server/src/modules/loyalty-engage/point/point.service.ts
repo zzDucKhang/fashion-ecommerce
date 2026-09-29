@@ -7,39 +7,45 @@ export class PointService {
   constructor(private pointRepo = new PointRepo()) {}
 
   /**
-   * Cộng điểm cho user khi đơn hàng hoàn thành (DELIVERED).
-   * Quy tắc: 1 điểm = 1 VNĐ.
+   * Admin cộng điểm cho user khi đơn hàng hoàn thành (DELIVERED).
+   * Điểm được tính tự động: 1% của totalAmount, làm tròn xuống số nguyên.
+   * Admin gọi endpoint này – nhưng userId lấy từ đơn hàng (order.userId), không phải ID của admin.
    * Sử dụng atomic transaction để tránh race condition.
    */
-  async earnPoints(userId: number, body: EarnPointsBodyType) {
-    const user = await this.pointRepo.findUserById(userId)
-    if (!user) throw new NotFoundError('Người dùng không tồn tại')
-
+  async earnPoints(_adminId: number, body: EarnPointsBodyType) {
     const order = await this.pointRepo.findOrderById(body.orderId)
     if (!order) throw new NotFoundError('Đơn hàng không tồn tại')
-    if (order.userId !== userId) {
-      throw new BadRequestError('Đơn hàng không thuộc về người dùng này')
-    }
     if (order.status !== 'DELIVERED') {
       throw new BadRequestError('Chỉ cộng điểm khi đơn hàng đã giao thành công (DELIVERED)')
     }
 
+    // Dùng userId từ đơn hàng, không phải userId của admin gọi API
+    const userId = order.userId
+    const user = await this.pointRepo.findUserById(userId)
+    if (!user) throw new NotFoundError('Người dùng của đơn hàng không tồn tại')
+
     const existing = await this.pointRepo.findEarnTransactionByOrderId(body.orderId)
     if (existing) throw new BadRequestError('Đơn hàng này đã được cộng điểm trước đó')
 
-    const newPoints = user.rewardPoints + body.pointChange
+    // Tính điểm tự động: 1% tổng giá trị đơn hàng, làm tròn xuống
+    const pointChange = Math.floor(Number(order.totalAmount) * 0.01)
+    if (pointChange <= 0) {
+      throw new BadRequestError('Giá trị đơn hàng quá nhỏ, không đủ điểu kiện cộng điểm')
+    }
+
+    const newPoints = user.rewardPoints + pointChange
 
     // Atomic: cập nhật balance + tạo transaction record trong 1 DB transaction
     const transaction = await this.pointRepo.updatePointsAndCreateTransaction(userId, newPoints, {
       orderId: body.orderId,
-      pointChange: body.pointChange,
+      pointChange,
       currentPoint: newPoints,
       transactionType: 'EARN',
       description: body.description,
     })
 
     return {
-      message: `Cộng ${body.pointChange} điểm thành công`,
+      message: `Cộng ${pointChange} điểm thành công cho user #${userId}`,
       currentPoint: newPoints,
       transaction,
     }
@@ -47,8 +53,8 @@ export class PointService {
 
   /**
    * Trừ điểm khi user dùng điểm để thanh toán.
-   * Quy tắc: 1 điểm = 1 VNĐ.
-   * Sử dụng atomic transaction để tránh race condition.
+   * Sử dụng atomic decrement có điều kiện để ngăn race condition: nếu 2 request
+   * đồng thời cùng đọc số điểm và trừ, chỉ 1 request thành công (do WHERE gte).
    */
   async redeemPoints(userId: number, body: RedeemPointsBodyType) {
     const user = await this.pointRepo.findUserById(userId)
@@ -77,10 +83,18 @@ export class PointService {
       )
     }
 
+    // Atomic decrement có điều kiện: chỉ trừ nếu rewardPoints >= pointsToRedeem tại thời điểm UPDATE
+    // Ngăn double-spend khi 2 request cùng lúc (race condition)
+    const updatedResult = await this.pointRepo.atomicDecrementPoints(userId, body.pointsToRedeem)
+    if (!updatedResult) {
+      throw new BadRequestError('Số điểm khả dụng không đủ (có thể đã bị dùng từ một tab khác)')
+    }
+
     const newPoints = user.rewardPoints - body.pointsToRedeem
 
-    // Atomic: cập nhật balance + tạo transaction record trong 1 DB transaction
-    const transaction = await this.pointRepo.updatePointsAndCreateTransaction(userId, newPoints, {
+    // Tạo bản ghi giao dịch sau khi decrement thành công
+    const transaction = await this.pointRepo.createTransaction({
+      userId,
       orderId: body.orderId,
       pointChange: -body.pointsToRedeem,
       currentPoint: newPoints,

@@ -49,6 +49,42 @@ export class PointRepo {
     })
   }
 
+  /**
+   * Atomic conditional decrement: chỉ trừ điểm nếu rewardPoints >= pointsToRedeem tại thời điểm UPDATE.
+   * Trả về true nếu thành công, false nếu không đủ điểm (ngăn race condition double-spend).
+   */
+  async atomicDecrementPoints(userId: number, pointsToRedeem: number): Promise<boolean> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return prisma.$transaction(async (tx: any) => {
+      const result = await tx.user.updateMany({
+        where: { id: userId, rewardPoints: { gte: pointsToRedeem }, deletedAt: null },
+        data: { rewardPoints: { decrement: pointsToRedeem } },
+      })
+      return result.count > 0
+    })
+  }
+
+  /** Tạo bản ghi giao dịch điểm độc lập (dùng sau atomicDecrementPoints) */
+  async createTransaction(txData: {
+    userId: number
+    orderId?: number
+    pointChange: number
+    currentPoint: number
+    transactionType: PointTransType
+    description: string
+  }) {
+    return prisma.pointTransaction.create({
+      data: {
+        userId: txData.userId,
+        orderId: txData.orderId,
+        pointChange: txData.pointChange,
+        currentPoint: txData.currentPoint,
+        transactionType: txData.transactionType,
+        description: txData.description,
+      },
+    })
+  }
+
   /** Lấy lịch sử giao dịch điểm của user có phân trang */
   async findTransactionsByUserId(userId: number, skip: number, take: number) {
     const [data, total] = await prisma.$transaction([

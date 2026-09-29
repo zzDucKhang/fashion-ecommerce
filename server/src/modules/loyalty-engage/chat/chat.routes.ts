@@ -1,6 +1,7 @@
 // src/modules/loyalty-engage/chat/chat.routes.ts
 import { Router } from 'express'
 import { requireAuth } from '@/middlewares/guards/auth.guard'
+import { requireAdmin } from '@/middlewares/guards/role.guard'
 import { validateRequest } from '@/middlewares/pipes/validate.pipe'
 import { ChatController } from './chat.controller'
 import {
@@ -58,6 +59,7 @@ chatRouter.get('/conversations', requireAuth, controller.getConversationList)
  */
 chatRouter.get(
   '/sessions/:userId/online',
+  requireAdmin,
   validateRequest({
     params: z.object({
       userId: z.string().regex(/^\d+$/, 'userId phải là số nguyên').transform(Number),
@@ -66,9 +68,10 @@ chatRouter.get(
   controller.checkUserOnline,
 )
 
-/** GET /chat/sessions/:userId – Lấy danh sách sessions của một user */
+/** GET /chat/sessions/:userId – Lấy danh sách sessions của một user (chỉ Admin) */
 chatRouter.get(
   '/sessions/:userId',
+  requireAdmin,
   validateRequest({
     params: z.object({
       userId: z.string().regex(/^\d+$/, 'userId phải là số nguyên').transform(Number),
@@ -77,16 +80,18 @@ chatRouter.get(
   controller.getSocketSessionsByUser,
 )
 
-/** POST /chat/sessions – Lưu socket session (gọi khi user kết nối WS) */
+/** POST /chat/sessions – Lưu socket session (gọi khi user kết nối WS) (chỉ Admin/nội bộ) */
 chatRouter.post(
   '/sessions',
+  requireAdmin,
   validateRequest({ body: upsertSocketSessionBodySchema }),
   controller.upsertSocketSession,
 )
 
-/** DELETE /chat/sessions – Xóa socket session (gọi khi user ngắt kết nối) */
+/** DELETE /chat/sessions – Xóa socket session (gọi khi user ngắt kết nối) (chỉ Admin/nội bộ) */
 chatRouter.delete(
   '/sessions',
+  requireAdmin,
   validateRequest({ body: removeSocketSessionBodySchema }),
   controller.removeSocketSession,
 )
