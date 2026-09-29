@@ -1,5 +1,9 @@
 import { prisma } from '@/database/prisma'
-import {CreateFlashSaleBodyType,GetFlashSaleQueryType,UpdateFlashSaleBodyType,} from './flash-sale.schema'
+import {
+    CreateFlashSaleBodyType,
+    GetFlashSaleQueryType,
+    UpdateFlashSaleBodyType,
+} from './flash-sale.schema'
 
 const flashSaleItemsInclude = {
     items: {
@@ -74,9 +78,7 @@ export class FlashSaleRepo {
                     gte: now,
                 },
             },
-
             include: flashSaleItemsInclude,
-
             orderBy: {
                 endTime: 'asc',
             },
@@ -89,22 +91,22 @@ export class FlashSaleRepo {
                 id: campaignId,
                 deletedAt: null,
             },
-
             include: flashSaleItemsInclude,
         })
     }
 
-    async findVariantsForFlashSale(
-        variantIds: number[]
-    ) {
+    async findVariantsForFlashSale(variantIds: number[]) {
         return prisma.productVariant.findMany({
             where: {
                 id: {
                     in: variantIds,
                 },
                 deletedAt: null,
+                product: {
+                    status: 'PUBLISHED',
+                    deletedAt: null,
+                },
             },
-
             select: {
                 id: true,
                 sku: true,
@@ -114,13 +116,35 @@ export class FlashSaleRepo {
         })
     }
 
+    async findConflictingCampaigns(
+        variantIds: number[],
+        startTime: Date,
+        endTime: Date,
+        excludeCampaignId?: number
+    ) {
+        return prisma.flashSaleCampaign.findMany({
+            where: {
+                deletedAt: null,
+                isActive: true,
+                id: excludeCampaignId ? { not: excludeCampaignId } : undefined,
+                startTime: { lt: endTime },
+                endTime: { gt: startTime },
+                items: {
+                    some: {
+                        variantId: { in: variantIds },
+                    },
+                },
+            },
+            select: { name: true }
+        })
+    }
+
     async create(data: CreateFlashSaleBodyType) {
         const { items, ...campaignData } = data
 
         return prisma.flashSaleCampaign.create({
             data: {
                 ...campaignData,
-
                 items: {
                     create: items.map((item) => ({
                         variantId: item.variantId,
@@ -130,7 +154,6 @@ export class FlashSaleRepo {
                     })),
                 },
             },
-
             include: flashSaleItemsInclude,
         })
     }
@@ -143,13 +166,11 @@ export class FlashSaleRepo {
 
         return prisma.$transaction(async (tx) => {
             if (items !== undefined) {
-
                 const existingItems =
                     await tx.flashSaleItem.findMany({
                         where: {
                             campaignId,
                         },
-
                         select: {
                             variantId: true,
                             soldQuantity: true,
@@ -169,13 +190,11 @@ export class FlashSaleRepo {
                 await tx.flashSaleItem.deleteMany({
                     where: {
                         campaignId,
-
                         variantId: {
                             notIn: incomingVariantIds,
                         },
                     },
                 })
-
 
                 for (const item of items) {
                     const soldQuantity =
@@ -188,29 +207,16 @@ export class FlashSaleRepo {
                                 variantId: item.variantId,
                             },
                         },
-
                         update: {
-                            flashSalePrice:
-                                item.flashSalePrice,
-
-                            promoQuantity:
-                                item.promoQuantity,
-
+                            flashSalePrice: item.flashSalePrice,
+                            promoQuantity: item.promoQuantity,
                             soldQuantity,
                         },
-
                         create: {
                             campaignId,
-
-                            variantId:
-                                item.variantId,
-
-                            flashSalePrice:
-                                item.flashSalePrice,
-
-                            promoQuantity:
-                                item.promoQuantity,
-
+                            variantId: item.variantId,
+                            flashSalePrice: item.flashSalePrice,
+                            promoQuantity: item.promoQuantity,
                             soldQuantity: 0,
                         },
                     })
@@ -221,9 +227,7 @@ export class FlashSaleRepo {
                 where: {
                     id: campaignId,
                 },
-
                 data: campaignData,
-
                 include: flashSaleItemsInclude,
             })
         })
@@ -245,7 +249,6 @@ export class FlashSaleRepo {
             where: {
                 id: campaignId,
             },
-
             data: {
                 deletedAt: new Date(),
             },
