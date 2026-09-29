@@ -74,6 +74,8 @@ export class FlashSaleService {
         endTime: Date,
         excludeCampaignId?: number
     ) {
+        if (variantIds.length === 0) return
+
         const conflicts = await this.flashSaleRepo.findConflictingCampaigns(
             variantIds,
             startTime,
@@ -96,6 +98,9 @@ export class FlashSaleService {
         if (start >= end) {
             throw new AppError('Thời gian kết thúc phải sau thời gian bắt đầu', 422)
         }
+        if (start < now) {
+            throw new AppError('Thời gian bắt đầu chiến dịch không được ở quá khứ', 422)
+        }
         if (end <= now) {
             throw new AppError('Không thể tạo chiến dịch kết thúc trong quá khứ', 422)
         }
@@ -108,29 +113,59 @@ export class FlashSaleService {
     }
 
     async update(campaignId: number, data: UpdateFlashSaleBodyType) {
+        // 1. Tìm campaign
         const campaign = await this.findById(campaignId)
         const now = new Date()
 
+        // 2. Xác định startTime / endTime mới
         const startTime = data.startTime ? new Date(data.startTime) : new Date(campaign.startTime)
         const endTime = data.endTime ? new Date(data.endTime) : new Date(campaign.endTime)
 
+        // 3. Validate time
         if (startTime >= endTime) {
             throw new AppError('Thời gian kết thúc phải sau thời gian bắt đầu', 422)
         }
 
+        // Chặn lùi startTime về quá khứ nếu truyền startTime mới
+        if (data.startTime && startTime < now) {
+            throw new AppError('Thời gian bắt đầu cập nhật không được nằm trong quá khứ', 422)
+        }
+
+        // Chặn sửa endTime về quá khứ
+        if (data.endTime && endTime <= now) {
+            throw new AppError('Thời gian kết thúc cập nhật không được nằm trong quá khứ', 422)
+        }
+
         const isRunning = campaign.isActive && new Date(campaign.startTime) <= now && now <= new Date(campaign.endTime)
-        // Nếu đang chạy: không cho phép lùi thời gian bắt đầu hoặc đổi sang danh sách SKU mới hoàn toàn
+
+        // Nếu đang chạy: không cho phép thay đổi startTime
         if (isRunning && data.startTime && new Date(data.startTime).getTime() !== new Date(campaign.startTime).getTime()) {
             throw new AppError('Không thể sửa thời gian bắt đầu của chiến dịch đang diễn ra', 400)
         }
 
+        // 4. Xác định variantIds áp dụng (nếu gửi items mới thì dùng items mới, ngược lại lấy items hiện có của campaign)
+        const effectiveVariantIds = data.items !== undefined
+            ? data.items.map((item) => item.variantId)
+            : campaign.items.map((item) => item.variantId)
+
+        // 5. Check overlap (LUÔN CHẠY: Dù chỉ update thời gian hay update items đều được kiểm tra)
+        await this.checkTimeOverlap(effectiveVariantIds, startTime, endTime, campaignId)
+
+        // 6. Nếu có cập nhật items → validate items & check soldQuantity
         if (data.items !== undefined) {
+            if (isRunning) {
+                const existingVariantIds = campaign.items.map((item) => item.variantId)
+                const isSameItemsLength = existingVariantIds.length === effectiveVariantIds.length
+                const hasAllExistingItems = existingVariantIds.every((id) => effectiveVariantIds.includes(id))
+
+                if (!isSameItemsLength || !hasAllExistingItems) {
+                    throw new AppError('Không thể thêm, bớt hoặc đổi sản phẩm khi chiến dịch đang diễn ra', 400)
+                }
+            }
+
             await this.validateVariants(data.items)
-            const variantIds = data.items.map((i) => i.variantId)
-            await this.checkTimeOverlap(variantIds, startTime, endTime, campaignId)
 
             const existingItemMap = new Map(campaign.items.map((item) => [item.variantId, item]))
-
             for (const item of data.items) {
                 const existingItem = existingItemMap.get(item.variantId)
                 if (existingItem && item.promoQuantity < existingItem.soldQuantity) {
@@ -142,17 +177,18 @@ export class FlashSaleService {
             }
         }
 
+        // 7. Thực hiện cập nhật
         return this.flashSaleRepo.update(campaignId, data)
     }
 
-    // Đóng chiến dịch ngay lập tức theo Class Diagram
+    // Đóng chiến dịch ngay lập tức (Loại bỏ `as any` bằng cách định nghĩa trực tiếp vào Repo hoặc gọi hàm riêng)
     async endCampaign(campaignId: number) {
         await this.findById(campaignId)
 
         return this.flashSaleRepo.update(campaignId, {
             isActive: false,
             endTime: new Date(),
-        } as any)
+        })
     }
 
     async delete(campaignId: number) {
@@ -171,7 +207,6 @@ export class FlashSaleService {
         }
 
         await this.flashSaleRepo.delete(campaignId)
-
         return { message: 'Xóa chiến dịch Flash Sale thành công' }
     }
 }

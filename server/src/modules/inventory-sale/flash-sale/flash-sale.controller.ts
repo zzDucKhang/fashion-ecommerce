@@ -86,4 +86,22 @@ export class FlashSaleController {
             next(err)
         }
     }
+
+    endCampaign = async (
+        req: Request<GetFlashSaleParamsType, unknown, unknown, unknown>,
+        res: Response,
+        next: NextFunction
+    ) => {
+        try {
+            const campaignId = Number(req.params.campaignId)
+            const data = await this.flashSaleService.endCampaign(campaignId)
+            return res.status(200).json({
+                statusCode: 200,
+                message: 'Đã đóng chiến dịch Flash Sale thành công',
+                data,
+            })
+        } catch (err) {
+            next(err)
+        }
+    }
 }
