@@ -16,7 +16,8 @@ const userIdOf = (req: Request): number | undefined => {
  * Ưu tiên lấy từ Header hoặc Cookie, tránh lấy từ URL Query String
  */
 const ownerOf = (req: Request) => {
-  const sessionId = req.headers['x-session-id'] ?? req.body?.sessionId
+  const raw = req.headers['x-session-id'] ?? req.body?.sessionId
+  const sessionId = typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : undefined
   const result = cartOwnerSchema.safeParse({ sessionId })
   
   if (!result.success) {

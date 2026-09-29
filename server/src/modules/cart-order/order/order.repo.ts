@@ -20,6 +20,7 @@ export const orderItemInclude = {
   },
   shipment: true,
   paymentTransactions: true,
+  pointTransactions: true,
 } satisfies Prisma.OrderInclude
 
 export class OrderRepo {
@@ -85,17 +86,22 @@ export class OrderRepo {
   }
 
   /**
-   * Cập nhật trạng thái đơn hàng
+   * Cập nhật trạng thái đơn hàng (hỗ trợ đồng bộ paymentStatus)
    */
   async updateStatus(
     id: number,
     status: OrderStatus,
     updatedById?: number,
+    paymentStatus?: PaymentStatus,
     db: Prisma.TransactionClient | typeof prisma = prisma
   ) {
     return db.order.update({
       where: { id },
-      data: { status, updatedById },
+      data: {
+        status,
+        updatedById,
+        ...(paymentStatus ? { paymentStatus } : {}),
+      },
       include: orderItemInclude,
     })
   }
@@ -354,6 +360,79 @@ export class OrderRepo {
         currentPoint: updatedUser.rewardPoints,
         transactionType: PointTransType.REDEEM,
         description: `Dùng ${pointUsed} điểm thanh toán đơn hàng ${orderCode}`,
+      },
+    })
+  }
+
+  /**
+   * Hoàn lại lượt bán Flash Sale khi đơn hàng bị hủy trong thời gian chiến dịch còn hiệu lực
+   */
+  async decrementFlashSaleSoldQuantity(
+    variantId: number,
+    quantity: number,
+    db: Prisma.TransactionClient | typeof prisma = prisma
+  ) {
+    const now = new Date()
+    const activeItem = await db.flashSaleItem.findFirst({
+      where: {
+        variantId,
+        soldQuantity: { gte: quantity },
+        campaign: {
+          isActive: true,
+          deletedAt: null,
+          startTime: { lte: now },
+          endTime: { gte: now },
+        },
+      },
+    })
+
+    if (activeItem) {
+      await db.flashSaleItem.update({
+        where: { id: activeItem.id },
+        data: { soldQuantity: { decrement: quantity } },
+      })
+    }
+  }
+
+  /**
+   * Kiểm tra giao dịch tích điểm (EARN) của đơn hàng đã tồn tại chưa
+   */
+  async findEarnTransactionByOrderId(
+    orderId: number,
+    db: Prisma.TransactionClient | typeof prisma = prisma
+  ) {
+    return db.pointTransaction.findFirst({
+      where: {
+        orderId,
+        transactionType: PointTransType.EARN,
+      },
+    })
+  }
+
+  /**
+   * Tích điểm thưởng cho user khi đơn hàng hoàn thành (DELIVERED)
+   */
+  async awardUserPoints(
+    userId: number,
+    orderId: number,
+    pointEarned: number,
+    orderCode: string,
+    db: Prisma.TransactionClient | typeof prisma = prisma
+  ) {
+    const updatedUser = await db.user.update({
+      where: { id: userId },
+      data: { rewardPoints: { increment: pointEarned } },
+      select: { rewardPoints: true },
+    })
+
+    return db.pointTransaction.create({
+      data: {
+        userId,
+        orderId,
+        pointChange: pointEarned,
+        currentPoint: updatedUser.rewardPoints,
+        transactionType: PointTransType.EARN,
+        description: `Tích lũy điểm thưởng từ đơn hàng ${orderCode}`,
       },
     })
   }

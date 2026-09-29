@@ -291,10 +291,36 @@ export class OrderService {
 
       // Nếu Admin chọn hủy đơn -> Thực hiện hoàn kho mà không bị giới hạn trạng thái như Khách hàng
       if (input.status === OrderStatus.CANCELLED) {
+        // Kiểm tra an toàn vận chuyển: Không thể hủy đơn nếu hàng đang trên đường giao
+        if (
+          order.status === OrderStatus.SHIPPED ||
+          (order.shipment && ['PICKED_UP', 'IN_TRANSIT'].includes(order.shipment.status))
+        ) {
+          throw new BadRequestError(
+            'Đơn hàng đang trong quá trình vận chuyển, không thể hủy trực tiếp. Vui lòng xử lý qua quy trình giao hàng thất bại hoặc hoàn hàng'
+          )
+        }
         return this.processOrderCancellation(order, updatedById, tx)
       }
 
-      return this.orderRepo.updateStatus(orderId, input.status, updatedById, tx)
+      // Xử lý các nghiệp vụ đi kèm khi hoàn thành giao hàng (DELIVERED)
+      let newPaymentStatus: PaymentStatus | undefined = undefined
+      if (input.status === OrderStatus.DELIVERED) {
+        // 1. Tự động đồng bộ paymentStatus = SUCCESS cho đơn hàng COD
+        if (order.paymentMethod === 'COD' && order.paymentStatus === PaymentStatus.PENDING) {
+          newPaymentStatus = PaymentStatus.SUCCESS
+        }
+
+        // 2. Tự động tích lũy điểm thưởng (order.pointEarned) cho khách hàng nếu chưa nhận
+        if (order.pointEarned > 0) {
+          const existingEarn = await this.orderRepo.findEarnTransactionByOrderId(order.id, tx)
+          if (!existingEarn) {
+            await this.orderRepo.awardUserPoints(order.userId, order.id, order.pointEarned, order.orderCode, tx)
+          }
+        }
+      }
+
+      return this.orderRepo.updateStatus(orderId, input.status, updatedById, newPaymentStatus, tx)
     })
   }
 
@@ -324,11 +350,14 @@ export class OrderService {
     updatedById: number | undefined,
     tx: Prisma.TransactionClient
   ) {
-    // 1. Hoàn lại tồn kho và ghi log qua OrderRepo
+    // 1. Hoàn lại tồn kho và ghi log qua OrderRepo + Hoàn quota Flash Sale nếu có
     for (const item of order.orderItems) {
       if (!item.variantId) continue
 
       await this.orderRepo.incrementStock(item.variantId, item.quantity, tx)
+
+      // Hoàn lại hạn mức khuyến mãi Flash Sale nếu chiến dịch vẫn còn đang diễn ra
+      await this.orderRepo.decrementFlashSaleSoldQuantity(item.variantId, item.quantity, tx)
 
       await this.orderRepo.createInventoryLog(
         {
