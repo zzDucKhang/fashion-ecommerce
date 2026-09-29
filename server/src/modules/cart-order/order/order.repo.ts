@@ -129,15 +129,34 @@ export class OrderRepo {
   }
 
   /**
-   * Tìm biến thể sản phẩm phục vụ tạo đơn
+   * Tìm biến thể sản phẩm phục vụ tạo đơn kèm thông tin Flash Sale đang diễn ra
    */
   async findVariantForOrder(
     variantId: number,
     db: Prisma.TransactionClient | typeof prisma = prisma
   ) {
+    const now = new Date()
     return db.productVariant.findFirst({
       where: { id: variantId, deletedAt: null },
-      include: { product: true, attributeValues: true },
+      include: {
+        product: true,
+        attributeValues: {
+          include: { attribute: true },
+        },
+        flashSaleItems: {
+          where: {
+            campaign: {
+              isActive: true,
+              deletedAt: null,
+              startTime: { lte: now },
+              endTime: { gte: now },
+            },
+          },
+          include: {
+            campaign: true,
+          },
+        },
+      },
     })
   }
 
@@ -238,6 +257,104 @@ export class OrderRepo {
         updatedById,
       },
       include: orderItemInclude,
+    })
+  }
+
+  /**
+   * Tăng số lượng đã bán của sản phẩm trong Flash Sale
+   */
+  async incrementFlashSaleSoldQuantity(
+    flashSaleItemId: number,
+    quantity: number,
+    db: Prisma.TransactionClient | typeof prisma = prisma
+  ) {
+    return db.flashSaleItem.update({
+      where: { id: flashSaleItemId },
+      data: { soldQuantity: { increment: quantity } },
+    })
+  }
+
+  /**
+   * Tìm Voucher theo mã code (chưa bị xóa mềm)
+   */
+  async findVoucherByCode(
+    code: string,
+    db: Prisma.TransactionClient | typeof prisma = prisma
+  ) {
+    return db.voucher.findFirst({
+      where: { code, deletedAt: null },
+    })
+  }
+
+  /**
+   * Đếm số lần user đã sử dụng voucher này (chỉ tính đơn chưa hủy)
+   */
+  async countUserVoucherOrders(
+    userId: number,
+    voucherCode: string,
+    db: Prisma.TransactionClient | typeof prisma = prisma
+  ) {
+    return db.order.count({
+      where: {
+        userId,
+        voucherCode,
+        status: { not: OrderStatus.CANCELLED },
+      },
+    })
+  }
+
+  /**
+   * Tăng lượt sử dụng voucher khi tạo đơn thành công
+   */
+  async incrementVoucherUsage(
+    voucherCode: string,
+    db: Prisma.TransactionClient | typeof prisma = prisma
+  ) {
+    return db.voucher.updateMany({
+      where: { code: voucherCode },
+      data: { usedCount: { increment: 1 } },
+    })
+  }
+
+  /**
+   * Lấy số điểm tích lũy hiện có của User
+   */
+  async getUserRewardPoints(
+    userId: number,
+    db: Prisma.TransactionClient | typeof prisma = prisma
+  ) {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { rewardPoints: true },
+    })
+    return user?.rewardPoints ?? 0
+  }
+
+  /**
+   * Trừ điểm tích lũy khi user dùng điểm thanh toán đơn hàng và ghi log PointTransaction
+   */
+  async deductUserPoints(
+    userId: number,
+    orderId: number,
+    pointUsed: number,
+    orderCode: string,
+    db: Prisma.TransactionClient | typeof prisma = prisma
+  ) {
+    const updatedUser = await db.user.update({
+      where: { id: userId },
+      data: { rewardPoints: { decrement: pointUsed } },
+      select: { rewardPoints: true },
+    })
+
+    return db.pointTransaction.create({
+      data: {
+        userId,
+        orderId,
+        pointChange: -pointUsed,
+        currentPoint: updatedUser.rewardPoints,
+        transactionType: PointTransType.REDEEM,
+        description: `Dùng ${pointUsed} điểm thanh toán đơn hàng ${orderCode}`,
+      },
     })
   }
 }

@@ -44,6 +44,7 @@ export const createOrderSchema = z
     shippingMethod: z.string().trim().min(1).max(50).default('STANDARD'),
     customerNote: z.string().trim().max(5000, 'Ghi chú không được quá 5000 ký tự').optional(),
     voucherCode: z.string().trim().max(100).optional(),
+    pointUsed: z.coerce.number().int().min(0, 'Số điểm sử dụng không được nhỏ hơn 0').optional(),
     
     // LƯU Ý: Đã LOẠI BỎ shippingFee khỏi Schema để tránh việc Client tự gửi giá ship lên.
   })

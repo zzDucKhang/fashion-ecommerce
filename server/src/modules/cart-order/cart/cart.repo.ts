@@ -7,7 +7,10 @@ export const cartInclude = {
       variant: { 
         include: { 
           product: true, 
-          attributeValues: { include: { attribute: true } } 
+          attributeValues: { include: { attribute: true } },
+          flashSaleItems: {
+            include: { campaign: true },
+          },
         } 
       } 
     },
@@ -68,11 +71,12 @@ export class CartRepo {
       const existingUserItem = userItemMap.get(guestItem.variantId)
 
       if (existingUserItem) {
-        // Nếu đã có trong giỏ User -> Cộng dồn số lượng
+        // Nếu đã có trong giỏ User -> Cộng dồn số lượng nhưng tối đa 100 sản phẩm
+        const mergedQuantity = Math.min(100, existingUserItem.quantity + guestItem.quantity)
         updatePromises.push(
           db.cartItem.update({
             where: { id: existingUserItem.id },
-            data: { quantity: existingUserItem.quantity + guestItem.quantity },
+            data: { quantity: mergedQuantity },
           })
         )
       } else {
@@ -210,6 +214,18 @@ export class CartRepo {
   ) {
     return db.cartItem.deleteMany({
       where: { id: { in: itemIds } },
+    })
+  }
+
+  /**
+   * Xóa toàn bộ sản phẩm trong giỏ hàng
+   */
+  async clearCart(
+    cartId: number,
+    db: Prisma.TransactionClient | typeof prisma = prisma
+  ) {
+    return db.cartItem.deleteMany({
+      where: { cartId },
     })
   }
 }

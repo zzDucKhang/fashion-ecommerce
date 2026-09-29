@@ -22,6 +22,31 @@ export class OrderService {
     return `ORD-${dateStr}-${randomStr}`
   }
 
+  /**
+   * Tính phí vận chuyển dựa trên tổng giá trị đơn hàng, hình thức giao hàng và khối lượng hàng
+   */
+  private calculateShippingFee(
+    subTotal: number,
+    shippingMethod: string = 'STANDARD',
+    totalWeightGram: number = 0
+  ): number {
+    // Miễn phí vận chuyển cho đơn hàng từ 500,000đ trở lên (trừ đơn hàng EXPRESS) hoặc khi chọn FREE
+    if (shippingMethod === 'FREE' || (subTotal >= 500_000 && shippingMethod !== 'EXPRESS')) {
+      return 0
+    }
+
+    if (shippingMethod === 'EXPRESS') {
+      const baseExpressFee = 50_000
+      const extraWeightKg = Math.max(0, Math.ceil((totalWeightGram - 2000) / 1000))
+      return baseExpressFee + extraWeightKg * 10_000
+    }
+
+    // Mặc định STANDARD
+    const baseStandardFee = 30_000
+    const extraWeightKg = Math.max(0, Math.ceil((totalWeightGram - 2000) / 1000))
+    return baseStandardFee + extraWeightKg * 5_000
+  }
+
   async list(userId: number, query: ListOrderInput) {
     return this.orderRepo.list(userId, query)
   }
@@ -73,9 +98,11 @@ export class OrderService {
         )
       }
 
-      // 3. Tính toán tổng tiền & Kiểm tra tồn kho & Validate trạng thái Sản phẩm cha
+      // 3. Tính toán tổng tiền & Kiểm tra tồn kho & Validate trạng thái Sản phẩm cha & Flash Sale
       let subTotal = 0
+      let totalWeightGram = 0
       const orderItems: Prisma.OrderItemCreateWithoutOrderInput[] = []
+      const now = new Date()
 
       for (const item of items) {
         const variant = await this.orderRepo.findVariantForOrder(item.variantId, tx)
@@ -97,7 +124,25 @@ export class OrderService {
           throw new BadRequestError(`Sản phẩm "${variant.product.defaultName}" không đủ tồn kho`)
         }
 
-        const unitPrice = Number(variant.sellingPrice)
+        totalWeightGram += (variant.weightGram ?? 0) * item.quantity
+
+        // Áp dụng giá Flash Sale nếu có chiến dịch đang diễn ra và còn số lượng khuyến mãi
+        let unitPrice = Number(variant.sellingPrice)
+        const activeFlashSale = variant.flashSaleItems?.find(
+          (fsi) =>
+            fsi.campaign &&
+            fsi.campaign.isActive &&
+            fsi.campaign.deletedAt === null &&
+            fsi.campaign.startTime <= now &&
+            fsi.campaign.endTime >= now &&
+            fsi.promoQuantity - fsi.soldQuantity >= item.quantity
+        )
+
+        if (activeFlashSale) {
+          unitPrice = Number(activeFlashSale.flashSalePrice)
+          await this.orderRepo.incrementFlashSaleSoldQuantity(activeFlashSale.id, item.quantity, tx)
+        }
+
         subTotal += unitPrice * item.quantity
 
         // Snapshot thông tin sản phẩm tại thời điểm mua
@@ -123,15 +168,79 @@ export class OrderService {
         )
       }
 
-      // 4. Tính toán Phí ship & Khuyến mãi (Tạm thời để 0đ nếu chưa tích hợp đơn vị vận chuyển/voucher)
-      const shippingFee = 0
-      const discountAmount = 0
-      const totalAmount = subTotal + shippingFee - discountAmount
+      // 4. Tính toán Phí vận chuyển
+      const shippingFee = this.calculateShippingFee(subTotal, input.shippingMethod, totalWeightGram)
 
-      // 5. Tạo Đơn hàng
+      // 5. Kiểm tra và áp dụng Mã giảm giá (Voucher)
+      let voucherDiscount = 0
+      if (input.voucherCode) {
+        const voucher = await this.orderRepo.findVoucherByCode(input.voucherCode, tx)
+        if (!voucher || !voucher.isActive) {
+          throw new BadRequestError('Mã giảm giá không tồn tại hoặc đã bị vô hiệu hóa')
+        }
+
+        if (now < voucher.startDate) {
+          throw new BadRequestError('Mã giảm giá chưa đến thời gian áp dụng')
+        }
+        if (now > voucher.endDate) {
+          throw new BadRequestError('Mã giảm giá đã hết hạn sử dụng')
+        }
+
+        if (voucher.totalUsageLimit > 0 && voucher.usedCount >= voucher.totalUsageLimit) {
+          throw new BadRequestError('Mã giảm giá đã hết lượt sử dụng')
+        }
+
+        const userUsageCount = await this.orderRepo.countUserVoucherOrders(userId, input.voucherCode, tx)
+        if (userUsageCount >= voucher.userUsageLimit) {
+          throw new BadRequestError('Bạn đã dùng hết lượt áp dụng cho mã giảm giá này')
+        }
+
+        if (subTotal < Number(voucher.minOrderValue)) {
+          throw new BadRequestError(
+            `Đơn hàng chưa đạt giá trị tối thiểu (${Number(voucher.minOrderValue).toLocaleString('vi-VN')}đ) để áp dụng mã giảm giá`
+          )
+        }
+
+        if (voucher.discountType === 'PERCENTAGE') {
+          voucherDiscount = Math.round((subTotal * Number(voucher.discountValue)) / 100)
+          if (voucher.maxDiscountAmt && Number(voucher.maxDiscountAmt) > 0) {
+            voucherDiscount = Math.min(voucherDiscount, Number(voucher.maxDiscountAmt))
+          }
+        } else {
+          // FIXED_AMOUNT
+          voucherDiscount = Number(voucher.discountValue)
+        }
+
+        voucherDiscount = Math.min(voucherDiscount, subTotal)
+        await this.orderRepo.incrementVoucherUsage(input.voucherCode, tx)
+      }
+
+      // 6. Kiểm tra và áp dụng Điểm thưởng (Reward Points)
+      let pointUsed = 0
+      let pointDiscount = 0
+
+      if (input.pointUsed && input.pointUsed > 0) {
+        const userPoints = await this.orderRepo.getUserRewardPoints(userId, tx)
+        if (input.pointUsed > userPoints) {
+          throw new BadRequestError(
+            `Bạn đang có ${userPoints} điểm thưởng, không đủ ${input.pointUsed} điểm để sử dụng`
+          )
+        }
+
+        const remainingPayable = Math.max(0, subTotal + shippingFee - voucherDiscount)
+        // Quy tắc: 1 điểm = 1 VNĐ
+        pointDiscount = Math.min(input.pointUsed, remainingPayable)
+        pointUsed = pointDiscount
+      }
+
+      const totalAmount = Math.max(0, subTotal + shippingFee - voucherDiscount - pointDiscount)
+      const pointEarned = Math.floor(totalAmount * 0.01) // Tích lũy 1% giá trị đơn hàng
+
+      // 7. Tạo Đơn hàng
+      const orderCode = this.generateOrderCode()
       const order = await this.orderRepo.create(
         {
-          orderCode: this.generateOrderCode(),
+          orderCode,
           user: { connect: { id: userId } },
           receiverName,
           receiverPhone,
@@ -141,17 +250,27 @@ export class OrderService {
           detailAddress,
           subTotal,
           shippingFee,
-          totalAmount,
-          voucherCode: input.voucherCode,
-          paymentMethod: input.paymentMethod,
           shippingMethod: input.shippingMethod,
+          shippingDiscount: 0,
+          voucherCode: input.voucherCode,
+          voucherDiscount,
+          pointUsed,
+          pointDiscount,
+          pointEarned,
+          totalAmount,
+          paymentMethod: input.paymentMethod,
           customerNote: input.customerNote,
           orderItems: { create: orderItems },
         },
         tx
       )
 
-      // 6. Xóa các món đã checkout khỏi giỏ hàng qua CartRepo
+      // Trừ điểm thưởng và ghi nhận giao dịch PointTransaction
+      if (pointUsed > 0) {
+        await this.orderRepo.deductUserPoints(userId, order.id, pointUsed, orderCode, tx)
+      }
+
+      // 8. Xóa các món đã checkout khỏi giỏ hàng qua CartRepo
       await this.cartRepo.deleteCartItemsByIds(items.map((i) => i.id), tx)
 
       return order
@@ -227,8 +346,8 @@ export class OrderService {
       await this.orderRepo.refundUserPoints(order.userId, order.id, order.pointUsed, order.orderCode, tx)
     }
 
-    // 3. Hoàn lại lượt dùng Voucher nếu có
-    if (order.voucherCode) {
+    // 3. Hoàn lại lượt dùng Voucher nếu đơn hàng có áp dụng giảm giá
+    if (order.voucherCode && Number(order.voucherDiscount) > 0) {
       await this.orderRepo.refundVoucherUsage(order.voucherCode, tx)
     }
 

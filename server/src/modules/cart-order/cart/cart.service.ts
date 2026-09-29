@@ -124,4 +124,27 @@ export class CartService {
       return this.cartRepo.get(cart.id, tx)
     })
   }
+
+  /**
+   * Xóa toàn bộ sản phẩm trong giỏ hàng (Clear Cart)
+   */
+  async clear(userId?: number, owner?: CartOwner) {
+    return prisma.$transaction(async (tx) => {
+      const cart = await this.resolveCart(userId, owner?.sessionId, tx)
+      await this.cartRepo.clearCart(cart.id, tx)
+      return this.cartRepo.get(cart.id, tx)
+    })
+  }
+
+  /**
+   * Gộp giỏ hàng vãng lai (Guest) vào giỏ tài khoản người dùng (User)
+   */
+  async merge(userId: number, owner: CartOwner) {
+    if (!owner.sessionId) {
+      throw new BadRequestError('Session ID không tồn tại để thực hiện gộp giỏ hàng')
+    }
+    return prisma.$transaction(async (tx) => {
+      return this.cartRepo.mergeGuestCart(userId, owner.sessionId!, tx)
+    })
+  }
 }

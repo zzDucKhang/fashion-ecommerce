@@ -89,4 +89,26 @@ export class CartController {
       next(error)
     }
   }
+
+  clear = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.service.clear(userIdOf(req), ownerOf(req))
+      return res.status(200).json({ statusCode: 200, data })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  merge = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = userIdOf(req)
+      if (!userId) {
+        throw new BadRequestError('Bạn cần đăng nhập để thực hiện gộp giỏ hàng')
+      }
+      const data = await this.service.merge(userId, ownerOf(req))
+      return res.status(200).json({ statusCode: 200, data })
+    } catch (error) {
+      next(error)
+    }
+  }
 }

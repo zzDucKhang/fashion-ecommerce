@@ -17,7 +17,7 @@ cartRouter.get('/', controller.get)
 cartRouter.post('/items', controller.add)
 
 // 3. Gộp giỏ hàng từ Guest sang User khi vừa Login xong
-// cartRouter.post('/merge', controller.merge) // Cần bổ sung hàm merge vào CartController
+cartRouter.post('/merge', controller.merge)
 
 // 4. Cập nhật số lượng/thông tin của 1 món trong giỏ
 cartRouter.patch('/items/:itemId', controller.update)
@@ -26,4 +26,4 @@ cartRouter.patch('/items/:itemId', controller.update)
 cartRouter.delete('/items/:itemId', controller.remove)
 
 // 6. Xóa toàn bộ giỏ hàng (Dùng khi Clear Cart hoặc sau Checkout)
-// cartRouter.delete('/', controller.clear) // Cần bổ sung hàm clear vào CartController
+cartRouter.delete('/', controller.clear)

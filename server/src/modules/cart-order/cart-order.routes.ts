@@ -5,13 +5,19 @@ import { orderRouter } from './order/order.routes'
 
 export const cartOrderRouter = Router()
 
-// Giới hạn 100 requests mỗi 15 phút cho cụm Cart-Order
-const checkoutLimiter = rateLimit({
+// Giới hạn 300 requests mỗi 15 phút cho cụm Cart (thao tác duyệt, thêm, sửa, xóa giỏ hàng thường xuyên)
+const cartLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { statusCode: 429, message: 'Bạn đã gửi quá nhiều yêu cầu, vui lòng thử lại sau.' },
+  max: 300,
+  message: { statusCode: 429, message: 'Bạn đã gửi quá nhiều yêu cầu đến giỏ hàng, vui lòng thử lại sau.' },
 })
 
-cartOrderRouter.use(checkoutLimiter)
-cartOrderRouter.use('/cart', cartRouter)
-cartOrderRouter.use('/orders', orderRouter)
+// Giới hạn 50 requests mỗi 15 phút cho cụm Order (đặt hàng, thanh toán, hủy đơn)
+const orderLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  message: { statusCode: 429, message: 'Bạn đã gửi quá nhiều yêu cầu đặt hàng, vui lòng thử lại sau.' },
+})
+
+cartOrderRouter.use('/cart', cartLimiter, cartRouter)
+cartOrderRouter.use('/orders', orderLimiter, orderRouter)
