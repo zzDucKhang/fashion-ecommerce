@@ -1,6 +1,9 @@
 import { Router } from 'express'
+import { z } from 'zod'
 import { CategoryController } from './category.controller'
-import { validateRequest } from "@/middlewares/pipes/validate.pipe";
+import { validateRequest } from '@/middlewares/pipes/validate.pipe'
+import { requireAuth } from '@/middlewares/guards/auth.guard'
+import { requireAdmin } from '@/middlewares/guards/role.guard'
 import {
   getAllCategoriesQuerySchema,
   getCategoryParamsSchema,
@@ -8,23 +11,41 @@ import {
   updateCategoryBodySchema,
   upsertCategoryTranslationSchema,
 } from './category.schema'
-import { z } from 'zod'
 
 export const categoryRouter = Router()
 const controller = new CategoryController()
 
 categoryRouter.get('/', validateRequest({ query: getAllCategoriesQuerySchema }), controller.findAll)
 categoryRouter.get('/:categoryId', validateRequest({ params: getCategoryParamsSchema }), controller.findById)
-categoryRouter.post('/', validateRequest({ body: createCategoryBodySchema }), controller.create)
+
+categoryRouter.post(
+  '/',
+  requireAuth,
+  requireAdmin,
+  validateRequest({ body: createCategoryBodySchema }),
+  controller.create,
+)
+
 categoryRouter.put(
   '/:categoryId',
+  requireAuth,
+  requireAdmin,
   validateRequest({ params: getCategoryParamsSchema, body: updateCategoryBodySchema }),
   controller.update,
 )
-categoryRouter.delete('/:categoryId', validateRequest({ params: getCategoryParamsSchema }), controller.delete)
+
+categoryRouter.delete(
+  '/:categoryId',
+  requireAuth,
+  requireAdmin,
+  validateRequest({ params: getCategoryParamsSchema }),
+  controller.delete,
+)
 
 categoryRouter.put(
   '/:categoryId/translations/:languageId',
+  requireAuth,
+  requireAdmin,
   validateRequest({
     params: getCategoryParamsSchema.extend({ languageId: z.string().min(2) }),
     body: upsertCategoryTranslationSchema,

@@ -6,7 +6,8 @@ export class ProductController {
 
   list = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const lang = String(req.query.lang || req.headers['accept-language'] || 'vi')
+      const rawLang = String(req.query.lang || req.headers['accept-language'] || 'vi')
+      const lang = rawLang.split(',')[0].split('-')[0].trim()
       const result = await this.productService.list(req.query as any, lang)
       return res.status(200).json(result)
     } catch (err) {
@@ -17,7 +18,8 @@ export class ProductController {
   findById = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const productId = Number(req.params.productId)
-      const lang = String(req.query.lang || req.headers['accept-language'] || 'vi')
+      const rawLang = String(req.query.lang || req.headers['accept-language'] || 'vi')
+      const lang = rawLang.split(',')[0].split('-')[0].trim()
       const data = await this.productService.findById(productId, lang)
       return res.status(200).json({ statusCode: 200, data })
     } catch (err) {
@@ -27,7 +29,7 @@ export class ProductController {
 
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user?.userId ?? 1
+      const userId = req.user!.userId
       const data = await this.productService.create(userId, req.body)
       return res.status(201).json({ statusCode: 201, message: 'Tạo sản phẩm thành công', data })
     } catch (err) {
@@ -37,7 +39,7 @@ export class ProductController {
 
   update = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user?.userId ?? 1
+      const userId = req.user!.userId
       const productId = Number(req.params.productId)
       const data = await this.productService.update({
         id: productId,
@@ -52,7 +54,7 @@ export class ProductController {
 
   delete = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user?.userId ?? 1
+      const userId = req.user!.userId
       const productId = Number(req.params.productId)
       const result = await this.productService.delete(userId, productId)
       return res.status(200).json(result)
@@ -63,7 +65,7 @@ export class ProductController {
 
   upsertTranslation = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user?.userId ?? 1
+      const userId = req.user!.userId
       const productId = Number(req.params.productId)
       const languageId = req.params.languageId
       const data = await this.productService.upsertTranslation({

@@ -1,4 +1,3 @@
-// src/middlewares/guards/role.guard.ts
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '@/database/prisma'
 import { ForbiddenError, UnauthorizedError } from '@/common/errors'
@@ -25,6 +24,5 @@ export const roleGuard = (...allowedCodes: string[]) => {
   }
 }
 
-// Bổ sung alias requireRole và requireAdmin để dùng trực tiếp trong routes
 export const requireRole = roleGuard
 export const requireAdmin = roleGuard('ADMIN')
