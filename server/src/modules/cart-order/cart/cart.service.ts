@@ -1,17 +1,23 @@
+import { Prisma, ProductStatus } from '@prisma/client'
 import { prisma } from '@/database/prisma'
 import { BadRequestError, NotFoundError } from '@/common/errors'
 import { AddCartItemInput, CartOwner, UpdateCartItemInput } from './cart.schema'
 import { CartRepo } from './cart.repo'
 
+export const MAX_CART_ITEM_QUANTITY = 100
+
 export class CartService {
   constructor(private readonly cartRepo = new CartRepo()) {}
 
   /**
-   * Helper tìm hoặc tạo mới giỏ hàng theo Owner
+   * Helper thống nhất: Lấy hoặc tạo giỏ (tự động merge nếu có cả userId và sessionId)
    */
-  private async ownerCart(userId?: number, sessionId?: string, tx = prisma) {
+  private async resolveCart(userId?: number, sessionId?: string, tx: Prisma.TransactionClient | typeof prisma = prisma) {
     if (!userId && !sessionId) {
       throw new BadRequestError('Cần userId hoặc sessionId để xác định giỏ hàng')
+    }
+    if (userId && sessionId) {
+      return this.cartRepo.mergeGuestCart(userId, sessionId, tx)
     }
     return this.cartRepo.findOrCreateOwner(userId, sessionId, tx)
   }
@@ -20,62 +26,42 @@ export class CartService {
    * Lấy thông tin giỏ hàng (Tự động gộp giỏ nếu user vừa đăng nhập)
    */
   async get(userId?: number, owner?: CartOwner) {
-    const sessionId = owner?.sessionId
-
-    // Nếu vừa có userId (đã login) vừa có sessionId (guest cũ), tiến hành gộp giỏ hàng
-    if (userId && sessionId) {
-      return prisma.$transaction(async (tx) => {
-        return this.cartRepo.mergeGuestCart(userId, sessionId, tx)
-      })
-    }
-
-    return this.ownerCart(userId, sessionId)
+    return prisma.$transaction(async (tx) => {
+      return this.resolveCart(userId, owner?.sessionId, tx)
+    })
   }
 
   /**
    * Thêm sản phẩm vào giỏ hàng
    */
   async add(userId: number | undefined, owner: CartOwner, input: AddCartItemInput) {
+    if (input.quantity <= 0) {
+      throw new BadRequestError('Số lượng sản phẩm thêm vào phải lớn hơn 0')
+    }
+
     return prisma.$transaction(async (tx) => {
-      // 1. Tải giỏ hàng (gộp giỏ nếu cần)
-      const cart = userId && owner.sessionId
-        ? await this.cartRepo.mergeGuestCart(userId, owner.sessionId, tx)
-        : await this.cartRepo.findOrCreateOwner(userId, owner.sessionId, tx)
+      const cart = await this.resolveCart(userId, owner?.sessionId, tx)
 
-      // 2. Kiểm tra sự tồn tại và trạng thái của Biến thể sản phẩm
-      const variant = await tx.productVariant.findFirst({
-        where: { id: input.variantId, deletedAt: null },
-        select: { id: true, stockQuantity: true },
-      })
-
+      // Kiểm tra variant thông qua Repo (đã kiểm tra Product.status & deletedAt)
+      const variant = await this.cartRepo.findActiveVariantById(input.variantId, tx)
       if (!variant) {
         throw new NotFoundError('Sản phẩm không tồn tại hoặc đã ngừng kinh doanh')
       }
 
-      // 3. Kiểm tra sản phẩm đã có trong giỏ chưa
-      const existing = await tx.cartItem.findUnique({
-        where: { cartId_variantId: { cartId: cart.id, variantId: input.variantId } },
-      })
-
+      const existing = await this.cartRepo.findCartItem(cart.id, input.variantId, tx)
       const newQuantity = (existing?.quantity ?? 0) + input.quantity
 
-      // 4. Kiểm tra tồn kho
+      // Kiểm tra giới hạn số lượng tối đa trên mỗi sản phẩm (Cart Limit)
+      if (newQuantity > MAX_CART_ITEM_QUANTITY) {
+        throw new BadRequestError(`Số lượng tối đa cho mỗi sản phẩm trong giỏ hàng là ${MAX_CART_ITEM_QUANTITY}`)
+      }
+
+      // Kiểm tra tồn kho
       if (newQuantity > variant.stockQuantity) {
         throw new BadRequestError(`Số lượng yêu cầu vượt quá tồn kho hiện có (${variant.stockQuantity})`)
       }
 
-      // 5. Cập nhật hoặc Thêm mới
-      if (existing) {
-        await tx.cartItem.update({
-          where: { id: existing.id },
-          data: { quantity: newQuantity },
-        })
-      } else {
-        await tx.cartItem.create({
-          data: { cartId: cart.id, variantId: input.variantId, quantity: input.quantity },
-        })
-      }
-
+      await this.cartRepo.upsertCartItem(cart.id, input.variantId, newQuantity, tx)
       return this.cartRepo.get(cart.id, tx)
     })
   }
@@ -84,17 +70,30 @@ export class CartService {
    * Cập nhật số lượng sản phẩm trong giỏ
    */
   async update(userId: number | undefined, owner: CartOwner, itemId: number, input: UpdateCartItemInput) {
+    if (input.quantity < 0) {
+      throw new BadRequestError('Số lượng sản phẩm không hợp lệ')
+    }
+
+    if (input.quantity > MAX_CART_ITEM_QUANTITY) {
+      throw new BadRequestError(`Số lượng tối đa cho mỗi sản phẩm trong giỏ hàng là ${MAX_CART_ITEM_QUANTITY}`)
+    }
+
     return prisma.$transaction(async (tx) => {
-      const cart = await this.ownerCart(userId, owner.sessionId, tx)
+      const cart = await this.resolveCart(userId, owner?.sessionId, tx)
 
-      // Tìm món hàng trong giỏ kèm kiểm tra biến thể còn hiệu lực hay không
-      const item = await tx.cartItem.findFirst({
-        where: { id: itemId, cartId: cart.id },
-        include: { variant: true },
-      })
+      const item = await this.cartRepo.findCartItemById(itemId, cart.id, tx)
+      if (!item || !item.variant || item.variant.deletedAt !== null) {
+        throw new NotFoundError('Mục sản phẩm không tồn tại trong giỏ hàng')
+      }
 
-      if (!item || item.variant.deletedAt !== null) {
-        throw new NotFoundError('Mục sản phẩm không tồn tại hoặc đã bị gỡ khỏi hệ thống')
+      // Kiểm tra trạng thái sản phẩm cha (Product.status & deletedAt)
+      const isProductActive =
+        item.variant.product &&
+        item.variant.product.deletedAt === null &&
+        (item.variant.product.status === ProductStatus.PUBLISHED || (item.variant.product.status as string) === 'ACTIVE')
+
+      if (!isProductActive) {
+        throw new BadRequestError('Sản phẩm hiện không còn mở bán hoặc đã ngừng kinh doanh')
       }
 
       // Kiểm tra tồn kho
@@ -102,14 +101,10 @@ export class CartService {
         throw new BadRequestError(`Số lượng vượt quá tồn kho hiện có (${item.variant.stockQuantity})`)
       }
 
-      // Nếu số lượng = 0 thì xóa khỏi giỏ
       if (input.quantity === 0) {
-        await tx.cartItem.delete({ where: { id: itemId } })
+        await this.cartRepo.deleteCartItem(itemId, tx)
       } else {
-        await tx.cartItem.update({
-          where: { id: itemId },
-          data: { quantity: input.quantity },
-        })
+        await this.cartRepo.updateCartItemQuantity(itemId, input.quantity, tx)
       }
 
       return this.cartRepo.get(cart.id, tx)
@@ -120,16 +115,13 @@ export class CartService {
    * Xóa sản phẩm khỏi giỏ hàng
    */
   async remove(userId: number | undefined, owner: CartOwner, itemId: number) {
-    const cart = await this.ownerCart(userId, owner.sessionId)
-
-    const result = await prisma.cartItem.deleteMany({
-      where: { id: itemId, cartId: cart.id },
+    return prisma.$transaction(async (tx) => {
+      const cart = await this.resolveCart(userId, owner?.sessionId, tx)
+      const deleted = await this.cartRepo.deleteCartItemByIdAndCartId(itemId, cart.id, tx)
+      if (!deleted) {
+        throw new NotFoundError('Mục sản phẩm không tồn tại trong giỏ hàng')
+      }
+      return this.cartRepo.get(cart.id, tx)
     })
-
-    if (!result.count) {
-      throw new NotFoundError('Mục sản phẩm không tồn tại trong giỏ hàng')
-    }
-
-    return this.cartRepo.get(cart.id)
   }
 }

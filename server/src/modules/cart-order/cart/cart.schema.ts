@@ -20,7 +20,7 @@ export const addCartItemSchema = z.object({
     .number({ invalid_type_error: 'Số lượng phải là số' })
     .int('Số lượng phải là số nguyên')
     .positive('Số lượng thêm vào phải lớn hơn 0')
-    .max(999, 'Số lượng tối đa cho mỗi sản phẩm là 999'),
+    .max(100, 'Số lượng tối đa cho mỗi sản phẩm là 100'),
 })
 
 // 3. Schema cập nhật số lượng sản phẩm trong giỏ
@@ -29,7 +29,7 @@ export const updateCartItemSchema = z.object({
     .number({ invalid_type_error: 'Số lượng phải là số' })
     .int('Số lượng phải là số nguyên')
     .min(0, 'Số lượng không được nhỏ hơn 0')
-    .max(999, 'Số lượng tối đa cho mỗi sản phẩm là 999'),
+    .max(100, 'Số lượng tối đa cho mỗi sản phẩm là 100'),
 })
 
 // 4. BỔ SUNG: Schema Tạo đơn hàng (Checkout / Create Order)
