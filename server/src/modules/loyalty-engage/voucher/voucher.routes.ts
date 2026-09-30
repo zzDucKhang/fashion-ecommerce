@@ -33,6 +33,7 @@ voucherRouter.post(
 voucherRouter.post(
   '/apply',
   requireAuth,
+  requireAdmin, // Đảm bảo người dùng thông thường không thể tự gọi làm cạn quota voucher
   validateRequest({ body: z.object({ code: z.string().trim().min(1, 'Mã voucher là bắt buộc').toUpperCase() }) }),
   controller.applyVoucher,
 )

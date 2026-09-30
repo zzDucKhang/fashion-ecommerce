@@ -11,25 +11,23 @@ export class PointService {
    * Quy tắc: 1 điểm = 1 VNĐ.
    * Sử dụng atomic transaction để tránh race condition.
    */
-  async earnPoints(userId: number, body: EarnPointsBodyType) {
-    const user = await this.pointRepo.findUserById(userId)
-    if (!user) throw new NotFoundError('Người dùng không tồn tại')
-
+  // Sửa signature của earnPoints trong src/modules/loyalty-engage/point/point.service.ts:
+  async earnPoints(body: EarnPointsBodyType) {
     const order = await this.pointRepo.findOrderById(body.orderId)
     if (!order) throw new NotFoundError('Đơn hàng không tồn tại')
-    if (order.userId !== userId) {
-      throw new BadRequestError('Đơn hàng không thuộc về người dùng này')
-    }
     if (order.status !== 'DELIVERED') {
       throw new BadRequestError('Chỉ cộng điểm khi đơn hàng đã giao thành công (DELIVERED)')
     }
+
+    const userId = order.userId
+    const user = await this.pointRepo.findUserById(userId)
+    if (!user) throw new NotFoundError('Người dùng không tồn tại')
 
     const existing = await this.pointRepo.findEarnTransactionByOrderId(body.orderId)
     if (existing) throw new BadRequestError('Đơn hàng này đã được cộng điểm trước đó')
 
     const newPoints = user.rewardPoints + body.pointChange
 
-    // Atomic: cập nhật balance + tạo transaction record trong 1 DB transaction
     const transaction = await this.pointRepo.updatePointsAndCreateTransaction(userId, newPoints, {
       orderId: body.orderId,
       pointChange: body.pointChange,

@@ -11,7 +11,7 @@ import {
 const permissionSelect = { id: true, code: true, module: true, description: true } as const
 const roleInclude = {
     permissions: { where: { deletedAt: null }, select: permissionSelect },
-    _count: { select: { users: true } },
+    _count: { select: { users: { where: { deletedAt: null } } } },
 } as const
 
 export class RolePermissionRepo {
