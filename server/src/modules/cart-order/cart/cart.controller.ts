@@ -16,7 +16,8 @@ const userIdOf = (req: Request): number | undefined => {
  * Ưu tiên lấy từ Header hoặc Cookie, tránh lấy từ URL Query String
  */
 const ownerOf = (req: Request) => {
-  const sessionId = req.headers['x-session-id'] ?? req.body?.sessionId
+  const raw = req.headers['x-session-id'] ?? req.body?.sessionId
+  const sessionId = typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : undefined
   const result = cartOwnerSchema.safeParse({ sessionId })
   
   if (!result.success) {
@@ -84,6 +85,28 @@ export class CartController {
       const itemId = parseItemId(req.params.itemId)
       const data = await this.service.remove(userIdOf(req), ownerOf(req), itemId)
       
+      return res.status(200).json({ statusCode: 200, data })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  clear = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.service.clear(userIdOf(req), ownerOf(req))
+      return res.status(200).json({ statusCode: 200, data })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  merge = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = userIdOf(req)
+      if (!userId) {
+        throw new BadRequestError('Bạn cần đăng nhập để thực hiện gộp giỏ hàng')
+      }
+      const data = await this.service.merge(userId, ownerOf(req))
       return res.status(200).json({ statusCode: 200, data })
     } catch (error) {
       next(error)
