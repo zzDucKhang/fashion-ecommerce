@@ -272,7 +272,10 @@ export class AuthService {
 
     async changePassword(userId: number, data: ChangePasswordBodyType) {
         const user = await this.authRepo.findUserById(userId)
-        if (!user || !(await bcrypt.compare(data.oldPassword, user.passwordHash))) {
+        if (!user || user.status !== 'ACTIVE') {
+            throw new AppError('Tài khoản không tồn tại hoặc đã bị khóa', 403)
+        }
+        if (!(await bcrypt.compare(data.oldPassword, user.passwordHash))) {
             throw new AppError('Mật khẩu cũ không đúng', 401)
         }
         if (data.newPassword === data.oldPassword) {

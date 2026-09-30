@@ -58,6 +58,7 @@ chatRouter.get('/conversations', requireAuth, controller.getConversationList)
  */
 chatRouter.get(
   '/sessions/:userId/online',
+  requireAuth,
   validateRequest({
     params: z.object({
       userId: z.string().regex(/^\d+$/, 'userId phải là số nguyên').transform(Number),
@@ -66,9 +67,9 @@ chatRouter.get(
   controller.checkUserOnline,
 )
 
-/** GET /chat/sessions/:userId – Lấy danh sách sessions của một user */
 chatRouter.get(
   '/sessions/:userId',
+  requireAuth,
   validateRequest({
     params: z.object({
       userId: z.string().regex(/^\d+$/, 'userId phải là số nguyên').transform(Number),
@@ -77,16 +78,16 @@ chatRouter.get(
   controller.getSocketSessionsByUser,
 )
 
-/** POST /chat/sessions – Lưu socket session (gọi khi user kết nối WS) */
 chatRouter.post(
   '/sessions',
+  requireAuth,
   validateRequest({ body: upsertSocketSessionBodySchema }),
   controller.upsertSocketSession,
 )
 
-/** DELETE /chat/sessions – Xóa socket session (gọi khi user ngắt kết nối) */
 chatRouter.delete(
   '/sessions',
+  requireAuth,
   validateRequest({ body: removeSocketSessionBodySchema }),
   controller.removeSocketSession,
 )

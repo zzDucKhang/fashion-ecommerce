@@ -62,7 +62,7 @@ reviewRouter.patch(
   requireAdmin,
   validateRequest({
     params: reviewIdParamSchema,
-    body: z.object({ isHidden: z.boolean() }),
+    body: z.object({ isHidden: z.boolean({ required_error: 'isHidden là bắt buộc' }) }),
   }),
   controller.toggleHideReview,
 )

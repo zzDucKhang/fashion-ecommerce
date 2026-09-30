@@ -1,8 +1,8 @@
-
-
 import { Router } from 'express'
 import { LanguageController } from './language.controller'
-import { validateRequest } from "@/middlewares/pipes/validate.pipe";
+import { validateRequest } from '@/middlewares/pipes/validate.pipe'
+import { authGuard } from '@/middlewares/guards/auth.guard'
+import { requireAdmin } from '@/middlewares/guards/role.guard'
 import {
   languageParamsSchema,
   createLanguageBodySchema,
@@ -14,10 +14,26 @@ const controller = new LanguageController()
 
 languageRouter.get('/', controller.findAll)
 languageRouter.get('/:languageId', validateRequest({ params: languageParamsSchema }), controller.findById)
-languageRouter.post('/', validateRequest({ body: createLanguageBodySchema }), controller.create)
+
+// Cần đăng nhập và quyền Admin để thay đổi ngôn ngữ hệ thống
+languageRouter.post(
+  '/',
+  authGuard,
+  requireAdmin,
+  validateRequest({ body: createLanguageBodySchema }),
+  controller.create,
+)
 languageRouter.put(
   '/:languageId',
+  authGuard,
+  requireAdmin,
   validateRequest({ params: languageParamsSchema, body: updateLanguageBodySchema }),
   controller.update,
 )
-languageRouter.delete('/:languageId', validateRequest({ params: languageParamsSchema }), controller.delete)
+languageRouter.delete(
+  '/:languageId',
+  authGuard,
+  requireAdmin,
+  validateRequest({ params: languageParamsSchema }),
+  controller.delete,
+)
