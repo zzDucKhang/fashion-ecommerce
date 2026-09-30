@@ -1,34 +1,54 @@
 import { randomBytes } from 'node:crypto'
-import { OrderStatus, Prisma } from '@prisma/client'
+import { OrderStatus, PaymentStatus, Prisma, ProductStatus } from '@prisma/client'
 import { prisma } from '@/database/prisma'
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/common/errors'
 import { CartRepo } from '../cart/cart.repo'
 import { CreateOrderInput, ListOrderInput, UpdateOrderStatusInput } from './order.schema'
 import { OrderRepo } from './order.repo'
 
-const orderInclude = { 
-  orderItems: true, 
-  shipment: true, 
-  paymentTransactions: true 
-} satisfies Prisma.OrderInclude
-
 export class OrderService {
   constructor(
-    private readonly orderRepo = new OrderRepo(), 
+    private readonly orderRepo = new OrderRepo(),
     private readonly cartRepo = new CartRepo()
   ) {}
 
   /**
-   * Helper tạo mã đơn hàng ngắn gọn (Ví dụ: ORD-20260928-A1B2)
+   * Helper tạo mã đơn hàng ngẫu nhiên độ dài an toàn chống trùng lặp (Collision-safe)
+   * randomBytes(4) sinh ra 8 ký tự hex (~4.29 tỷ khả năng/ngày)
    */
   private generateOrderCode(): string {
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-    const randomStr = randomBytes(2).toString('hex').toUpperCase()
+    const randomStr = randomBytes(4).toString('hex').toUpperCase()
     return `ORD-${dateStr}-${randomStr}`
   }
 
-  async list(userId: number, query: ListOrderInput) { 
-    return this.orderRepo.list(userId, query) 
+  /**
+   * Tính phí vận chuyển dựa trên tổng giá trị đơn hàng, hình thức giao hàng và khối lượng hàng
+   */
+  private calculateShippingFee(
+    subTotal: number,
+    shippingMethod: string = 'STANDARD',
+    totalWeightGram: number = 0
+  ): number {
+    // Miễn phí vận chuyển cho đơn hàng từ 500,000đ trở lên (trừ đơn hàng EXPRESS) hoặc khi chọn FREE
+    if (shippingMethod === 'FREE' || (subTotal >= 500_000 && shippingMethod !== 'EXPRESS')) {
+      return 0
+    }
+
+    if (shippingMethod === 'EXPRESS') {
+      const baseExpressFee = 50_000
+      const extraWeightKg = Math.max(0, Math.ceil((totalWeightGram - 2000) / 1000))
+      return baseExpressFee + extraWeightKg * 10_000
+    }
+
+    // Mặc định STANDARD
+    const baseStandardFee = 30_000
+    const extraWeightKg = Math.max(0, Math.ceil((totalWeightGram - 2000) / 1000))
+    return baseStandardFee + extraWeightKg * 5_000
+  }
+
+  async list(userId: number, query: ListOrderInput) {
+    return this.orderRepo.list(userId, query)
   }
 
   async findById(userId: number, orderId: number) {
@@ -56,40 +76,73 @@ export class OrderService {
         throw new BadRequestError('Không có sản phẩm nào được chọn để đặt hàng')
       }
 
-      // 2. Lấy thông tin địa chỉ giao hàng
+      // 2. Lấy thông tin địa chỉ giao hàng và xác thực an toàn sở hữu / bắt buộc
       const address = input.shippingAddressId
-        ? await tx.shippingAddress.findFirst({ where: { id: input.shippingAddressId, userId } })
+        ? await this.orderRepo.findShippingAddress(input.shippingAddressId, userId, tx)
         : input.shippingAddress
 
-      if (!address) throw new BadRequestError('Địa chỉ giao hàng không hợp lệ')
-      
-      const receiverPhone = 'phoneNumber' in address ? address.phoneNumber : address.receiverPhone
+      if (!address) {
+        throw new BadRequestError('Địa chỉ giao hàng không hợp lệ')
+      }
 
-      // 3. Tính toán tổng tiền & Kiểm tra tồn kho
+      const receiverName = address.receiverName?.trim()
+      const receiverPhone = ('phoneNumber' in address ? address.phoneNumber : address.receiverPhone)?.trim()
+      const province = address.province?.trim()
+      const district = address.district?.trim()
+      const ward = address.ward?.trim()
+      const detailAddress = address.detailAddress?.trim()
+
+      if (!receiverName || !receiverPhone || !province || !district || !ward || !detailAddress) {
+        throw new BadRequestError(
+          'Thông tin địa chỉ giao hàng không hợp lệ hoặc thiếu trường bắt buộc (họ tên, SĐT, tỉnh/thành, quận/huyện, phường/xã, địa chỉ chi tiết)'
+        )
+      }
+
+      // 3. Tính toán tổng tiền & Kiểm tra tồn kho & Validate trạng thái Sản phẩm cha & Flash Sale
       let subTotal = 0
+      let totalWeightGram = 0
       const orderItems: Prisma.OrderItemCreateWithoutOrderInput[] = []
+      const now = new Date()
 
       for (const item of items) {
-        const variant = await tx.productVariant.findFirst({
-          where: { id: item.variantId, deletedAt: null },
-          include: { product: true, attributeValues: true },
-        })
+        const variant = await this.orderRepo.findVariantForOrder(item.variantId, tx)
 
-        if (!variant) {
-          throw new NotFoundError(`Sản phẩm trong giỏ không còn tồn tại hoặc đã bị gỡ`)
+        // Kiểm tra tồn tại, xóa mềm và trạng thái sản phẩm cha (Product.status)
+        const isProductActive =
+          variant &&
+          variant.product &&
+          variant.product.deletedAt === null &&
+          (variant.product.status === ProductStatus.PUBLISHED || (variant.product.status as string) === 'ACTIVE')
+
+        if (!variant || !isProductActive) {
+          throw new BadRequestError(`Sản phẩm "${variant?.product?.defaultName ?? ''}" hiện không còn mở bán`)
         }
 
-        // Tối ưu trừ tồn kho chống Race Condition
-        const updated = await tx.productVariant.updateMany({
-          where: { id: variant.id, stockQuantity: { gte: item.quantity } },
-          data: { stockQuantity: { decrement: item.quantity } },
-        })
-
-        if (!updated.count) {
+        // Tối ưu trừ tồn kho chống Race Condition qua OrderRepo
+        const updatedCount = await this.orderRepo.decrementStock(variant.id, item.quantity, tx)
+        if (!updatedCount) {
           throw new BadRequestError(`Sản phẩm "${variant.product.defaultName}" không đủ tồn kho`)
         }
 
-        const unitPrice = Number(variant.sellingPrice)
+        totalWeightGram += (variant.weightGram ?? 0) * item.quantity
+
+        // Áp dụng giá Flash Sale nếu có chiến dịch đang diễn ra và còn số lượng khuyến mãi
+        let unitPrice = Number(variant.sellingPrice)
+        const activeFlashSale = variant.flashSaleItems?.find(
+          (fsi) =>
+            fsi.campaign &&
+            fsi.campaign.isActive &&
+            fsi.campaign.deletedAt === null &&
+            fsi.campaign.startTime <= now &&
+            fsi.campaign.endTime >= now &&
+            fsi.promoQuantity - fsi.soldQuantity >= item.quantity
+        )
+
+        if (activeFlashSale) {
+          unitPrice = Number(activeFlashSale.flashSalePrice)
+          await this.orderRepo.incrementFlashSaleSoldQuantity(activeFlashSale.id, item.quantity, tx)
+        }
+
         subTotal += unitPrice * item.quantity
 
         // Snapshot thông tin sản phẩm tại thời điểm mua
@@ -103,49 +156,122 @@ export class OrderService {
           variant: { connect: { id: variant.id } },
         })
 
-        // Ghi log xuất kho
-        await tx.inventoryLog.create({
-          data: {
+        // Ghi log xuất kho qua OrderRepo
+        await this.orderRepo.createInventoryLog(
+          {
             variantId: variant.id,
             transType: 'EXPORT_ORDER',
             quantityChange: -item.quantity,
             note: 'Xuất kho khi tạo đơn hàng',
           },
-        })
+          tx
+        )
       }
 
-      // 4. Tính toán Phí ship & Khuyến mãi (Tạm thời để 0đ nếu chưa tích hợp đơn vị vận chuyển/voucher)
-      const shippingFee = 0 
-      const discountAmount = 0 
-      const totalAmount = subTotal + shippingFee - discountAmount
+      // 4. Tính toán Phí vận chuyển
+      const shippingFee = this.calculateShippingFee(subTotal, input.shippingMethod, totalWeightGram)
 
-      // 5. Tạo Đơn hàng
+      // 5. Kiểm tra và áp dụng Mã giảm giá (Voucher)
+      let voucherDiscount = 0
+      if (input.voucherCode) {
+        const voucher = await this.orderRepo.findVoucherByCode(input.voucherCode, tx)
+        if (!voucher || !voucher.isActive) {
+          throw new BadRequestError('Mã giảm giá không tồn tại hoặc đã bị vô hiệu hóa')
+        }
+
+        if (now < voucher.startDate) {
+          throw new BadRequestError('Mã giảm giá chưa đến thời gian áp dụng')
+        }
+        if (now > voucher.endDate) {
+          throw new BadRequestError('Mã giảm giá đã hết hạn sử dụng')
+        }
+
+        if (voucher.totalUsageLimit > 0 && voucher.usedCount >= voucher.totalUsageLimit) {
+          throw new BadRequestError('Mã giảm giá đã hết lượt sử dụng')
+        }
+
+        const userUsageCount = await this.orderRepo.countUserVoucherOrders(userId, input.voucherCode, tx)
+        if (userUsageCount >= voucher.userUsageLimit) {
+          throw new BadRequestError('Bạn đã dùng hết lượt áp dụng cho mã giảm giá này')
+        }
+
+        if (subTotal < Number(voucher.minOrderValue)) {
+          throw new BadRequestError(
+            `Đơn hàng chưa đạt giá trị tối thiểu (${Number(voucher.minOrderValue).toLocaleString('vi-VN')}đ) để áp dụng mã giảm giá`
+          )
+        }
+
+        if (voucher.discountType === 'PERCENTAGE') {
+          voucherDiscount = Math.round((subTotal * Number(voucher.discountValue)) / 100)
+          if (voucher.maxDiscountAmt && Number(voucher.maxDiscountAmt) > 0) {
+            voucherDiscount = Math.min(voucherDiscount, Number(voucher.maxDiscountAmt))
+          }
+        } else {
+          // FIXED_AMOUNT
+          voucherDiscount = Number(voucher.discountValue)
+        }
+
+        voucherDiscount = Math.min(voucherDiscount, subTotal)
+        await this.orderRepo.incrementVoucherUsage(input.voucherCode, tx)
+      }
+
+      // 6. Kiểm tra và áp dụng Điểm thưởng (Reward Points)
+      let pointUsed = 0
+      let pointDiscount = 0
+
+      if (input.pointUsed && input.pointUsed > 0) {
+        const userPoints = await this.orderRepo.getUserRewardPoints(userId, tx)
+        if (input.pointUsed > userPoints) {
+          throw new BadRequestError(
+            `Bạn đang có ${userPoints} điểm thưởng, không đủ ${input.pointUsed} điểm để sử dụng`
+          )
+        }
+
+        const remainingPayable = Math.max(0, subTotal + shippingFee - voucherDiscount)
+        // Quy tắc: 1 điểm = 1 VNĐ
+        pointDiscount = Math.min(input.pointUsed, remainingPayable)
+        pointUsed = pointDiscount
+      }
+
+      const totalAmount = Math.max(0, subTotal + shippingFee - voucherDiscount - pointDiscount)
+      const pointEarned = Math.floor(totalAmount * 0.01) // Tích lũy 1% giá trị đơn hàng
+
+      // 7. Tạo Đơn hàng
+      const orderCode = this.generateOrderCode()
       const order = await this.orderRepo.create(
         {
-          orderCode: this.generateOrderCode(),
+          orderCode,
           user: { connect: { id: userId } },
-          receiverName: address.receiverName,
+          receiverName,
           receiverPhone,
-          province: address.province,
-          district: address.district,
-          ward: address.ward,
-          detailAddress: address.detailAddress,
+          province,
+          district,
+          ward,
+          detailAddress,
           subTotal,
           shippingFee,
-          totalAmount,
-          voucherCode: input.voucherCode,
-          paymentMethod: input.paymentMethod,
           shippingMethod: input.shippingMethod,
+          shippingDiscount: 0,
+          voucherCode: input.voucherCode,
+          voucherDiscount,
+          pointUsed,
+          pointDiscount,
+          pointEarned,
+          totalAmount,
+          paymentMethod: input.paymentMethod,
           customerNote: input.customerNote,
           orderItems: { create: orderItems },
         },
         tx
       )
 
-      // 6. Xóa các món đã checkout khỏi giỏ hàng
-      await tx.cartItem.deleteMany({
-        where: { id: { in: items.map((i) => i.id) } },
-      })
+      // Trừ điểm thưởng và ghi nhận giao dịch PointTransaction
+      if (pointUsed > 0) {
+        await this.orderRepo.deductUserPoints(userId, order.id, pointUsed, orderCode, tx)
+      }
+
+      // 8. Xóa các món đã checkout khỏi giỏ hàng qua CartRepo
+      await this.cartRepo.deleteCartItemsByIds(items.map((i) => i.id), tx)
 
       return order
     })
@@ -165,14 +291,36 @@ export class OrderService {
 
       // Nếu Admin chọn hủy đơn -> Thực hiện hoàn kho mà không bị giới hạn trạng thái như Khách hàng
       if (input.status === OrderStatus.CANCELLED) {
+        // Kiểm tra an toàn vận chuyển: Không thể hủy đơn nếu hàng đang trên đường giao
+        if (
+          order.status === OrderStatus.SHIPPED ||
+          (order.shipment && ['PICKED_UP', 'IN_TRANSIT'].includes(order.shipment.status))
+        ) {
+          throw new BadRequestError(
+            'Đơn hàng đang trong quá trình vận chuyển, không thể hủy trực tiếp. Vui lòng xử lý qua quy trình giao hàng thất bại hoặc hoàn hàng'
+          )
+        }
         return this.processOrderCancellation(order, updatedById, tx)
       }
 
-      return tx.order.update({
-        where: { id: orderId },
-        data: { status: input.status, updatedById },
-        include: orderInclude,
-      })
+      // Xử lý các nghiệp vụ đi kèm khi hoàn thành giao hàng (DELIVERED)
+      let newPaymentStatus: PaymentStatus | undefined = undefined
+      if (input.status === OrderStatus.DELIVERED) {
+        // 1. Tự động đồng bộ paymentStatus = SUCCESS cho đơn hàng COD
+        if (order.paymentMethod === 'COD' && order.paymentStatus === PaymentStatus.PENDING) {
+          newPaymentStatus = PaymentStatus.SUCCESS
+        }
+
+        // 2. Tự động tích lũy điểm thưởng (order.pointEarned) cho khách hàng nếu chưa nhận
+        if (order.pointEarned > 0) {
+          const existingEarn = await this.orderRepo.findEarnTransactionByOrderId(order.id, tx)
+          if (!existingEarn) {
+            await this.orderRepo.awardUserPoints(order.userId, order.id, order.pointEarned, order.orderCode, tx)
+          }
+        }
+      }
+
+      return this.orderRepo.updateStatus(orderId, input.status, updatedById, newPaymentStatus, tx)
     })
   }
 
@@ -181,10 +329,7 @@ export class OrderService {
    */
   async cancel(userId: number, orderId: number) {
     return prisma.$transaction(async (tx) => {
-      const order = await tx.order.findFirst({
-        where: { id: orderId, userId, deletedAt: null },
-        include: { orderItems: true },
-      })
+      const order = await this.orderRepo.findById(orderId, userId, tx)
 
       if (!order) throw new NotFoundError('Đơn hàng không tồn tại')
 
@@ -198,37 +343,47 @@ export class OrderService {
   }
 
   /**
-   * Helper dùng chung cho logic Hoàn kho khi Hủy đơn
+   * Helper chuẩn hóa logic hoàn kho, hoàn điểm, hoàn voucher và đồng bộ paymentStatus khi Hủy đơn
    */
   private async processOrderCancellation(
-    order: any, 
-    updatedById: number | undefined, 
+    order: any,
+    updatedById: number | undefined,
     tx: Prisma.TransactionClient
   ) {
+    // 1. Hoàn lại tồn kho và ghi log qua OrderRepo + Hoàn quota Flash Sale nếu có
     for (const item of order.orderItems) {
       if (!item.variantId) continue
 
-      // Hoàn lại số lượng tồn kho
-      await tx.productVariant.update({
-        where: { id: item.variantId },
-        data: { stockQuantity: { increment: item.quantity } },
-      })
+      await this.orderRepo.incrementStock(item.variantId, item.quantity, tx)
 
-      // Ghi log nhập kho lại
-      await tx.inventoryLog.create({
-        data: {
+      // Hoàn lại hạn mức khuyến mãi Flash Sale nếu chiến dịch vẫn còn đang diễn ra
+      await this.orderRepo.decrementFlashSaleSoldQuantity(item.variantId, item.quantity, tx)
+
+      await this.orderRepo.createInventoryLog(
+        {
           variantId: item.variantId,
           transType: 'RETURN_INBOUND',
           quantityChange: item.quantity,
           note: `Hoàn kho do hủy đơn ${order.orderCode}`,
         },
-      })
+        tx
+      )
     }
 
-    return tx.order.update({
-      where: { id: order.id },
-      data: { status: OrderStatus.CANCELLED, updatedById },
-      include: orderInclude,
-    })
+    // 2. Hoàn lại Điểm thưởng nếu khách đã dùng
+    if (order.pointUsed && order.pointUsed > 0) {
+      await this.orderRepo.refundUserPoints(order.userId, order.id, order.pointUsed, order.orderCode, tx)
+    }
+
+    // 3. Hoàn lại lượt dùng Voucher nếu đơn hàng có áp dụng giảm giá
+    if (order.voucherCode && Number(order.voucherDiscount) > 0) {
+      await this.orderRepo.refundVoucherUsage(order.voucherCode, tx)
+    }
+
+    // 4. Cập nhật trạng thái đơn và đồng bộ paymentStatus
+    const isPaid = order.paymentStatus === 'PAID' || order.paymentStatus === PaymentStatus.SUCCESS
+    const paymentStatus = isPaid ? PaymentStatus.REFUNDED : (order.paymentStatus as PaymentStatus)
+
+    return this.orderRepo.cancelOrder(order.id, paymentStatus, updatedById, tx)
   }
 }
