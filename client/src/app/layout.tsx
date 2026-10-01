@@ -1,5 +1,9 @@
 import type { Metadata } from 'next';
+<<<<<<< HEAD
 import { SiteHeader } from '@/modules/catalog/components/site-header';
+=======
+import { SiteHeader } from '@/components/layouts/site-header';
+>>>>>>> origin/feature/inventory-sale
 import './globals.css';
 export const metadata: Metadata = {
   title: 'Common Ground — Considered goods',

@@ -1,7 +1,11 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowUpRight, ChevronRight, Star } from 'lucide-react';
+<<<<<<< HEAD
 import { categories, products } from '@/modules/catalog/data';
+=======
+import { categories, products } from '@/modules/catalog/mock';
+>>>>>>> origin/feature/inventory-sale
 import { ProductCard } from '@/modules/catalog/components/product-card';
 
 export default function Home() {
