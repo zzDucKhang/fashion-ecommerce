@@ -11,10 +11,6 @@ import {
   validateVoucherBodySchema,
   voucherIdParamSchema,
 } from './voucher.schema'
-<<<<<<< HEAD
-=======
-import { z } from 'zod'
->>>>>>> origin/feature/inventory-sale
 
 export const voucherRouter = Router()
 const controller = new VoucherController()
@@ -33,9 +29,6 @@ voucherRouter.post(
 )
 
 <<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> origin/feature/inventory-sale
 /** POST /vouchers/apply – Áp dụng voucher (sau khi đặt hàng) */
 voucherRouter.post(
   '/apply',
@@ -44,11 +37,8 @@ voucherRouter.post(
   validateRequest({ body: z.object({ code: z.string().trim().min(1, 'Mã voucher là bắt buộc').toUpperCase() }) }),
   controller.applyVoucher,
 )
-<<<<<<< HEAD
 =======
 >>>>>>> fixbug/loyalty-engage
-=======
->>>>>>> origin/feature/inventory-sale
 
 // ─── Admin routes (yêu cầu đăng nhập + role ADMIN) ───────────────────────────
 
