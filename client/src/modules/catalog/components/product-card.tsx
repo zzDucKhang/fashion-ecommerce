@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Heart, Star } from 'lucide-react';
 import { useState } from 'react';
-import type { Product } from '@/modules/catalog/data';
+import type { Product } from '@/modules/catalog/mock';
 export function ProductCard({ product }: { product: Product }) {
   const [index, setIndex] = useState(0);
   return (

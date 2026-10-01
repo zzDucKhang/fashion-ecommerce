@@ -3,7 +3,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { ProductCard } from '@/modules/catalog/components/product-card';
 import { FilterSidebar } from '@/modules/catalog/components/filter-sidebar';
-import type { Product } from '@/modules/catalog/data';
+import type { Product } from '@/modules/catalog/mock';
 export function SearchShell({
   products,
   category,

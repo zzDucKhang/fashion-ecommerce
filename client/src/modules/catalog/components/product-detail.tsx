@@ -11,7 +11,7 @@ import {
   Star,
 } from 'lucide-react';
 import { useState } from 'react';
-import type { Product } from '@/modules/catalog/data';
+import type { Product } from '@/modules/catalog/mock';
 export function ProductDetail({ product }: { product: Product }) {
   const [image, setImage] = useState(0);
   const [size, setSize] = useState(product.sizes[0]);

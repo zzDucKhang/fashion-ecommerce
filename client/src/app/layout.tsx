@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { SiteHeader } from '@/modules/catalog/components/site-header';
+import { SiteHeader } from '@/components/layouts/site-header';
 import './globals.css';
 export const metadata: Metadata = {
   title: 'Common Ground — Considered goods',
