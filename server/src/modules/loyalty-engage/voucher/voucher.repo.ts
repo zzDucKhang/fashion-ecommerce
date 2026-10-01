@@ -26,6 +26,7 @@ export class VoucherRepo {
     return prisma.voucher.findFirst({ where: { code, deletedAt: null } })
   }
 
+<<<<<<< HEAD
   /**
    * FIX 2.3: Tìm voucher theo code kể cả đã xóa mềm.
    * Dùng để kiểm tra trùng code trước khi tạo/sửa, ngăn lỗi P2002 Unique Constraint.
@@ -44,6 +45,8 @@ export class VoucherRepo {
     })
   }
 
+=======
+>>>>>>> origin/feature/inventory-sale
   /** Tạo voucher mới */
   async create(data: CreateVoucherBodyType) {
     return prisma.voucher.create({

@@ -61,8 +61,12 @@ export class VoucherController {
   /** POST /vouchers/validate – Kiểm tra & tính tiền giảm (User) */
   validateVoucher = async (req: Request, res: Response, next: NextFunction) => {
     try {
+<<<<<<< HEAD
       const userId = req.user!.userId
       const data = await this.voucherService.validateAndCalculate(req.body, userId)
+=======
+      const data = await this.voucherService.validateAndCalculate(req.body)
+>>>>>>> origin/feature/inventory-sale
       return res.status(200).json({ statusCode: 200, ...data })
     } catch (error) {
       next(error)

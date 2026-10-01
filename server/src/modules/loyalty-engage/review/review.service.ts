@@ -12,8 +12,13 @@ export class ReviewService {
 
   /**
    * Tạo bài đánh giá mới.
+<<<<<<< HEAD
    * - Bắt buộc phải có orderId – chỉ review sản phẩm từ đơn hàng đã giao (DELIVERED).
    * - Kiểm tra đơn thuộc user, trạng thái DELIVERED, và product có trong đơn.
+=======
+   * - Chỉ user đã đăng nhập mới được tạo.
+   * - Lưu số sao (1-5), nội dung, và mảng URL media vào ReviewMedia.
+>>>>>>> origin/feature/inventory-sale
    * - Mỗi user chỉ đánh giá 1 product trong 1 order 1 lần (unique orderId+productId).
    */
   async createReview(userId: number, body: CreateReviewBodyType) {
@@ -21,6 +26,7 @@ export class ReviewService {
     const product = await this.reviewRepo.findProductById(body.productId)
     if (!product) throw new NotFoundError('Sản phẩm không tồn tại')
 
+<<<<<<< HEAD
     // Bắt buộc kiểm tra đơn hàng hợp lệ: thuộc user, DELIVERED, và chứa productId này
     if (!body.orderId) {
       throw new BadRequestError('Bạn chỉ có thể đánh giá sản phẩm từ đơn hàng đã giao thành công')
@@ -33,6 +39,8 @@ export class ReviewService {
       )
     }
 
+=======
+>>>>>>> origin/feature/inventory-sale
     // Kiểm tra đã review chưa
     const existing = await this.reviewRepo.findExistingReview(userId, body.productId, body.orderId)
     if (existing) {

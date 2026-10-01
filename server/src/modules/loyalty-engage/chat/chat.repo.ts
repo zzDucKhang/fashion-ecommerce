@@ -66,18 +66,29 @@ export class ChatRepo {
   /** Lấy danh sách hội thoại (các user đã chat với userId) */
   async findConversationList(userId: number) {
     // Lấy danh sách senderId/receiverId unique mà user đã chat
+<<<<<<< HEAD
     // FIX 3.1: PostgreSQL yêu cầu DISTINCT ON (a) phải có a làm biểu thức đầu tiên trong ORDER BY
+=======
+>>>>>>> origin/feature/inventory-sale
     const sentMessages = await prisma.message.findMany({
       where: { senderId: userId },
       distinct: ['receiverId'],
       select: { receiverId: true },
+<<<<<<< HEAD
       orderBy: [{ receiverId: 'asc' }, { createdAt: 'desc' }],
+=======
+      orderBy: { createdAt: 'desc' },
+>>>>>>> origin/feature/inventory-sale
     })
     const receivedMessages = await prisma.message.findMany({
       where: { receiverId: userId },
       distinct: ['senderId'],
       select: { senderId: true },
+<<<<<<< HEAD
       orderBy: [{ senderId: 'asc' }, { createdAt: 'desc' }],
+=======
+      orderBy: { createdAt: 'desc' },
+>>>>>>> origin/feature/inventory-sale
     })
 
     // Tập hợp các user đã chat

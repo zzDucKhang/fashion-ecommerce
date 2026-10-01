@@ -49,6 +49,7 @@ export class PointRepo {
     })
   }
 
+<<<<<<< HEAD
   /**
    * Atomic conditional decrement: chỉ trừ điểm nếu rewardPoints >= pointsToRedeem tại thời điểm UPDATE.
    * Trả về true nếu thành công, false nếu không đủ điểm (ngăn race condition double-spend).
@@ -85,6 +86,8 @@ export class PointRepo {
     })
   }
 
+=======
+>>>>>>> origin/feature/inventory-sale
   /** Lấy lịch sử giao dịch điểm của user có phân trang */
   async findTransactionsByUserId(userId: number, skip: number, take: number) {
     const [data, total] = await prisma.$transaction([

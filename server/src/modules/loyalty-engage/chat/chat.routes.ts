@@ -1,7 +1,10 @@
 // src/modules/loyalty-engage/chat/chat.routes.ts
 import { Router } from 'express'
 import { requireAuth } from '@/middlewares/guards/auth.guard'
+<<<<<<< HEAD
 import { requireAdmin } from '@/middlewares/guards/role.guard'
+=======
+>>>>>>> origin/feature/inventory-sale
 import { validateRequest } from '@/middlewares/pipes/validate.pipe'
 import { ChatController } from './chat.controller'
 import {
@@ -59,7 +62,11 @@ chatRouter.get('/conversations', requireAuth, controller.getConversationList)
  */
 chatRouter.get(
   '/sessions/:userId/online',
+<<<<<<< HEAD
   requireAdmin,
+=======
+  requireAuth,
+>>>>>>> origin/feature/inventory-sale
   validateRequest({
     params: z.object({
       userId: z.string().regex(/^\d+$/, 'userId phải là số nguyên').transform(Number),
@@ -68,10 +75,16 @@ chatRouter.get(
   controller.checkUserOnline,
 )
 
+<<<<<<< HEAD
 /** GET /chat/sessions/:userId – Lấy danh sách sessions của một user (chỉ Admin) */
 chatRouter.get(
   '/sessions/:userId',
   requireAdmin,
+=======
+chatRouter.get(
+  '/sessions/:userId',
+  requireAuth,
+>>>>>>> origin/feature/inventory-sale
   validateRequest({
     params: z.object({
       userId: z.string().regex(/^\d+$/, 'userId phải là số nguyên').transform(Number),
@@ -80,18 +93,30 @@ chatRouter.get(
   controller.getSocketSessionsByUser,
 )
 
+<<<<<<< HEAD
 /** POST /chat/sessions – Lưu socket session (gọi khi user kết nối WS) (chỉ Admin/nội bộ) */
 chatRouter.post(
   '/sessions',
   requireAdmin,
+=======
+chatRouter.post(
+  '/sessions',
+  requireAuth,
+>>>>>>> origin/feature/inventory-sale
   validateRequest({ body: upsertSocketSessionBodySchema }),
   controller.upsertSocketSession,
 )
 
+<<<<<<< HEAD
 /** DELETE /chat/sessions – Xóa socket session (gọi khi user ngắt kết nối) (chỉ Admin/nội bộ) */
 chatRouter.delete(
   '/sessions',
   requireAdmin,
+=======
+chatRouter.delete(
+  '/sessions',
+  requireAuth,
+>>>>>>> origin/feature/inventory-sale
   validateRequest({ body: removeSocketSessionBodySchema }),
   controller.removeSocketSession,
 )

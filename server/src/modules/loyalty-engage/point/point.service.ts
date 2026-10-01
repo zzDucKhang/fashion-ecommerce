@@ -7,26 +7,42 @@ export class PointService {
   constructor(private pointRepo = new PointRepo()) {}
 
   /**
+<<<<<<< HEAD
    * Admin cộng điểm cho user khi đơn hàng hoàn thành (DELIVERED).
    * Điểm được tính tự động: 1% của totalAmount, làm tròn xuống số nguyên.
    * Admin gọi endpoint này – nhưng userId lấy từ đơn hàng (order.userId), không phải ID của admin.
    * Sử dụng atomic transaction để tránh race condition.
    */
   async earnPoints(_adminId: number, body: EarnPointsBodyType) {
+=======
+   * Cộng điểm cho user khi đơn hàng hoàn thành (DELIVERED).
+   * Quy tắc: 1 điểm = 1 VNĐ.
+   * Sử dụng atomic transaction để tránh race condition.
+   */
+  // Sửa signature của earnPoints trong src/modules/loyalty-engage/point/point.service.ts:
+  async earnPoints(body: EarnPointsBodyType) {
+>>>>>>> origin/feature/inventory-sale
     const order = await this.pointRepo.findOrderById(body.orderId)
     if (!order) throw new NotFoundError('Đơn hàng không tồn tại')
     if (order.status !== 'DELIVERED') {
       throw new BadRequestError('Chỉ cộng điểm khi đơn hàng đã giao thành công (DELIVERED)')
     }
 
+<<<<<<< HEAD
     // Dùng userId từ đơn hàng, không phải userId của admin gọi API
     const userId = order.userId
     const user = await this.pointRepo.findUserById(userId)
     if (!user) throw new NotFoundError('Người dùng của đơn hàng không tồn tại')
+=======
+    const userId = order.userId
+    const user = await this.pointRepo.findUserById(userId)
+    if (!user) throw new NotFoundError('Người dùng không tồn tại')
+>>>>>>> origin/feature/inventory-sale
 
     const existing = await this.pointRepo.findEarnTransactionByOrderId(body.orderId)
     if (existing) throw new BadRequestError('Đơn hàng này đã được cộng điểm trước đó')
 
+<<<<<<< HEAD
     // Tính điểm tự động: 1% tổng giá trị đơn hàng, làm tròn xuống
     const pointChange = Math.floor(Number(order.totalAmount) * 0.01)
     if (pointChange <= 0) {
@@ -38,13 +54,24 @@ export class PointService {
     const transaction = await this.pointRepo.updatePointsAndCreateTransaction(userId, newPoints, {
       orderId: body.orderId,
       pointChange,
+=======
+    const newPoints = user.rewardPoints + body.pointChange
+
+    const transaction = await this.pointRepo.updatePointsAndCreateTransaction(userId, newPoints, {
+      orderId: body.orderId,
+      pointChange: body.pointChange,
+>>>>>>> origin/feature/inventory-sale
       currentPoint: newPoints,
       transactionType: 'EARN',
       description: body.description,
     })
 
     return {
+<<<<<<< HEAD
       message: `Cộng ${pointChange} điểm thành công cho user #${userId}`,
+=======
+      message: `Cộng ${body.pointChange} điểm thành công`,
+>>>>>>> origin/feature/inventory-sale
       currentPoint: newPoints,
       transaction,
     }
@@ -52,8 +79,13 @@ export class PointService {
 
   /**
    * Trừ điểm khi user dùng điểm để thanh toán.
+<<<<<<< HEAD
    * Sử dụng atomic decrement có điều kiện để ngăn race condition: nếu 2 request
    * đồng thời cùng đọc số điểm và trừ, chỉ 1 request thành công (do WHERE gte).
+=======
+   * Quy tắc: 1 điểm = 1 VNĐ.
+   * Sử dụng atomic transaction để tránh race condition.
+>>>>>>> origin/feature/inventory-sale
    */
   async redeemPoints(userId: number, body: RedeemPointsBodyType) {
     const user = await this.pointRepo.findUserById(userId)
@@ -82,6 +114,7 @@ export class PointService {
       )
     }
 
+<<<<<<< HEAD
     // Atomic decrement có điều kiện: chỉ trừ nếu rewardPoints >= pointsToRedeem tại thời điểm UPDATE
     // Ngăn double-spend khi 2 request cùng lúc (race condition)
     const updatedResult = await this.pointRepo.atomicDecrementPoints(userId, body.pointsToRedeem)
@@ -94,6 +127,12 @@ export class PointService {
     // Tạo bản ghi giao dịch sau khi decrement thành công
     const transaction = await this.pointRepo.createTransaction({
       userId,
+=======
+    const newPoints = user.rewardPoints - body.pointsToRedeem
+
+    // Atomic: cập nhật balance + tạo transaction record trong 1 DB transaction
+    const transaction = await this.pointRepo.updatePointsAndCreateTransaction(userId, newPoints, {
+>>>>>>> origin/feature/inventory-sale
       orderId: body.orderId,
       pointChange: -body.pointsToRedeem,
       currentPoint: newPoints,
