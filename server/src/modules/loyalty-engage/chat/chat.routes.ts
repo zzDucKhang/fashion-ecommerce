@@ -59,11 +59,7 @@ chatRouter.get('/conversations', requireAuth, controller.getConversationList)
  */
 chatRouter.get(
   '/sessions/:userId/online',
-<<<<<<< HEAD
-  requireAuth,
-=======
   requireAdmin,
->>>>>>> fixbug/loyalty-engage
   validateRequest({
     params: z.object({
       userId: z.string().regex(/^\d+$/, 'userId phải là số nguyên').transform(Number),
@@ -72,16 +68,10 @@ chatRouter.get(
   controller.checkUserOnline,
 )
 
-<<<<<<< HEAD
-chatRouter.get(
-  '/sessions/:userId',
-  requireAuth,
-=======
 /** GET /chat/sessions/:userId – Lấy danh sách sessions của một user (chỉ Admin) */
 chatRouter.get(
   '/sessions/:userId',
   requireAdmin,
->>>>>>> fixbug/loyalty-engage
   validateRequest({
     params: z.object({
       userId: z.string().regex(/^\d+$/, 'userId phải là số nguyên').transform(Number),
@@ -90,30 +80,18 @@ chatRouter.get(
   controller.getSocketSessionsByUser,
 )
 
-<<<<<<< HEAD
-chatRouter.post(
-  '/sessions',
-  requireAuth,
-=======
 /** POST /chat/sessions – Lưu socket session (gọi khi user kết nối WS) (chỉ Admin/nội bộ) */
 chatRouter.post(
   '/sessions',
   requireAdmin,
->>>>>>> fixbug/loyalty-engage
   validateRequest({ body: upsertSocketSessionBodySchema }),
   controller.upsertSocketSession,
 )
 
-<<<<<<< HEAD
-chatRouter.delete(
-  '/sessions',
-  requireAuth,
-=======
 /** DELETE /chat/sessions – Xóa socket session (gọi khi user ngắt kết nối) (chỉ Admin/nội bộ) */
 chatRouter.delete(
   '/sessions',
   requireAdmin,
->>>>>>> fixbug/loyalty-engage
   validateRequest({ body: removeSocketSessionBodySchema }),
   controller.removeSocketSession,
 )
