@@ -31,24 +31,46 @@ export class VoucherService {
     return { data: voucher }
   }
 
-  /** Admin tạo voucher mới */
+  /**
+   * Admin tạo voucher mới.
+   * FIX 2.3: Kiểm tra trùng mã kể cả voucher đã xóa mềm (deletedAt != null)
+   * để tránh lỗi P2002 Unique Constraint từ Postgres.
+   */
   async createVoucher(body: CreateVoucherBodyType) {
-    const existing = await this.voucherRepo.findByCode(body.code)
-    if (existing) throw new ConflictError(`Mã voucher "${body.code}" đã tồn tại`)
+    const anyExisting = await this.voucherRepo.findByCodeIncludingDeleted(body.code)
+    if (anyExisting) {
+      if (anyExisting.deletedAt) {
+        // Mã từng tồn tại nhưng đã xóa mềm → thông báo rõ
+        throw new ConflictError(
+          `Mã voucher "${body.code}" đã từng tồn tại trong hệ thống (đã xóa). Vui lòng dùng mã khác.`,
+        )
+      }
+      throw new ConflictError(`Mã voucher "${body.code}" đã tồn tại`)
+    }
 
     const voucher = await this.voucherRepo.create(body)
     return { message: 'Tạo voucher thành công', data: voucher }
   }
 
-  /** Admin cập nhật voucher */
+  /**
+   * Admin cập nhật voucher.
+   * FIX 2.3: Kiểm tra trùng mã kể cả voucher đã xóa mềm khi đổi code.
+   */
   async updateVoucher(id: number, body: UpdateVoucherBodyType) {
     const voucher = await this.voucherRepo.findById(id)
     if (!voucher) throw new NotFoundError('Voucher không tồn tại')
 
-    // Nếu thay đổi code, kiểm tra trùng với voucher khác
+    // Nếu thay đổi code, kiểm tra trùng với voucher khác (kể cả đã xóa mềm)
     if (body.code && body.code !== voucher.code) {
-      const duplicate = await this.voucherRepo.findByCode(body.code)
-      if (duplicate) throw new ConflictError(`Mã voucher "${body.code}" đã tồn tại`)
+      const duplicate = await this.voucherRepo.findByCodeIncludingDeleted(body.code)
+      if (duplicate) {
+        if (duplicate.deletedAt) {
+          throw new ConflictError(
+            `Mã voucher "${body.code}" đã từng tồn tại trong hệ thống (đã xóa). Vui lòng dùng mã khác.`,
+          )
+        }
+        throw new ConflictError(`Mã voucher "${body.code}" đã tồn tại`)
+      }
     }
 
     const updated = await this.voucherRepo.update(id, body)
@@ -74,8 +96,9 @@ export class VoucherService {
    *  3. Trong hạn sử dụng
    *  4. Chưa hết lượt dùng tổng (totalUsageLimit = 0 nghĩa là không giới hạn)
    *  5. Tổng đơn hàng >= minOrderValue
+   *  6. FIX 2.1: User chưa dùng vượt quá userUsageLimit lần
    */
-  async validateAndCalculate(body: ValidateVoucherBodyType) {
+  async validateAndCalculate(body: ValidateVoucherBodyType, userId: number) {
     const voucher = await this.voucherRepo.findByCode(body.code)
 
     if (!voucher) throw new NotFoundError('Mã voucher không hợp lệ hoặc không tồn tại')
@@ -100,6 +123,16 @@ export class VoucherService {
       throw new BadRequestError(
         `Đơn hàng tối thiểu ${minOrderValue.toLocaleString('vi-VN')} VNĐ để áp dụng voucher này`,
       )
+    }
+
+    // FIX 2.1: Kiểm tra giới hạn sử dụng theo từng user (userUsageLimit)
+    if (voucher.userUsageLimit > 0) {
+      const userUsageCount = await this.voucherRepo.countUserVoucherUsage(userId, voucher.code)
+      if (userUsageCount >= voucher.userUsageLimit) {
+        throw new BadRequestError(
+          `Bạn đã sử dụng mã voucher này ${userUsageCount} lần (tối đa ${voucher.userUsageLimit} lần/người)`,
+        )
+      }
     }
 
     // Tính số tiền giảm
@@ -128,7 +161,7 @@ export class VoucherService {
     }
   }
 
-  /** Tăng usedCount sau khi voucher được áp dụng vào đơn hàng */
+  /** Tăng usedCount sau khi voucher được áp dụng vào đơn hàng (gọi nội bộ từ OrderService) */
   async applyVoucher(code: string) {
     const voucher = await this.voucherRepo.findByCode(code)
     if (!voucher) throw new NotFoundError('Voucher không tồn tại')

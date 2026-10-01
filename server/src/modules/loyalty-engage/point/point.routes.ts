@@ -17,7 +17,7 @@ pointRouter.get('/balance', controller.getBalance)
 /** GET /points/history – Lịch sử giao dịch điểm (có phân trang) */
 pointRouter.get('/history', validateRequest({ query: getHistoryQuerySchema }), controller.getHistory)
 
-/** POST /points/earn – CHỈ ADMIN hoặc hệ thống xử lý nội bộ mới được cộng điểm */
+/** POST /points/earn – Cộng điểm khi đơn hàng hoàn thành (chỉ Admin) */
 pointRouter.post('/earn', requireAdmin, validateRequest({ body: earnPointsBodySchema }), controller.earnPoints)
 
 /** POST /points/redeem – Dùng điểm để thanh toán */

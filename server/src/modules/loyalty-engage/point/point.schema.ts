@@ -5,10 +5,9 @@ import { z } from 'zod'
 // Request Schemas
 // ───────────────────────────────────────────
 
-/** Admin/Service cộng điểm khi đơn hoàn thành */
+/** Admin cộng điểm khi đơn hoàn thành – điểm được tính tự động từ tổng đơn */
 export const earnPointsBodySchema = z.object({
   orderId: z.number().int().positive('orderId phải là số nguyên dương'),
-  pointChange: z.number().int().positive('Số điểm cộng phải lớn hơn 0'),
   description: z.string().trim().min(1).max(255).optional().default('Cộng điểm từ đơn hàng'),
 })
 

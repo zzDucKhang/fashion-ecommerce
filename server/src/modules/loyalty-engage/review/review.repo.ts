@@ -11,6 +11,21 @@ export class ReviewRepo {
   }
 
   /**
+   * Kiểm tra orderItem hợp lệ: đơn thuộc user, trạng thái DELIVERED,
+   * chưa bị xóa mềm, và trong đơn có chứa productId này.
+   * Bắt buộc trước khi tạo review để ngăn đánh giá ảo.
+   */
+  async findValidOrderItem(orderId: number, userId: number, productId: number) {
+    return prisma.orderItem.findFirst({
+      where: {
+        orderId,
+        order: { userId, status: 'DELIVERED', deletedAt: null },
+        variant: { productId },
+      },
+    })
+  }
+
+  /**
    * Kiểm tra user đã review sản phẩm trong đơn này chưa.
    * Unique constraint trong schema: @@unique([orderId, productId])
    * - Nếu có orderId: kiểm tra theo orderId + productId (1 đơn hàng chỉ review 1 lần)
