@@ -2,8 +2,26 @@
 import Link from 'next/link';
 import { ArrowLeft, Check, Lock } from 'lucide-react';
 import { useState } from 'react';
+import Image from 'next/image';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
 export function CheckoutView() {
   const [step, setStep] = useState(1);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const startCheckout = async () => {
+    setLoading(true); setError(null);
+    try {
+      const mockOrderPayload = { cartItemIds: [1], shippingAddressId: 1, paymentMethod: 'BANK_TRANSFER', shippingMethod: 'STANDARD' };
+      const orderResponse = await fetch(`${API_URL}/cart-order/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(mockOrderPayload) });
+      const orderJson = await orderResponse.json(); if (!orderResponse.ok) throw new Error(orderJson.message ?? 'Could not create order');
+      const paymentResponse = await fetch(`${API_URL}/fulfillment/payments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ orderId: orderJson.data.id }) });
+      const paymentJson = await paymentResponse.json(); if (!paymentResponse.ok) throw new Error(paymentJson.message ?? 'Could not create payment');
+      setQrUrl(paymentJson.data.qrUrl); setStep(3);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Checkout failed'); } finally { setLoading(false); }
+  };
   return (
     <main className="mx-auto max-w-[1180px] px-4 py-10 sm:px-8 lg:py-16">
       <div className="mb-10 flex items-end justify-between">
@@ -79,11 +97,14 @@ export function CheckoutView() {
                   />
                 </div>
                 <button
-                  onClick={() => setStep(3)}
+                  onClick={startCheckout}
+                  disabled={loading}
                   className="w-full rounded-xl bg-[#84EA53] py-3.5 text-sm font-bold"
                 >
-                  Place order · $260.00
+                  {loading ? 'Creating secure payment…' : 'Place order'}
                 </button>
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                {qrUrl && <div className="mt-4 rounded-xl bg-[#f7f5f0] p-4 text-center"><p className="mb-3 text-sm">Scan to pay with your banking app</p><Image src={qrUrl} alt="Payment QR code" width={280} height={280} className="mx-auto" unoptimized /></div>}
               </div>
             )}
           </section>

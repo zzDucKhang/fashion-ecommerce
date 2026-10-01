@@ -14,6 +14,9 @@ const paymentInclude = {
 } as const
 
 export class PaymentRepo {
+  async create(data: { orderId: number; amount: number; paymentCode: string }) {
+    return prisma.paymentTransaction.create({ data: { orderId: data.orderId, amount: data.amount, provider: 'SEPAY', providerTransId: data.paymentCode } })
+  }
   async findAll(query: GetAllPaymentsQueryType) {
     const where = {
       ...(query.status ? { status: query.status } : {}),
