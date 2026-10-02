@@ -646,7 +646,13 @@ model PaymentTransaction {
   orderId         Int
   order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   provider        String        @db.VarChar(100)
-  providerTransId String        @unique @db.VarChar(255)
+
+  
+  paymentCode     String        @unique @db.VarChar(255)
+
+  // sebay gui lai sau nay nen ban dau co the null
+  providerTransId String?       @unique @db.VarChar(255)
+
   amount          Decimal       @db.Decimal(12, 2)
   status          PaymentStatus @default(PENDING)
 
