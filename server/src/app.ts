@@ -11,12 +11,18 @@ import { cartOrderRouter } from '@/modules/cart-order/cart-order.routes'
 import { inventorySaleRouter } from '@/modules/inventory-sale/inventory-sale.routes'
 import { fulfillmentRouter } from '@/modules/fulfillment/fulfillment.routes'
 import { loyaltyEngageRouter } from '@/modules/loyalty-engage/loyalty-engage.routes'
+import { sepayWebhookRouter } from '@/modules/fulfillment/payment/payment.routes'
 
 export const createApp = (): Express => {
   const app = express()
 
   app.use(helmet())
   app.use(cors())
+
+  // QUAN TRONG QUAN TRONG QUAN TRONG. 
+  // SePay webhook khong dung express.json()
+  app.use('/api/v1/fulfillment/payments/webhook', sepayWebhookRouter)
+
   app.use(express.json({ limit: '10mb' }))
   app.use(express.urlencoded({ extended: true }))
   app.use(pinoHttp({ autoLogging: false }))

@@ -4,9 +4,18 @@ import { authGuard } from '@/middlewares/guards/auth.guard'
 import { roleGuard } from '@/middlewares/guards/role.guard'
 import { validateRequest } from '@/middlewares/pipes/validate.pipe'
 import { getAllPaymentsQuerySchema, paymentIdParamsSchema, createPaymentSchema } from './payment.schema'
+import express from 'express'
 
 export const paymentRouter = Router()
 const controller = new PaymentController()
+
+
+export const sepayWebhookRouter = Router()
+sepayWebhookRouter.post(
+  '/',
+  express.raw({ type: 'application/json' }),
+  controller.sepay,
+)
 
 // Toàn bộ API thanh toán bắt buộc đăng nhập và yêu cầu quyền ADMIN
 paymentRouter.use(authGuard)

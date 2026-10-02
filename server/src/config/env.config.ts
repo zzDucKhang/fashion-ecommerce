@@ -14,7 +14,9 @@ const envSchema = z.object({
   REFRESH_TOKEN_SECRET: z.string().min(1),
   REFRESH_TOKEN_EXPIRES_IN: z.string().default('1d'),
   
-  PAYMENT_API_KEY: z.string().min(1),
+  SEPAY_QR_BASE_URL: z.string().optional(),
+  SEPAY_ACCOUNT_NUMBER: z.string().optional(),
+  SEPAY_BANK_CODE: z.string().optional(),
   
   S3_ENDPOINT: z.string().optional(),
   S3_REGION: z.string().optional(),
