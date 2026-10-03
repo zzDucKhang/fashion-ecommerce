@@ -4,7 +4,7 @@ import { CreateOrderPayload } from '@/types';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { CART_QUERY_KEYS } from '../cart/hooks/use-cart';
+import { CART_QUERY_KEYS } from '@/modules/cart/hooks/use-cart';
 
 export const useCreateOrder = () => {
   const router = useRouter();
