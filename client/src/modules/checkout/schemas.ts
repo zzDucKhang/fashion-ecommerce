@@ -38,7 +38,7 @@ export const checkoutSchema = z
       invalid_type_error: 'Phương thức thanh toán không hợp lệ',
     }),
     
-    shippingMethod: z.string().default('STANDARD'),
+    shippingMethod: z.string().optional(),
     customerNote: z.string().max(1000, 'Ghi chú không được quá 1000 ký tự').optional(),
     voucherCode: z.string().optional(),
     pointUsed: z.number().min(0, 'Số điểm không hợp lệ').optional(),

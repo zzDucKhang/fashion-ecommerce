@@ -16,7 +16,7 @@ export function CheckoutView() {
   const { data: cartResponse } = useCart();
   const createOrderMutation = useCreateOrder();
 
-  const methods = useForm<CheckoutFormValues>({
+  const methods = useForm({
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
       shippingMethod: 'STANDARD',
