@@ -1,27 +1,50 @@
 'use client';
-import Image from 'next/image';
+
 import Link from 'next/link';
-import { Minus, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
-import { products } from '@/modules/catalog/mock';
-const initial = [
-  { product: products[0], quantity: 1, variant: 'M / Natural' },
-  { product: products[3], quantity: 2, variant: 'One size / Sand' },
-];
+import { useCart } from '../hooks/use-cart';
+import { CartItemComponent } from './cart-item';
+import { CartSummary } from './cart-summary';
+
 export function CartView() {
-  const [items, setItems] = useState(initial);
-  const update = (index: number, delta: number) =>
-    setItems(
-      items.map((item, i) =>
-        i === index
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item,
-      ),
+  const { data: cartResponse, isLoading, isError } = useCart();
+
+  if (isLoading) {
+    return (
+      <main className="mx-auto max-w-[1180px] px-4 py-10 sm:px-8 lg:py-16">
+        <div className="animate-pulse space-y-8">
+          <div className="h-8 w-48 rounded bg-gray-200"></div>
+          <div className="h-64 rounded-2xl bg-gray-200"></div>
+        </div>
+      </main>
     );
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
-    0,
-  );
+  }
+
+  if (isError) {
+    return (
+      <main className="mx-auto max-w-[1180px] px-4 py-10 sm:px-8 lg:py-16 text-center">
+        <p className="text-red-500">Could not load cart data. Please try again later.</p>
+      </main>
+    );
+  }
+
+  // Handle case where cart might be null or empty
+  const items = cartResponse?.data?.cartItems || [];
+
+  if (items.length === 0) {
+    return (
+      <main className="mx-auto max-w-[1180px] px-4 py-20 sm:px-8 text-center">
+        <h1 className="font-display text-4xl mb-4">Your bag is empty</h1>
+        <p className="text-[#74736e] mb-8">Looks like you haven't made your choice yet.</p>
+        <Link
+          href="/shop"
+          className="inline-block rounded-xl bg-black px-8 py-3.5 text-sm font-bold text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
+        >
+          Explore products
+        </Link>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-[1180px] px-4 py-10 sm:px-8 lg:py-16">
       <div className="mb-10">
@@ -33,92 +56,11 @@ export function CartView() {
       </div>
       <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
         <div className="divide-y divide-[#EAE6DF] rounded-2xl bg-white px-5">
-          {items.map((item, index) => (
-            <div key={item.product.slug} className="flex gap-4 py-5">
-              <div className="relative h-32 w-28 shrink-0 overflow-hidden rounded-xl bg-[#e9e5dc]">
-                <Image
-                  src={item.product.images[0]}
-                  alt={item.product.name}
-                  fill
-                  sizes="112px"
-                  className="object-cover"
-                />
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <div className="flex justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold">{item.product.name}</p>
-                    <p className="mt-1 text-xs text-[#74736e]">
-                      {item.product.brand}
-                    </p>
-                    <p className="mt-2 text-xs text-[#74736e]">
-                      {item.variant}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() =>
-                      setItems(items.filter((_, i) => i !== index))
-                    }
-                    aria-label="Remove item"
-                    className="h-fit text-[#9b9991]"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-                <div className="mt-auto flex items-center justify-between">
-                  <div className="flex items-center rounded-lg border border-[#EAE6DF]">
-                    <button
-                      onClick={() => update(index, -1)}
-                      className="p-2"
-                      aria-label="Decrease quantity"
-                    >
-                      <Minus size={12} />
-                    </button>
-                    <span className="w-5 text-center text-xs">
-                      {item.quantity}
-                    </span>
-                    <button
-                      onClick={() => update(index, 1)}
-                      className="p-2"
-                      aria-label="Increase quantity"
-                    >
-                      <Plus size={12} />
-                    </button>
-                  </div>
-                  <span className="text-sm font-bold">
-                    ${(item.product.price * item.quantity).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </div>
+          {items.map((item) => (
+            <CartItemComponent key={item.id} item={item} />
           ))}
         </div>
-        <aside className="h-fit rounded-2xl bg-white p-6 lg:sticky lg:top-36">
-          <h2 className="font-display text-3xl">Summary</h2>
-          <div className="mt-7 space-y-3 border-b border-[#EAE6DF] pb-5 text-sm">
-            <div className="flex justify-between">
-              <span className="text-[#74736e]">Subtotal</span>
-              <span>${subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#74736e]">Shipping</span>
-              <span>Free</span>
-            </div>
-          </div>
-          <div className="flex justify-between py-5 text-base font-bold">
-            <span>Total</span>
-            <span>${subtotal.toFixed(2)}</span>
-          </div>
-          <Link
-            href="/checkout"
-            className="block rounded-xl bg-[#84EA53] py-3.5 text-center text-sm font-bold"
-          >
-            Continue to checkout
-          </Link>
-          <p className="mt-4 text-center text-[11px] text-[#74736e]">
-            Free shipping on orders over $100
-          </p>
-        </aside>
+        <CartSummary items={items} />
       </div>
     </main>
   );
