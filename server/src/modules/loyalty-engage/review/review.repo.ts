@@ -1,8 +1,11 @@
 // src/modules/loyalty-engage/review/review.repo.ts
 import { prisma } from '@/database/prisma'
+import { createLogger } from '@/common/logger'
+
+const logger = createLogger('ReviewRepo')
 
 export class ReviewRepo {
-  /** Kiểm tra product tồn tại */
+  /** Kiểm tra product tồn tại (dùng cho read query / catalog metadata) */
   async findProductById(productId: number) {
     return prisma.product.findFirst({
       where: { id: productId, deletedAt: null },
@@ -11,36 +14,13 @@ export class ReviewRepo {
   }
 
   /**
-   * Kiểm tra orderItem hợp lệ: đơn thuộc user, trạng thái DELIVERED,
-   * chưa bị xóa mềm, và trong đơn có chứa productId này.
-   * Bắt buộc trước khi tạo review để ngăn đánh giá ảo.
+   * Tạo review mới kèm media (sử dụng nested create cho ReviewMedia).
+   *
+   * RACE-CONDITION FIX:
+   * Rely on the database-level @@unique([orderId, productId]) constraint.
+   * If two concurrent requests try to insert a review for the same order and product,
+   * PostgreSQL enforces uniqueness at the storage engine level and throws P2002.
    */
-  async findValidOrderItem(orderId: number, userId: number, productId: number) {
-    return prisma.orderItem.findFirst({
-      where: {
-        orderId,
-        order: { userId, status: 'DELIVERED', deletedAt: null },
-        variant: { productId },
-      },
-    })
-  }
-
-  /**
-   * Kiểm tra user đã review sản phẩm trong đơn này chưa.
-   * Unique constraint trong schema: @@unique([orderId, productId])
-   * - Nếu có orderId: kiểm tra theo orderId + productId (1 đơn hàng chỉ review 1 lần)
-   * - Nếu không có orderId: kiểm tra theo userId + productId
-   */
-  async findExistingReview(userId: number, productId: number, orderId?: number) {
-    if (orderId) {
-      return prisma.productReview.findFirst({
-        where: { orderId, productId },
-      })
-    }
-    return prisma.productReview.findFirst({ where: { userId, productId } })
-  }
-
-  /** Tạo review mới kèm media (dùng nested create cho ReviewMedia) */
   async createReview(data: {
     userId: number
     productId: number
@@ -49,7 +29,12 @@ export class ReviewRepo {
     content: string
     mediaUrls: Array<{ url: string; type: string }>
   }) {
-    return prisma.productReview.create({
+    logger.info(
+      { userId: data.userId, productId: data.productId, orderId: data.orderId },
+      'createReview: executing atomic insert',
+    )
+
+    const review = await prisma.productReview.create({
       data: {
         userId: data.userId,
         productId: data.productId,
@@ -68,6 +53,13 @@ export class ReviewRepo {
         user: { select: { id: true, fullName: true, avatarUrl: true } },
       },
     })
+
+    logger.info(
+      { reviewId: review.id, userId: data.userId, productId: data.productId },
+      'createReview: review created successfully in DB',
+    )
+
+    return review
   }
 
   /** Lấy danh sách review theo productId (có phân trang, lọc theo rating) */
@@ -77,6 +69,7 @@ export class ReviewRepo {
       isHidden: false,
       ...(rating !== undefined ? { rating } : {}),
     }
+
     const [data, total] = await prisma.$transaction([
       prisma.productReview.findMany({
         where,
@@ -90,12 +83,12 @@ export class ReviewRepo {
       }),
       prisma.productReview.count({ where }),
     ])
+
     return { data, total }
   }
 
   /**
    * Tính rating trung bình của product.
-   * FIX: Dùng .toNumber() thay vì Number(x.toFixed(1)) để xử lý Prisma.Decimal đúng cách.
    * Bảo vệ chia cho 0: trả về 0 nếu không có review nào.
    */
   async getAverageRating(productId: number) {
@@ -106,12 +99,10 @@ export class ReviewRepo {
     })
 
     const totalReviews = result._count.rating
-
-    // Prisma aggregate trả về Decimal | null — bảo vệ trường hợp không có review
     const rawAvg = result._avg.rating
     const averageRating =
       rawAvg !== null && totalReviews > 0
-        ? Math.round(rawAvg * 10) / 10 // làm tròn 1 chữ số thập phân
+        ? Math.round(rawAvg * 10) / 10
         : 0
 
     return { averageRating, totalReviews }

@@ -72,7 +72,8 @@ export class VoucherController {
   /** POST /vouchers/apply – Áp dụng voucher (tăng usedCount) */
   applyVoucher = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = await this.voucherService.applyVoucher(req.body.code)
+      const userId = req.user!.userId
+      const data = await this.voucherService.applyVoucher(req.body.code, userId)
       return res.status(200).json({ statusCode: 200, ...data })
     } catch (error) {
       next(error)

@@ -1,87 +1,37 @@
 // src/modules/loyalty-engage/point/point.repo.ts
 import { prisma } from '@/database/prisma'
+import { createLogger } from '@/common/logger'
 
-// Định nghĩa local type thay vì import từ @prisma/client (tránh lỗi version)
-type PointTransType = 'EARN' | 'REDEEM' | 'REFUND' | 'EXPIRE'
+const logger = createLogger('PointRepo')
+
+/**
+ * Row shape returned by `SELECT ... FOR UPDATE` on the User table.
+ * Used for pessimistic row-level locking inside interactive transactions.
+ */
+interface LockedUserRow {
+  id: number
+  rewardPoints: number
+}
+
+export type AtomicEarnResult =
+  | { isIdempotent: true; transaction: any; currentPoint: number }
+  | { isIdempotent: false; transaction: any; currentPoint: number; pointChange: number }
+
+export type AtomicRedeemResult =
+  | { isIdempotent: true; transaction: any; currentPoint: number; discountAmount: number }
+  | { isIdempotent: false; transaction: any; currentPoint: number; discountAmount: number }
+  | { error: 'USER_NOT_FOUND' }
+  | { error: 'INSUFFICIENT_POINTS'; currentPoint: number; required: number }
+  | { error: 'EXCEEDS_ORDER_TOTAL'; orderTotal: number }
 
 export class PointRepo {
-  /** Lấy thông tin user (cần rewardPoints hiện tại) */
+  // ─────────────── Read-Only Queries (outside transaction) ───────────────
+
+  /** Lấy thông tin user (cần rewardPoints hiện tại) — read-only, no lock */
   async findUserById(userId: number) {
     return prisma.user.findUnique({
       where: { id: userId, deletedAt: null },
       select: { id: true, rewardPoints: true },
-    })
-  }
-
-  /**
-   * Cập nhật điểm và tạo transaction trong cùng một DB transaction.
-   * Đảm bảo tính atomic: nếu tạo transaction thất bại, điểm không bị trừ/cộng.
-   * Note: tx typed as any để tương thích với Prisma interactive transaction API
-   * trên phiên bản hiện tại (tương tự pattern trong user.repo.ts, address.repo.ts).
-   */
-  async updatePointsAndCreateTransaction(
-    userId: number,
-    newPoints: number,
-    txData: {
-      orderId?: number
-      pointChange: number
-      currentPoint: number
-      transactionType: PointTransType
-      description: string
-    },
-  ) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return prisma.$transaction(async (tx: any) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: { rewardPoints: newPoints },
-      })
-      return tx.pointTransaction.create({
-        data: {
-          userId,
-          orderId: txData.orderId,
-          pointChange: txData.pointChange,
-          currentPoint: txData.currentPoint,
-          transactionType: txData.transactionType,
-          description: txData.description,
-        },
-      })
-    })
-  }
-
-  /**
-   * Atomic conditional decrement: chỉ trừ điểm nếu rewardPoints >= pointsToRedeem tại thời điểm UPDATE.
-   * Trả về true nếu thành công, false nếu không đủ điểm (ngăn race condition double-spend).
-   */
-  async atomicDecrementPoints(userId: number, pointsToRedeem: number): Promise<boolean> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return prisma.$transaction(async (tx: any) => {
-      const result = await tx.user.updateMany({
-        where: { id: userId, rewardPoints: { gte: pointsToRedeem }, deletedAt: null },
-        data: { rewardPoints: { decrement: pointsToRedeem } },
-      })
-      return result.count > 0
-    })
-  }
-
-  /** Tạo bản ghi giao dịch điểm độc lập (dùng sau atomicDecrementPoints) */
-  async createTransaction(txData: {
-    userId: number
-    orderId?: number
-    pointChange: number
-    currentPoint: number
-    transactionType: PointTransType
-    description: string
-  }) {
-    return prisma.pointTransaction.create({
-      data: {
-        userId: txData.userId,
-        orderId: txData.orderId,
-        pointChange: txData.pointChange,
-        currentPoint: txData.currentPoint,
-        transactionType: txData.transactionType,
-        description: txData.description,
-      },
     })
   }
 
@@ -107,17 +57,213 @@ export class PointRepo {
     })
   }
 
-  /** Kiểm tra đã tồn tại giao dịch EARN cho đơn này chưa */
-  async findEarnTransactionByOrderId(orderId: number) {
-    return prisma.pointTransaction.findFirst({
-      where: { orderId, transactionType: 'EARN' },
-    })
+  // ─────────────── ACID Transaction Methods (Pessimistic Locking & Idempotency) ───────────────
+
+  /**
+   * Atomic EARN flow with row-level pessimistic locking and strict idempotency.
+   *
+   * Wraps the ENTIRE sequence inside a single `prisma.$transaction`:
+   *   1. Acquires Row-Level Lock on User row: `SELECT ... FOR UPDATE`
+   *   2. Enforces Idempotency: checks for pre-existing EARN transaction for this orderId
+   *   3. Updates user rewardPoints
+   *   4. Records PointTransaction audit log
+   */
+  async atomicEarnPoints(
+    userId: number,
+    orderId: number,
+    pointChange: number,
+    description: string,
+  ): Promise<AtomicEarnResult | null> {
+    logger.info({ userId, orderId, pointChange }, 'atomicEarnPoints: entering transaction')
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return prisma.$transaction(
+      async (tx: any): Promise<AtomicEarnResult | null> => {
+        // Step 1: Enforce Row-Level Pessimistic Locking on User table
+        const lockedRows: LockedUserRow[] = await tx.$queryRaw`
+          SELECT id, "rewardPoints"
+          FROM "User"
+          WHERE id = ${userId} AND "deletedAt" IS NULL
+          FOR UPDATE
+        `
+
+        if (lockedRows.length === 0) {
+          logger.warn({ userId }, 'atomicEarnPoints: user not found or deleted inside tx')
+          return null
+        }
+        const lockedUser = lockedRows[0]
+
+        // Step 2: Strict Idempotency check inside the locked critical section
+        const existingEarn = await tx.pointTransaction.findFirst({
+          where: { orderId, transactionType: 'EARN' },
+        })
+
+        if (existingEarn) {
+          logger.info(
+            { userId, orderId, existingTransactionId: existingEarn.id },
+            'atomicEarnPoints: duplicate request detected — returning idempotent response',
+          )
+          return {
+            isIdempotent: true,
+            transaction: existingEarn,
+            currentPoint: lockedUser.rewardPoints,
+          }
+        }
+
+        // Step 3: Compute new balance and persist atomically
+        const newPoints = lockedUser.rewardPoints + pointChange
+
+        await tx.user.update({
+          where: { id: userId },
+          data: { rewardPoints: newPoints },
+        })
+
+        // Step 4: Persist audit log
+        const transaction = await tx.pointTransaction.create({
+          data: {
+            userId,
+            orderId,
+            pointChange,
+            currentPoint: newPoints,
+            transactionType: 'EARN',
+            description,
+          },
+        })
+
+        logger.info(
+          { userId, orderId, pointChange, newPoints, transactionId: transaction.id },
+          'atomicEarnPoints: EARN transaction committed successfully',
+        )
+
+        return {
+          isIdempotent: false,
+          transaction,
+          currentPoint: newPoints,
+          pointChange,
+        }
+      },
+      {
+        isolationLevel: 'ReadCommitted',
+        timeout: 10000,
+      },
+    )
   }
 
-  /** Kiểm tra đã tồn tại giao dịch REDEEM cho đơn này chưa */
-  async findRedeemTransactionByOrderId(orderId: number) {
-    return prisma.pointTransaction.findFirst({
-      where: { orderId, transactionType: 'REDEEM' },
-    })
+  /**
+   * Atomic REDEEM flow with row-level pessimistic locking and strict idempotency.
+   *
+   * Wraps the ENTIRE sequence inside a single `prisma.$transaction`:
+   *   1. Acquires Row-Level Lock on User row: `SELECT ... FOR UPDATE`
+   *   2. Enforces Idempotency: checks for pre-existing REDEEM transaction for this orderId
+   *   3. Checks balance sufficiency against true locked balance (eliminates Check-Then-Act race condition)
+   *   4. Enforces redemption cap against order total
+   *   5. Decrements user rewardPoints
+   *   6. Records PointTransaction audit log
+   */
+  async atomicRedeemPoints(
+    userId: number,
+    orderId: number,
+    pointsToRedeem: number,
+    orderTotal: number,
+  ): Promise<AtomicRedeemResult> {
+    logger.info({ userId, orderId, pointsToRedeem }, 'atomicRedeemPoints: entering transaction')
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return prisma.$transaction(
+      async (tx: any): Promise<AtomicRedeemResult> => {
+        // Step 1: Enforce Row-Level Pessimistic Locking on User table
+        const lockedRows: LockedUserRow[] = await tx.$queryRaw`
+          SELECT id, "rewardPoints"
+          FROM "User"
+          WHERE id = ${userId} AND "deletedAt" IS NULL
+          FOR UPDATE
+        `
+
+        if (lockedRows.length === 0) {
+          logger.warn({ userId }, 'atomicRedeemPoints: user not found inside tx')
+          return { error: 'USER_NOT_FOUND' }
+        }
+        const lockedUser = lockedRows[0]
+
+        // Step 2: Strict Idempotency check inside the locked critical section
+        const existingRedeem = await tx.pointTransaction.findFirst({
+          where: { orderId, transactionType: 'REDEEM' },
+        })
+
+        if (existingRedeem) {
+          logger.info(
+            { userId, orderId, existingTransactionId: existingRedeem.id },
+            'atomicRedeemPoints: duplicate redemption request detected — returning idempotent response',
+          )
+          return {
+            isIdempotent: true,
+            transaction: existingRedeem,
+            currentPoint: lockedUser.rewardPoints,
+            discountAmount: Math.abs(existingRedeem.pointChange),
+          }
+        }
+
+        // Step 3: Atomic balance sufficiency verification (NO Check-Then-Act gap)
+        if (lockedUser.rewardPoints < pointsToRedeem) {
+          logger.warn(
+            { userId, currentPoints: lockedUser.rewardPoints, pointsToRedeem },
+            'atomicRedeemPoints: insufficient reward points balance',
+          )
+          return {
+            error: 'INSUFFICIENT_POINTS',
+            currentPoint: lockedUser.rewardPoints,
+            required: pointsToRedeem,
+          }
+        }
+
+        // Step 4: Cap check against order total (1 point = 1 VND)
+        if (pointsToRedeem > orderTotal) {
+          logger.warn(
+            { userId, pointsToRedeem, orderTotal },
+            'atomicRedeemPoints: points exceed order total amount',
+          )
+          return {
+            error: 'EXCEEDS_ORDER_TOTAL',
+            orderTotal,
+          }
+        }
+
+        // Step 5: Atomic decrement
+        const newPoints = lockedUser.rewardPoints - pointsToRedeem
+
+        await tx.user.update({
+          where: { id: userId },
+          data: { rewardPoints: newPoints },
+        })
+
+        // Step 6: Persist audit log
+        const transaction = await tx.pointTransaction.create({
+          data: {
+            userId,
+            orderId,
+            pointChange: -pointsToRedeem,
+            currentPoint: newPoints,
+            transactionType: 'REDEEM',
+            description: `Dùng ${pointsToRedeem} điểm (tương đương ${pointsToRedeem} VNĐ) thanh toán đơn hàng #${orderId}`,
+          },
+        })
+
+        logger.info(
+          { userId, orderId, pointsToRedeem, newPoints, transactionId: transaction.id },
+          'atomicRedeemPoints: REDEEM transaction committed successfully',
+        )
+
+        return {
+          isIdempotent: false,
+          transaction,
+          currentPoint: newPoints,
+          discountAmount: pointsToRedeem,
+        }
+      },
+      {
+        isolationLevel: 'ReadCommitted',
+        timeout: 10000,
+      },
+    )
   }
 }

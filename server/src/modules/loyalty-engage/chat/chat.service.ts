@@ -1,5 +1,6 @@
 // src/modules/loyalty-engage/chat/chat.service.ts
 import { BadRequestError, NotFoundError } from '@/common/errors'
+import { createLogger } from '@/common/logger'
 import { ChatRepo } from './chat.repo'
 import {
   GetChatHistoryQueryType,
@@ -9,6 +10,8 @@ import {
   UpsertSocketSessionBodyType,
 } from './chat.schema'
 
+const logger = createLogger('ChatService')
+
 export class ChatService {
   constructor(private chatRepo = new ChatRepo()) {}
 
@@ -16,12 +19,16 @@ export class ChatService {
 
   /**
    * Lưu tin nhắn mới vào bảng Message.
-   * Không setup Socket.IO ở đây – chỉ lưu DB.
    */
   async sendMessage(senderId: number, body: SendMessageBodyType) {
     if (senderId === body.receiverId) {
       throw new BadRequestError('Không thể gửi tin nhắn cho chính mình')
     }
+
+    logger.info(
+      { senderId, receiverId: body.receiverId },
+      'sendMessage: persisting message to database',
+    )
 
     const message = await this.chatRepo.createMessage({
       senderId,
@@ -34,28 +41,53 @@ export class ChatService {
   }
 
   /**
-   * Lấy lịch sử hội thoại giữa 2 user.
-   * Kết quả phân trang, sắp xếp cũ → mới.
+   * Lấy lịch sử hội thoại giữa 2 user sử dụng Cursor-based Pagination.
+   *
+   * PERFORMANCE BENEFIT:
+   *   - O(take) seek time via indexed primary key.
+   *   - Eliminates database IO degradation caused by high-offset skips.
    */
   async getChatHistory(userId: number, query: GetChatHistoryQueryType) {
-    const { withUserId, page, limit } = query
+    const { withUserId, limit, cursor, page } = query
 
     if (userId === withUserId) {
       throw new BadRequestError('Không thể xem lịch sử chat với chính mình')
     }
 
-    const skip = (page - 1) * limit
-    const { data, total } = await this.chatRepo.findConversation(userId, withUserId, skip, limit)
+    const cursorValue = cursor ?? null
+
+    logger.debug(
+      { userId, withUserId, cursor: cursorValue, limit },
+      'getChatHistory: fetching messages via cursor pagination',
+    )
+
+    const { data, nextCursor, hasMore } = await this.chatRepo.findConversation(
+      userId,
+      withUserId,
+      cursorValue,
+      limit,
+    )
 
     return {
       data,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      pagination: {
+        page: page ?? 1,
+        limit,
+        nextCursor,
+        hasMore,
+      },
     }
   }
 
   /** Đánh dấu đã đọc tất cả tin nhắn từ một sender */
   async markAsRead(receiverId: number, body: MarkReadBodyType) {
     const result = await this.chatRepo.markMessagesAsRead(receiverId, body.senderId)
+
+    logger.info(
+      { receiverId, senderId: body.senderId, updatedCount: result.count },
+      'markAsRead: messages marked as read',
+    )
+
     return {
       message: `Đã đọc ${result.count} tin nhắn`,
       updatedCount: result.count,
@@ -68,33 +100,60 @@ export class ChatService {
     return { unreadCount: count }
   }
 
-  /** Lấy danh sách cuộc trò chuyện của user */
+  /**
+   * Lấy danh sách cuộc trò chuyện của user.
+   * Offloads deduplication and ordering to the PostgreSQL query engine.
+   */
   async getConversationList(userId: number) {
-    const partnerIds = await this.chatRepo.findConversationList(userId)
-    return { data: partnerIds }
+    logger.debug({ userId }, 'getConversationList: retrieving partner list')
+
+    const partners = await this.chatRepo.findConversationList(userId)
+    return { data: partners }
   }
 
-  // ─────────────── WebSocket Session APIs ───────────────
+  // ─────────────── WebSocket Session APIs (Redis-backed) ───────────────
 
   /**
    * Lưu hoặc cập nhật socket session khi user kết nối.
-   * Được gọi từ Socket.IO server khi có sự kiện 'connection'.
+   * Uses Redis hash maps with strict 60s TTL to prevent ghost sessions on crash.
    */
   async upsertSocketSession(body: UpsertSocketSessionBodyType) {
+    logger.info({ socketId: body.socketId, userId: body.userId }, 'upsertSocketSession: updating Redis session')
+
     const session = await this.chatRepo.upsertSocketSession(body.socketId, body.userId)
     return { message: 'Socket session đã được lưu', data: session }
   }
 
   /**
+   * Gia hạn socket session khi nhận heartbeat/ping từ client.
+   * Resets TTL của user hash và socket key về 60 giây.
+   */
+  async extendSocketSession(socketId: string) {
+    if (!socketId) {
+      throw new BadRequestError('socketId không được để trống')
+    }
+
+    logger.debug({ socketId }, 'extendSocketSession: handling heartbeat ping')
+
+    const result = await this.chatRepo.extendSocketSession(socketId)
+    if (!result) {
+      throw new NotFoundError('Socket session không tồn tại hoặc đã hết hạn')
+    }
+
+    return { message: 'Gia hạn socket session thành công', data: result }
+  }
+
+  /**
    * Xoá socket session khi user ngắt kết nối.
-   * Được gọi từ Socket.IO server khi có sự kiện 'disconnect'.
    */
   async removeSocketSession(body: RemoveSocketSessionBodyType) {
+    logger.info({ socketId: body.socketId }, 'removeSocketSession: clearing Redis session')
+
     await this.chatRepo.removeSocketSession(body.socketId)
     return { message: 'Socket session đã được xoá' }
   }
 
-  /** Lấy tất cả socket sessions của một user (để emit tới đúng socket) */
+  /** Lấy tất cả socket sessions của một user */
   async getSocketSessionsByUser(userId: number) {
     const sessions = await this.chatRepo.findSocketSessionsByUserId(userId)
     return { data: sessions }

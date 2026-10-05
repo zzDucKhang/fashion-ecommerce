@@ -70,6 +70,16 @@ export class ChatController {
     }
   }
 
+  /** POST /chat/sessions/heartbeat – Gia hạn socket session qua heartbeat ping */
+  extendSocketSession = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.chatService.extendSocketSession(req.body.socketId)
+      return res.status(200).json({ statusCode: 200, ...data })
+    } catch (error) {
+      next(error)
+    }
+  }
+
   /** DELETE /chat/sessions – Xoá socket session khi disconnect */
   removeSocketSession = async (req: Request, res: Response, next: NextFunction) => {
     try {
