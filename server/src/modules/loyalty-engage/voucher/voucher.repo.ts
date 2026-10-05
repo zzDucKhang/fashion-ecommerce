@@ -19,9 +19,9 @@ export type AtomicApplyVoucherResult =
   | { success: true; voucherId: number; code: string }
   | { success: false; reason: VoucherFailureReason }
 
-const VOUCHER_TOTAL_KEY_PREFIX = 'voucher:total:'
-const VOUCHER_USAGE_KEY_PREFIX = 'voucher:usage:'
-const VOUCHER_META_KEY_PREFIX = 'voucher:meta:'
+export const VOUCHER_TOTAL_KEY_PREFIX = 'voucher:total:'
+export const VOUCHER_USAGE_KEY_PREFIX = 'voucher:usage:'
+export const VOUCHER_META_KEY_PREFIX = 'voucher:meta:'
 const VOUCHER_META_CACHE_TTL_SECONDS = 30 // Cache metadata 30s to withstand 10k+ req/sec flash sales
 
 export class VoucherRepo {
