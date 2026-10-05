@@ -166,11 +166,10 @@ export default function FlashSaleShopPage() {
                 <button
                   key={c.id}
                   onClick={() => setSelectedCampaignId(c.id)}
-                  className={`flex shrink-0 items-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition-all shadow-xs ${
-                    isSelected
+                  className={`flex shrink-0 items-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition-all shadow-xs ${isSelected
                       ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 scale-105'
                       : 'bg-white text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
-                  }`}
+                    }`}
                 >
                   <Flame className={`size-4 ${isSelected ? 'fill-amber-300 text-amber-300' : 'text-zinc-400'}`} />
                   <span>{c.name}</span>
