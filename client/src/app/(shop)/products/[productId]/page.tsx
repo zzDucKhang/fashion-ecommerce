@@ -1,0 +1,167 @@
+'use client';
+
+import * as React from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import Image from 'next/image';
+import Link from 'next/link';
+import { ChevronLeft, Star, Plus, Minus, ShoppingBag, Loader2, Check } from 'lucide-react';
+import { catalogApi } from '@/api/catalog.api';
+import { useAddToCart } from '@/modules/cart/hooks/use-cart';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/lib/utils/format-currency';
+
+export default function ProductDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const productId = Number(params.productId);
+  const [selectedVariantIndex, setSelectedVariantIndex] = React.useState(0);
+  const [quantity, setQuantity] = React.useState(1);
+
+  const { data: res, isLoading } = useQuery({
+    queryKey: ['product-detail', productId],
+    queryFn: () => catalogApi.getProductById(productId),
+    enabled: !!productId,
+  });
+
+  const addToCartMutation = useAddToCart();
+  const product = res?.data;
+  const variants = product?.variants || [];
+  const selectedVariant = variants[selectedVariantIndex] || variants[0];
+
+  const handleAddToCart = () => {
+    if (!selectedVariant) return;
+    addToCartMutation.mutate({
+      variantId: selectedVariant.id,
+      quantity,
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-[1280px] px-4 py-16 text-center text-sm text-neutral-500">
+        <Loader2 className="mx-auto size-6 animate-spin mb-2" />
+        Đang tải thông tin sản phẩm...
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="mx-auto max-w-[1280px] px-4 py-16 text-center">
+        <p className="text-sm text-neutral-500 mb-4">Không tìm thấy sản phẩm này.</p>
+        <Button onClick={() => router.push('/products')} variant="outline">
+          Quay lại danh sách
+        </Button>
+      </div>
+    );
+  }
+
+  const currentPrice = Number(selectedVariant?.sellingPrice || selectedVariant?.originalPrice || 0);
+  const originalPrice = Number(selectedVariant?.originalPrice || 0);
+
+  return (
+    <main className="mx-auto max-w-[1280px] px-4 py-6 sm:px-8 lg:py-12">
+      <Link
+        href="/products"
+        className="mb-6 inline-flex items-center gap-1 text-xs text-[#74736e] hover:text-neutral-900 transition"
+      >
+        <ChevronLeft size={14} /> Quay lại danh mục
+      </Link>
+
+      <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
+        {/* Hình ảnh */}
+        <div className="relative aspect-square overflow-hidden rounded-2xl bg-white border border-[#EAE6DF]">
+          <Image
+            src={selectedVariant?.imageUrl || product.thumbnailUrl || '/placeholder.png'}
+            alt={product.defaultName}
+            fill
+            priority
+            className="object-cover"
+          />
+        </div>
+
+        {/* Thông tin sản phẩm */}
+        <div className="flex flex-col justify-center rounded-2xl bg-white p-6 sm:p-10 border border-[#EAE6DF] shadow-xs">
+          <div className="mb-4">
+            <span className="eyebrow block mb-2">{product.brand?.defaultName || 'FASHION STORE'}</span>
+            <h1 className="font-display text-3xl sm:text-4xl text-[#1D1F20]">{product.defaultName}</h1>
+          </div>
+
+          <div className="flex items-baseline gap-3 pb-6 border-b border-[#EAE6DF]">
+            <span className="text-2xl font-bold text-neutral-900">{formatCurrency(currentPrice)}</span>
+            {originalPrice > currentPrice && (
+              <span className="text-sm text-neutral-400 line-through">{formatCurrency(originalPrice)}</span>
+            )}
+            <Badge variant="lime" className="ml-auto text-[10px]">Chính hãng 100%</Badge>
+          </div>
+
+          <p className="py-6 text-xs text-neutral-600 leading-relaxed">
+            {product.translations?.[0]?.shortDesc ||
+              'Sản phẩm được gia công từ chất liệu cao cấp mang lại cảm giác thoáng mát và tôn dáng.'}
+          </p>
+
+          {/* Chọn biến thể (SKU) */}
+          {variants.length > 1 && (
+            <div className="space-y-3 mb-6">
+              <span className="text-xs font-semibold text-neutral-800">Biến thể / Phân loại</span>
+              <div className="flex flex-wrap gap-2">
+                {variants.map((v: any, idx: number) => (
+                  <button
+                    key={v.id}
+                    onClick={() => setSelectedVariantIndex(idx)}
+                    className={`rounded-xl border px-3.5 py-2 text-xs font-medium transition ${
+                      selectedVariantIndex === idx
+                        ? 'border-neutral-900 bg-neutral-900 text-white'
+                        : 'border-[#EAE6DF] bg-white text-neutral-700 hover:border-neutral-400'
+                    }`}
+                  >
+                    {v.sku} ({v.stockQuantity > 0 ? `Còn ${v.stockQuantity}` : 'Hết hàng'})
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Thao tác thêm vào giỏ */}
+          <div className="flex items-center gap-4 pt-4 border-t border-[#EAE6DF]">
+            <div className="flex items-center rounded-xl border border-[#EAE6DF] bg-white">
+              <button
+                type="button"
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="p-3 text-neutral-600 hover:text-neutral-900"
+              >
+                <Minus size={14} />
+              </button>
+              <span className="w-8 text-center text-xs font-semibold">{quantity}</span>
+              <button
+                type="button"
+                onClick={() => setQuantity(quantity + 1)}
+                className="p-3 text-neutral-600 hover:text-neutral-900"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+
+            <Button
+              onClick={handleAddToCart}
+              disabled={addToCartMutation.isPending || !selectedVariant || selectedVariant.stockQuantity <= 0}
+              className="flex-1 h-12 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium gap-2"
+            >
+              {addToCartMutation.isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Đang thêm...
+                </>
+              ) : (
+                <>
+                  <ShoppingBag size={16} /> Thêm vào giỏ ({formatCurrency(currentPrice * quantity)})
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}

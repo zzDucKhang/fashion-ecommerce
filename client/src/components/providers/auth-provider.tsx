@@ -34,7 +34,6 @@ function getStoredUserServerSnapshot(): string | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Lấy dữ liệu user an toàn không qua useEffect đồng bộ
   const userString = useSyncExternalStore(
     subscribe,
     getStoredUserSnapshot,

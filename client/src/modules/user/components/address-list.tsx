@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Plus, MapPin, Trash2, Edit3, Check, Loader2 } from 'lucide-react';
+import { Plus, MapPin, Trash2, Edit3, Check, Loader2, AlertCircle, WifiOff } from 'lucide-react';
 import { authApi } from '@/api/auth.api';
 import { addressSchema, type AddressFormData } from '@/modules/auth/schemas';
 import { Button } from '@/components/ui/button';
@@ -27,12 +27,24 @@ export function AddressList() {
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [editingAddress, setEditingAddress] = React.useState<ShippingAddress | null>(null);
   const [deleteTargetId, setDeleteTargetId] = React.useState<number | null>(null);
+  
+  // State quản lý thông báo lỗi hiển thị trực tiếp trong Form
+  const [formError, setFormError] = React.useState<string | null>(null);
 
   const { data: addressesData, isLoading } = useQuery({
     queryKey: ['addresses'],
-    queryFn: async () => {
-      const res = await authApi.getAddresses();
-      return res.data || [];
+    queryFn: async (): Promise<ShippingAddress[]> => {
+      try {
+        const res: any = await authApi.getAddresses();
+        if (Array.isArray(res)) return res;
+        if (Array.isArray(res?.data)) return res.data;
+        if (Array.isArray(res?.data?.data)) return res.data.data;
+        if (Array.isArray(res?.addresses)) return res.addresses;
+        return [];
+      } catch (error) {
+        console.error('Lỗi khi tải danh sách địa chỉ:', error);
+        return [];
+      }
     },
   });
 
@@ -60,6 +72,7 @@ export function AddressList() {
 
   const openCreateDialog = () => {
     setEditingAddress(null);
+    setFormError(null);
     reset({
       receiverName: '',
       phoneNumber: '',
@@ -74,6 +87,7 @@ export function AddressList() {
 
   const openEditDialog = (addr: ShippingAddress) => {
     setEditingAddress(addr);
+    setFormError(null);
     reset({
       receiverName: addr.receiverName,
       phoneNumber: addr.phoneNumber,
@@ -86,8 +100,25 @@ export function AddressList() {
     setIsDialogOpen(true);
   };
 
+  // Helper trích xuất thông báo lỗi chính xác
+  const getErrorMessage = (err: any) => {
+    if (!navigator.onLine || err?.message === 'Network Error' || err?.code === 'ERR_NETWORK') {
+      return 'Mất kết nối mạng! Vui lòng kiểm tra lại đường truyền internet của bạn.';
+    }
+    return (
+      err?.response?.data?.message ||
+      err?.message ||
+      'Thao tác thất bại do máy chủ không phản hồi, vui lòng thử lại sau.'
+    );
+  };
+
   const saveMutation = useMutation({
     mutationFn: async (data: AddressFormData) => {
+      // Bắt ngay lỗi nếu trình duyệt đang ở trạng thái Offline
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        throw new Error('Mất kết nối mạng! Vui lòng kiểm tra lại đường truyền internet.');
+      }
+
       if (editingAddress) {
         return authApi.updateAddress(editingAddress.id, data);
       } else {
@@ -98,14 +129,21 @@ export function AddressList() {
       queryClient.invalidateQueries({ queryKey: ['addresses'] });
       toast.success(editingAddress ? 'Cập nhật địa chỉ thành công!' : 'Thêm địa chỉ mới thành công!');
       setIsDialogOpen(false);
+      setFormError(null);
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Thao tác thất bại, vui lòng thử lại');
+      const msg = getErrorMessage(err);
+      setFormError(msg);
+      toast.error(msg);
     },
+    retry: false, // Tắt retry để khi offline lập tức trả về lỗi, không quay vòng vòng
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        throw new Error('Mất kết nối mạng! Không thể thực hiện xóa.');
+      }
       return authApi.deleteAddress(id);
     },
     onSuccess: () => {
@@ -114,15 +152,18 @@ export function AddressList() {
       setDeleteTargetId(null);
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Xóa địa chỉ thất bại');
+      const msg = getErrorMessage(err);
+      toast.error(msg);
     },
+    retry: false,
   });
 
   const onSubmit = (data: AddressFormData) => {
+    setFormError(null);
     saveMutation.mutate(data);
   };
 
-  const addresses = addressesData || [];
+  const addresses: ShippingAddress[] = Array.isArray(addressesData) ? addressesData : [];
 
   return (
     <div className="space-y-6">
@@ -247,6 +288,17 @@ export function AddressList() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
+            {/* HỘP HIỂN THỊ LỖI KHI MẤT MẠNG HOẶC GỌI API THẤT BẠI */}
+            {formError && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50/80 p-3.5 text-xs text-rose-800 animate-in fade-in-50">
+                <WifiOff className="size-4 shrink-0 text-rose-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold">Lỗi gửi dữ liệu</p>
+                  <p className="mt-0.5 text-rose-700 leading-relaxed">{formError}</p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={control}
@@ -350,4 +402,3 @@ export function AddressList() {
     </div>
   );
 }
-
