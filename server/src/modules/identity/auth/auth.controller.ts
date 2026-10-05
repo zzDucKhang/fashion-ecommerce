@@ -7,13 +7,13 @@ export class AuthController {
 
   register = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      return res.status(201).json({ statusCode: 201, ...await this.authService.register(req.body) })
+      return res.status(201).json({ statusCode: 201, data: await this.authService.register(req.body) })
     } catch (error) { next(error) }
   }
 
   login = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      return res.status(200).json({ statusCode: 200, ...await this.authService.login(req.body, req.ip || '') })
+      return res.status(200).json({ statusCode: 200, data: await this.authService.login(req.body, req.ip || '') })
     } catch (error) { next(error) }
   }
 

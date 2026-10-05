@@ -9,6 +9,9 @@ export const API_ENDPOINTS = {
     CHANGE_PASSWORD: '/identity/auth/change-password',
     LOGOUT: '/identity/auth/logout',
     ADDRESSES: '/identity/addresses',
+    USERS: '/identity/users',
+    ROLES: '/identity/roles',
+    PERMISSIONS: '/identity/roles/permissions',
   },
   CATALOG: {
     PRODUCTS: '/catalog/products',
