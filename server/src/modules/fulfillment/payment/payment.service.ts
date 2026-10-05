@@ -53,15 +53,19 @@ export class PaymentService {
     )
   }
   async handleSePayWebhook(payload: SePayWebhookPayload) {
+    console.log("PAYMENT LOG PAYLOAD:", payload)
     if (payload.transferType !== 'in') {
       throw new AppError('Không phải giao dịch tiền vào', 400)
     }
 
-    if (!payload.code) {
+    // vai shit
+    const paymentCode = payload.code?.trim() || payload.content?.trim()
+
+    if (!paymentCode) {
       throw new AppError('Không tìm thấy payment code', 400)
     }
 
-    const payment = await this.paymentRepo.findByPaymentCode(payload.code)
+    const payment = await this.paymentRepo.findByPaymentCode(paymentCode)
 
     if (!payment) {
       throw new AppError('Payment không tồn tại', 404)
