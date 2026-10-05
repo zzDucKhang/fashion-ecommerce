@@ -5,3 +5,4 @@ export * from './catalog';
 export * from './cart-order';
 export * from './fulfillment';
 export * from './loyalty-engage';
+export * from './inventory-sale';
