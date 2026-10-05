@@ -2,7 +2,6 @@ import { OrderStatus, PaymentStatus, PointTransType, Prisma } from '@prisma/clie
 import { prisma } from '@/database/prisma'
 import { ListOrderInput } from './order.schema'
 
-// Cấu hình include sẵn thông tin sản phẩm/biến thể cho OrderItem
 export const orderItemInclude = {
   orderItems: {
     include: {
@@ -25,12 +24,18 @@ export const orderItemInclude = {
 
 export class OrderRepo {
   /**
-   * Lấy danh sách đơn hàng phân trang + lọc theo trạng thái
+   * PESSIMISTIC LOCK: Khóa phiên giỏ hàng của User chống spam click / double-submit
    */
+  async lockCartByUserId(userId: number, tx: Prisma.TransactionClient) {
+    const carts = await tx.$queryRaw<Array<{ id: number }>>`
+      SELECT id FROM "Cart" WHERE "userId" = ${userId} FOR UPDATE
+    `
+    return carts[0]
+  }
+
   async list(userId: number, query: ListOrderInput) {
     const { page = 1, limit = 10, status } = query
 
-    // Dựng điều kiện lọc động
     const where: Prisma.OrderWhereInput = {
       userId,
       deletedAt: null,
@@ -57,9 +62,6 @@ export class OrderRepo {
     }
   }
 
-  /**
-   * Tìm đơn hàng theo ID (Cho phép truyền Transaction Client nếu nằm trong Transaction)
-   */
   async findById(
     id: number,
     userId?: number,
@@ -75,9 +77,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Tạo đơn hàng mới trong Transaction
-   */
   async create(data: Prisma.OrderCreateInput, tx: Prisma.TransactionClient) {
     return tx.order.create({
       data,
@@ -85,9 +84,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Cập nhật trạng thái đơn hàng (hỗ trợ đồng bộ paymentStatus)
-   */
   async updateStatus(
     id: number,
     status: OrderStatus,
@@ -106,9 +102,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Cập nhật thông tin đơn hàng tổng quát
-   */
   async update(
     id: number,
     data: Prisma.OrderUpdateInput,
@@ -121,9 +114,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Tìm địa chỉ giao hàng của User
-   */
   async findShippingAddress(
     id: number,
     userId: number,
@@ -134,9 +124,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Tìm biến thể sản phẩm phục vụ tạo đơn kèm thông tin Flash Sale đang diễn ra
-   */
   async findVariantForOrder(
     variantId: number,
     db: Prisma.TransactionClient | typeof prisma = prisma
@@ -167,23 +154,25 @@ export class OrderRepo {
   }
 
   /**
-   * Trừ tồn kho biến thể sản phẩm (Atomic Decrement chống Race Condition)
+   * OPTIMISTIC LOCK: Trừ tồn kho kiểm tra cả updatedAt lẫn stockQuantity
    */
-  async decrementStock(
+  async decrementStockOptimistic(
     variantId: number,
     quantity: number,
+    expectedUpdatedAt: Date,
     db: Prisma.TransactionClient | typeof prisma = prisma
   ) {
     const updated = await db.productVariant.updateMany({
-      where: { id: variantId, stockQuantity: { gte: quantity } },
+      where: {
+        id: variantId,
+        updatedAt: expectedUpdatedAt,
+        stockQuantity: { gte: quantity },
+      },
       data: { stockQuantity: { decrement: quantity } },
     })
     return updated.count
   }
 
-  /**
-   * Hoàn lại tồn kho cho biến thể sản phẩm khi hủy đơn
-   */
   async incrementStock(
     variantId: number,
     quantity: number,
@@ -195,9 +184,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Ghi log kho (InventoryLog)
-   */
   async createInventoryLog(
     data: Prisma.InventoryLogUncheckedCreateInput,
     db: Prisma.TransactionClient | typeof prisma = prisma
@@ -205,9 +191,6 @@ export class OrderRepo {
     return db.inventoryLog.create({ data })
   }
 
-  /**
-   * Hoàn lại Điểm thưởng cho User và ghi PointTransaction
-   */
   async refundUserPoints(
     userId: number,
     orderId: number,
@@ -233,9 +216,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Hoàn lại lượt dùng Voucher nếu có
-   */
   async refundVoucherUsage(
     voucherCode: string,
     db: Prisma.TransactionClient | typeof prisma = prisma
@@ -246,9 +226,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Cập nhật trạng thái hủy đơn và đồng bộ paymentStatus
-   */
   async cancelOrder(
     orderId: number,
     paymentStatus: PaymentStatus,
@@ -266,9 +243,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Tăng số lượng đã bán của sản phẩm trong Flash Sale
-   */
   async incrementFlashSaleSoldQuantity(
     flashSaleItemId: number,
     quantity: number,
@@ -280,9 +254,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Tìm Voucher theo mã code (chưa bị xóa mềm)
-   */
   async findVoucherByCode(
     code: string,
     db: Prisma.TransactionClient | typeof prisma = prisma
@@ -292,9 +263,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Đếm số lần user đã sử dụng voucher này (chỉ tính đơn chưa hủy)
-   */
   async countUserVoucherOrders(
     userId: number,
     voucherCode: string,
@@ -309,9 +277,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Tăng lượt sử dụng voucher khi tạo đơn thành công
-   */
   async incrementVoucherUsage(
     voucherCode: string,
     db: Prisma.TransactionClient | typeof prisma = prisma
@@ -322,9 +287,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Lấy số điểm tích lũy hiện có của User
-   */
   async getUserRewardPoints(
     userId: number,
     db: Prisma.TransactionClient | typeof prisma = prisma
@@ -337,7 +299,7 @@ export class OrderRepo {
   }
 
   /**
-   * Trừ điểm tích lũy khi user dùng điểm thanh toán đơn hàng và ghi log PointTransaction
+   * ATOMIC UPDATE: Trừ điểm thưởng có điều kiện chống trừ âm điểm khi chạy song song
    */
   async deductUserPoints(
     userId: number,
@@ -346,9 +308,17 @@ export class OrderRepo {
     orderCode: string,
     db: Prisma.TransactionClient | typeof prisma = prisma
   ) {
-    const updatedUser = await db.user.update({
-      where: { id: userId },
+    const updated = await db.user.updateMany({
+      where: { id: userId, rewardPoints: { gte: pointUsed } },
       data: { rewardPoints: { decrement: pointUsed } },
+    })
+
+    if (updated.count === 0) {
+      throw new Error('Số điểm thưởng không đủ hoặc đã bị trừ bởi giao dịch song song')
+    }
+
+    const user = await db.user.findUnique({
+      where: { id: userId },
       select: { rewardPoints: true },
     })
 
@@ -357,16 +327,13 @@ export class OrderRepo {
         userId,
         orderId,
         pointChange: -pointUsed,
-        currentPoint: updatedUser.rewardPoints,
+        currentPoint: user?.rewardPoints ?? 0,
         transactionType: PointTransType.REDEEM,
         description: `Dùng ${pointUsed} điểm thanh toán đơn hàng ${orderCode}`,
       },
     })
   }
 
-  /**
-   * Hoàn lại lượt bán Flash Sale khi đơn hàng bị hủy trong thời gian chiến dịch còn hiệu lực
-   */
   async decrementFlashSaleSoldQuantity(
     variantId: number,
     quantity: number,
@@ -394,9 +361,6 @@ export class OrderRepo {
     }
   }
 
-  /**
-   * Kiểm tra giao dịch tích điểm (EARN) của đơn hàng đã tồn tại chưa
-   */
   async findEarnTransactionByOrderId(
     orderId: number,
     db: Prisma.TransactionClient | typeof prisma = prisma
@@ -409,9 +373,6 @@ export class OrderRepo {
     })
   }
 
-  /**
-   * Tích điểm thưởng cho user khi đơn hàng hoàn thành (DELIVERED)
-   */
   async awardUserPoints(
     userId: number,
     orderId: number,

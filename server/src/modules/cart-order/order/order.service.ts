@@ -62,13 +62,20 @@ export class OrderService {
    */
   async create(userId: number, input: CreateOrderInput) {
     return prisma.$transaction(async (tx) => {
-      // 1. Kiểm tra giỏ hàng
+      // 0. Đảm bảo chắc chắn giỏ hàng tồn tại trong DB trước khi khóa
+      const initialCart = await this.cartRepo.findOrCreateOwner(userId, undefined, tx)
+
+      // PESSIMISTIC LOCK: Khóa đúng dòng Cart đó lại (chắc chắn lock thành công vì dòng đã có)
+      await tx.$queryRaw`
+        SELECT id FROM "Cart" WHERE id = ${initialCart.id} FOR UPDATE
+      `
+
+      // 1. Kiểm tra giỏ hàng sau khi đã giữ khóa thành công
       const cart = await this.cartRepo.findByOwner(userId, undefined, tx)
       if (!cart || !cart.cartItems.length) {
         throw new BadRequestError('Giỏ hàng của bạn đang trống')
       }
 
-      // Lọc các item được chọn thanh toán
       const items = cart.cartItems.filter(
         (item) => !input.cartItemIds || input.cartItemIds.includes(item.id)
       )
@@ -76,7 +83,7 @@ export class OrderService {
         throw new BadRequestError('Không có sản phẩm nào được chọn để đặt hàng')
       }
 
-      // 2. Lấy thông tin địa chỉ giao hàng và xác thực an toàn sở hữu / bắt buộc
+      // 2. Lấy thông tin địa chỉ giao hàng
       const address = input.shippingAddressId
         ? await this.orderRepo.findShippingAddress(input.shippingAddressId, userId, tx)
         : input.shippingAddress
@@ -98,7 +105,7 @@ export class OrderService {
         )
       }
 
-      // 3. Tính toán tổng tiền & Kiểm tra tồn kho & Validate trạng thái Sản phẩm cha & Flash Sale
+      // 3. Tính toán tổng tiền, Kiểm tra tồn kho (OPTIMISTIC LOCK) & Flash Sale
       let subTotal = 0
       let totalWeightGram = 0
       const orderItems: Prisma.OrderItemCreateWithoutOrderInput[] = []
@@ -107,7 +114,6 @@ export class OrderService {
       for (const item of items) {
         const variant = await this.orderRepo.findVariantForOrder(item.variantId, tx)
 
-        // Kiểm tra tồn tại, xóa mềm và trạng thái sản phẩm cha (Product.status)
         const isProductActive =
           variant &&
           variant.product &&
@@ -118,15 +124,21 @@ export class OrderService {
           throw new BadRequestError(`Sản phẩm "${variant?.product?.defaultName ?? ''}" hiện không còn mở bán`)
         }
 
-        // Tối ưu trừ tồn kho chống Race Condition qua OrderRepo
-        const updatedCount = await this.orderRepo.decrementStock(variant.id, item.quantity, tx)
+        // OPTIMISTIC LOCK: Trừ tồn kho kiểm tra updatedAt và stockQuantity
+        const updatedCount = await this.orderRepo.decrementStockOptimistic(
+          variant.id,
+          item.quantity,
+          variant.updatedAt,
+          tx
+        )
         if (!updatedCount) {
-          throw new BadRequestError(`Sản phẩm "${variant.product.defaultName}" không đủ tồn kho`)
+          throw new BadRequestError(
+            `Sản phẩm "${variant.product.defaultName}" vừa có thay đổi hoặc không đủ tồn kho để đặt hàng`
+          )
         }
 
         totalWeightGram += (variant.weightGram ?? 0) * item.quantity
 
-        // Áp dụng giá Flash Sale nếu có chiến dịch đang diễn ra và còn số lượng khuyến mãi
         let unitPrice = Number(variant.sellingPrice)
         const activeFlashSale = variant.flashSaleItems?.find(
           (fsi) =>
@@ -145,7 +157,6 @@ export class OrderService {
 
         subTotal += unitPrice * item.quantity
 
-        // Snapshot thông tin sản phẩm tại thời điểm mua
         orderItems.push({
           productName: variant.product.defaultName,
           skuCode: variant.sku,
@@ -156,7 +167,6 @@ export class OrderService {
           variant: { connect: { id: variant.id } },
         })
 
-        // Ghi log xuất kho qua OrderRepo
         await this.orderRepo.createInventoryLog(
           {
             variantId: variant.id,
@@ -168,10 +178,10 @@ export class OrderService {
         )
       }
 
-      // 4. Tính toán Phí vận chuyển
+      // 4. Tính phí vận chuyển
       const shippingFee = this.calculateShippingFee(subTotal, input.shippingMethod, totalWeightGram)
 
-      // 5. Kiểm tra và áp dụng Mã giảm giá (Voucher)
+      // 5. Kiểm tra và áp dụng Voucher
       let voucherDiscount = 0
       if (input.voucherCode) {
         const voucher = await this.orderRepo.findVoucherByCode(input.voucherCode, tx)
@@ -207,7 +217,6 @@ export class OrderService {
             voucherDiscount = Math.min(voucherDiscount, Number(voucher.maxDiscountAmt))
           }
         } else {
-          // FIXED_AMOUNT
           voucherDiscount = Number(voucher.discountValue)
         }
 
@@ -215,7 +224,7 @@ export class OrderService {
         await this.orderRepo.incrementVoucherUsage(input.voucherCode, tx)
       }
 
-      // 6. Kiểm tra và áp dụng Điểm thưởng (Reward Points)
+      // 6. Kiểm tra Điểm thưởng
       let pointUsed = 0
       let pointDiscount = 0
 
@@ -228,13 +237,12 @@ export class OrderService {
         }
 
         const remainingPayable = Math.max(0, subTotal + shippingFee - voucherDiscount)
-        // Quy tắc: 1 điểm = 1 VNĐ
         pointDiscount = Math.min(input.pointUsed, remainingPayable)
         pointUsed = pointDiscount
       }
 
       const totalAmount = Math.max(0, subTotal + shippingFee - voucherDiscount - pointDiscount)
-      const pointEarned = Math.floor(totalAmount * 0.01) // Tích lũy 1% giá trị đơn hàng
+      const pointEarned = Math.floor(totalAmount * 0.01)
 
       // 7. Tạo Đơn hàng
       const orderCode = this.generateOrderCode()
@@ -265,12 +273,14 @@ export class OrderService {
         tx
       )
 
-      // Trừ điểm thưởng và ghi nhận giao dịch PointTransaction
+      // Trừ điểm thưởng theo cơ chế Atomic (bảo đảm không bị trừ âm điểm)
       if (pointUsed > 0) {
         await this.orderRepo.deductUserPoints(userId, order.id, pointUsed, orderCode, tx)
       }
 
-      // 8. Xóa các món đã checkout khỏi giỏ hàng qua CartRepo
+      // 8. Xóa giỏ hàng
+      // Sau khi transaction này commit, request thứ hai thoát khỏi PESSIMISTIC LOCK
+      // bước vào kiểm tra sẽ thấy giỏ trống và bị văng ra an toàn
       await this.cartRepo.deleteCartItemsByIds(items.map((i) => i.id), tx)
 
       return order
