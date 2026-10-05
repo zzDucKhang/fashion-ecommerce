@@ -2,25 +2,7 @@ import { DiscountType, PointTransType } from './enums'; //[cite: 1, 2]
 import { UserProfile } from './auth';
 import { Product } from './catalog';
 
-export interface FlashSaleItem {
-  id: number;
-  campaignId: number;
-  variantId: number;
-  flashSalePrice: number | string;
-  promoQuantity: number;
-  soldQuantity: number;
-  variant?: any;
-}
-
-export interface FlashSaleCampaign {
-  id: number;
-  name: string;
-  bannerUrl?: string | null;
-  startTime: string;
-  endTime: string;
-  isActive: boolean;
-  items?: FlashSaleItem[];
-}
+export type { FlashSaleItem, FlashSaleCampaign } from './inventory-sale';
 
 export interface Voucher {
   id: number;
