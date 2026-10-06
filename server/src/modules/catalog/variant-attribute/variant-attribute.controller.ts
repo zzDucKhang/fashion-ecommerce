@@ -22,10 +22,7 @@ export class VariantAttributeController {
     try {
       const variantId = Number(req.params.variantId)
       const data = await this.variantService.getVariantById(variantId)
-      return res.status(200).json({
-        statusCode: 200,
-        data,
-      })
+      return res.status(200).json({ statusCode: 200, data })
     } catch (err) {
       next(err)
     }
@@ -33,7 +30,7 @@ export class VariantAttributeController {
 
   syncVariants = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user?.userId ?? 1
+      const userId = req.user!.userId
       const data = await this.variantService.syncProductVariants(req.body, userId)
       return res.status(200).json({
         statusCode: 200,

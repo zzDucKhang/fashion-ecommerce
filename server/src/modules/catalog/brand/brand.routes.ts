@@ -1,58 +1,54 @@
-import { Router } from "express";
-import { BrandController } from "./brand.controller";
-
+import { Router } from 'express'
+import { z } from 'zod'
+import { BrandController } from './brand.controller'
+import { validateRequest } from '@/middlewares/pipes/validate.pipe'
+import { requireAuth } from '@/middlewares/guards/auth.guard'
+import { requireAdmin } from '@/middlewares/guards/role.guard'
 import {
   getBrandQuerySchema,
   getBrandParamsSchema,
   createBrandBodySchema,
   updateBrandBodySchema,
   upsertBrandTranslationSchema,
-} from "./brand.schema";
-import { z } from "zod";
-import { validateRequest } from "@/middlewares/pipes/validate.pipe";
+} from './brand.schema'
 
-export const brandRouter = Router();
-const controller = new BrandController();
+export const brandRouter = Router()
+const controller = new BrandController()
 
-// Gắn validator để Zod tự điền page=1, limit=10
-brandRouter.get(
-  "/",
-  validateRequest({ query: getBrandQuerySchema }),
-  controller.list,
-);
-
-brandRouter.get(
-  "/:brandId",
-  validateRequest({ params: getBrandParamsSchema }),
-  controller.findById,
-);
+brandRouter.get('/', validateRequest({ query: getBrandQuerySchema }), controller.list)
+brandRouter.get('/:brandId', validateRequest({ params: getBrandParamsSchema }), controller.findById)
 
 brandRouter.post(
-  "/",
+  '/',
+  requireAuth,
+  requireAdmin,
   validateRequest({ body: createBrandBodySchema }),
   controller.create,
-);
+)
 
 brandRouter.put(
-  "/:brandId",
-  validateRequest({
-    params: getBrandParamsSchema,
-    body: updateBrandBodySchema,
-  }),
+  '/:brandId',
+  requireAuth,
+  requireAdmin,
+  validateRequest({ params: getBrandParamsSchema, body: updateBrandBodySchema }),
   controller.update,
-);
+)
 
 brandRouter.delete(
-  "/:brandId",
+  '/:brandId',
+  requireAuth,
+  requireAdmin,
   validateRequest({ params: getBrandParamsSchema }),
   controller.delete,
-);
+)
 
 brandRouter.put(
-  "/:brandId/translations/:languageId",
+  '/:brandId/translations/:languageId',
+  requireAuth,
+  requireAdmin,
   validateRequest({
     params: getBrandParamsSchema.extend({ languageId: z.string().min(2) }),
     body: upsertBrandTranslationSchema,
   }),
   controller.upsertTranslation,
-);
+)

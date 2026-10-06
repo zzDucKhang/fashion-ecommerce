@@ -1,5 +1,6 @@
 // src/lib/api/request.ts
 
+<<<<<<< HEAD
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   process.env.BACKEND_URL ||
@@ -12,6 +13,20 @@ export interface RequestOptions extends RequestInit {
 export class ApiError extends Error {
   public status: number;
   public data: any;
+=======
+if (!API_URL) {
+  throw new Error('BACKEND_URL is not defined');
+}
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
+>>>>>>> 8fb81fb80e0d77b1e30fcd25830eabb6d2e6c87e
 
   constructor(message: string, status: number, data?: any) {
     super(message);
@@ -115,31 +130,53 @@ export async function request<T>(
 }
 
 export const api = {
+<<<<<<< HEAD
   get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     return request<T>(endpoint, { ...options, method: "GET" });
+=======
+  get<T>(path: string, options?: RequestInit) {
+    return request<T>(path, {
+      ...options,
+      method: 'GET',
+    });
+>>>>>>> 8fb81fb80e0d77b1e30fcd25830eabb6d2e6c87e
   },
 
   post<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<T> {
     return request<T>(endpoint, {
       ...options,
+<<<<<<< HEAD
       method: "POST",
       body: body instanceof FormData ? body : JSON.stringify(body),
+=======
+      method: 'POST',
+      body: JSON.stringify(body),
+>>>>>>> 8fb81fb80e0d77b1e30fcd25830eabb6d2e6c87e
     });
   },
 
   put<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<T> {
     return request<T>(endpoint, {
       ...options,
+<<<<<<< HEAD
       method: "PUT",
       body: body instanceof FormData ? body : JSON.stringify(body),
+=======
+      method: 'PUT',
+      body: JSON.stringify(body),
+>>>>>>> 8fb81fb80e0d77b1e30fcd25830eabb6d2e6c87e
     });
   },
 
   patch<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<T> {
     return request<T>(endpoint, {
       ...options,
+<<<<<<< HEAD
       method: "PATCH",
       body: body instanceof FormData ? body : JSON.stringify(body),
+=======
+      method: 'DELETE',
+>>>>>>> 8fb81fb80e0d77b1e30fcd25830eabb6d2e6c87e
     });
   },
 

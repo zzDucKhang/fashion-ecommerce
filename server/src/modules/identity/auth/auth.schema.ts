@@ -72,5 +72,5 @@ export type LoginUserBodyType = z.infer<typeof loginUserBodySchema>
 export type RefreshTokenBodyType = z.infer<typeof refreshTokenBodySchema>
 export type ForgotPasswordBodyType = z.infer<typeof forgotPasswordBodySchema>
 export type VerificationCodeParamsType = z.infer<typeof verificationCodeParamsSchema>
-export type ResetPasswordBodyType = z.input<typeof resetPasswordBodySchema>
-export type ChangePasswordBodyType = z.input<typeof changePasswordBodySchema>
+export type ResetPasswordBodyType = z.infer<typeof resetPasswordBodySchema>
+export type ChangePasswordBodyType = z.infer<typeof changePasswordBodySchema>

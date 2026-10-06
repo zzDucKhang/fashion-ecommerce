@@ -50,3 +50,4 @@ coverage/
 # Prisma SQLite file (nếu có dùng local dev)
 *.db
 *.db-journal
+project.md

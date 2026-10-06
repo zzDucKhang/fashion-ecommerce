@@ -1,28 +1,9 @@
-// src/middlewares/guards/auth.guard.ts
 import { Request, Response, NextFunction } from 'express'
 import jwt, { JwtPayload } from 'jsonwebtoken'
 import { envConfig } from '@/config/env.config'
 import { UnauthorizedError } from '@/common/errors'
 
-// Cấu trúc Payload chuẩn tương tự dự án tham khảo
-export interface AccessTokenPayload {
-  userId: number
-  roleId: number
-  email?: string
-}
 
-// 1. Mở rộng Express Request để dùng an toàn kiểu dữ liệu trên toàn bộ dự án
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AccessTokenPayload
-    }
-  }
-}
-
-/**
- * Helper trích xuất Bearer Token từ Authorization Header
- */
 const extractBearerToken = (req: Request): string | null => {
   const authHeader = req.headers.authorization
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -31,10 +12,6 @@ const extractBearerToken = (req: Request): string | null => {
   return authHeader.slice(7).trim()
 }
 
-/**
- * Middleware bắt buộc đăng nhập (Require Auth)
- * Áp dụng cho: Profile, Orders, Checkout, Address, Change Password...
- */
 export const requireAuth = (req: Request, _res: Response, next: NextFunction) => {
   try {
     const token = extractBearerToken(req)
@@ -63,15 +40,8 @@ export const requireAuth = (req: Request, _res: Response, next: NextFunction) =>
   }
 }
 
-// Giữ lại alias authGuard để tương thích với các route cũ
 export const authGuard = requireAuth
 
-/**
- * Middleware tùy chọn đăng nhập (Optional Auth)
- * Dành riêng cho Giỏ hàng (Cart) và Xem sản phẩm:
- * - Có token hợp lệ -> Giải mã và gán req.user
- * - Không có token hoặc token hỏng -> Bỏ qua, coi là Guest truy cập bằng sessionId
- */
 export const optionalAuth = (req: Request, _res: Response, next: NextFunction) => {
   const token = extractBearerToken(req)
   if (!token) {
@@ -88,7 +58,7 @@ export const optionalAuth = (req: Request, _res: Response, next: NextFunction) =
       }
     }
   } catch {
-    // Không ném lỗi, tiếp tục luồng của khách vãng lai
+    // Guest truy cập vãng lai, không chặn lỗi
   }
 
   next()

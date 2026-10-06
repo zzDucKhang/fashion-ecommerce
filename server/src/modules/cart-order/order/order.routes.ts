@@ -2,25 +2,28 @@ import { Router } from 'express'
 import { OrderController } from './order.controller'
 import { requireAuth } from '@/middlewares/guards/auth.guard'
 import { requireAdmin } from '@/middlewares/guards/role.guard'
+import { validateRequest } from '@/middlewares/pipes/validate.pipe'
+import { createOrderSchema, listOrderSchema, updateOrderStatusSchema } from './order.schema'
+import { z } from 'zod'
 
+const orderIdParamSchema = z.object({
+  orderId: z.coerce.number().int().positive('orderId phải là số nguyên dương'),
+})
 
 export const orderRouter = Router()
 const controller = new OrderController()
 
-// Tất cả các API Đơn hàng đều bắt buộc người dùng phải đăng nhập
 orderRouter.use(requireAuth)
 
-// 1. Lấy danh sách đơn hàng của người dùng hiện tại
-orderRouter.get('/', controller.list)
+orderRouter.get('/', validateRequest({ query: listOrderSchema }), controller.list)
+orderRouter.post('/', validateRequest({ body: createOrderSchema }), controller.create)
+orderRouter.get('/:orderId', validateRequest({ params: orderIdParamSchema }), controller.findById)
+orderRouter.post('/:orderId/cancel', validateRequest({ params: orderIdParamSchema }), controller.cancel)
 
-// 2. Tạo đơn hàng mới (Checkout)
-orderRouter.post('/', controller.create)
-
-// 3. Xem chi tiết 1 đơn hàng
-orderRouter.get('/:orderId', controller.findById)
-
-// 4. Khách hàng tự hủy đơn hàng (khi đơn còn ở trạng thái Chờ xử lý)
-orderRouter.post('/:orderId/cancel', controller.cancel)
-
-// 5. Cập nhật trạng thái đơn hàng (CHỈ DÀNH CHO ADMIN)
-orderRouter.patch('/:orderId/status', requireAdmin, controller.updateStatus)
+// Chỉ ADMIN mới có quyền đổi trạng thái đơn
+orderRouter.patch(
+  '/:orderId/status',
+  requireAdmin,
+  validateRequest({ params: orderIdParamSchema, body: updateOrderStatusSchema }),
+  controller.updateStatus,
+)

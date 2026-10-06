@@ -92,32 +92,26 @@ export const createFlashSaleBodySchema = z
     )
 
 export const updateFlashSaleBodySchema = z
-    .object({
-        name: z
-            .string()
-            .min(1, 'Tên chiến dịch không được để trống')
-            .max(255)
-            .optional(),
-
-        bannerUrl: z
-            .string()
-            .max(1000)
-            .optional(),
-
-        startTime: z.coerce
-            .date()
-            .optional(),
-
-        endTime: z.coerce
-            .date()
-            .optional(),
-
-        isActive: z
-            .boolean()
-            .optional(),
-
-        items: flashSaleItemsSchema.optional(),
-    })
+  .object({
+    name: z.string().min(1, 'Tên chiến dịch không được để trống').max(255).optional(),
+    bannerUrl: z.string().max(1000).optional(),
+    startTime: z.coerce.date().optional(),
+    endTime: z.coerce.date().optional(),
+    isActive: z.boolean().optional(),
+    items: flashSaleItemsSchema.optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.startTime && data.endTime) {
+        return data.startTime < data.endTime
+      }
+      return true
+    },
+    {
+      message: 'Thời gian kết thúc phải sau thời gian bắt đầu',
+      path: ['endTime'],
+    },
+  )
 
 export type FlashSaleItemPayloadType =
     z.infer<typeof flashSaleItemPayloadSchema>

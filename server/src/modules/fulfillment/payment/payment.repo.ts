@@ -14,6 +14,22 @@ const paymentInclude = {
 } as const
 
 export class PaymentRepo {
+  async create(
+    data: {
+    orderId: number
+    amount: number
+    paymentCode: string
+  }) {
+    return prisma.paymentTransaction.create({
+      data: {
+        orderId: data.orderId,
+        amount: data.amount,
+        provider: 'SEPAY',
+        paymentCode: data.paymentCode,
+      },
+    })
+  }
+    
   async findAll(query: GetAllPaymentsQueryType) {
     const where = {
       ...(query.status ? { status: query.status } : {}),
@@ -36,6 +52,42 @@ export class PaymentRepo {
     return prisma.paymentTransaction.findUnique({
       where: { id },
       include: paymentInclude,
+    })
+  }
+
+  async findByPaymentCode(paymentCode: string) {
+    return prisma.paymentTransaction.findUnique({
+      where: {
+        paymentCode,
+      },
+      include: paymentInclude,
+    })
+  }
+
+
+  async markSuccess(paymentId: number, providerTransId: string) {
+    return prisma.$transaction(async (tx) => {
+      const payment = await tx.paymentTransaction.update({
+        where: {
+          id: paymentId,
+        },
+        data: {
+          status: 'SUCCESS',
+          providerTransId,
+        },
+      })
+
+      await tx.order.update({
+        where: {
+          id: payment.orderId,
+        },
+        data: {
+          paymentStatus: 'SUCCESS',
+          status: 'CONFIRMED',
+        },
+      })
+
+      return payment
     })
   }
 }

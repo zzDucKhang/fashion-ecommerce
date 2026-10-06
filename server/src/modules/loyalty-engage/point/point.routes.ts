@@ -1,4 +1,3 @@
-// src/modules/loyalty-engage/point/point.routes.ts
 import { Router } from 'express'
 import { requireAuth } from '@/middlewares/guards/auth.guard'
 import { requireAdmin } from '@/middlewares/guards/role.guard'
