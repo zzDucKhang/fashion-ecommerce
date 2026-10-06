@@ -6,8 +6,14 @@
 
 */
 -- AlterTable
-ALTER TABLE "PaymentTransaction" ADD COLUMN     "paymentCode" VARCHAR(255) NOT NULL,
+ALTER TABLE "PaymentTransaction" ADD COLUMN     "paymentCode" VARCHAR(255),
 ALTER COLUMN "providerTransId" DROP NOT NULL;
+
+-- Backfill existing data
+UPDATE "PaymentTransaction" SET "paymentCode" = 'PAY_' || id WHERE "paymentCode" IS NULL;
+
+-- AlterTable to set NOT NULL
+ALTER TABLE "PaymentTransaction" ALTER COLUMN "paymentCode" SET NOT NULL;
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PaymentTransaction_paymentCode_key" ON "PaymentTransaction"("paymentCode");
