@@ -288,6 +288,9 @@ export class OrderService {
       await this.cartRepo.deleteCartItemsByIds(items.map((i) => i.id), tx)
 
       return order
+    }, {
+    maxWait: 5000,  // Thời gian tối đa chờ lấy connection từ pool (mặc định 2000)
+    timeout: 150000  // Tăng thời gian chờ của transaction lên 150 giây (mặc định 5000)
     })
   }
 
