@@ -87,7 +87,7 @@ export interface CreateOrderPayload {
   paymentMethod: PaymentMethod; //[cite: 1, 2]
   shippingMethod?: string;
   customerNote?: string;
-  voucherCode?: string;
+  voucherCode?: string | null;
   pointUsed?: number;
 }
 

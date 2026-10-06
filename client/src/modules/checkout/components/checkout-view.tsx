@@ -34,10 +34,9 @@ export function CheckoutView() {
   }, 0);
 
   const onSubmit = (data: CheckoutFormValues) => {
-    // Ép kiểu data theo CreateOrderPayload
     createOrderMutation.mutate({
       shippingAddress: data.shippingAddress,
-      paymentMethod: data.paymentMethod as any,
+      paymentMethod: data.paymentMethod,
       shippingMethod: data.shippingMethod,
       customerNote: data.customerNote,
       voucherCode: data.voucherCode,
