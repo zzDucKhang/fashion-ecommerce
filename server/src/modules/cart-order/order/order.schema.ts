@@ -58,6 +58,7 @@ export const listOrderSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
   status: z.enum(ORDER_STATUS).optional(), // Bổ sung bộ lọc trạng thái đơn
+  all: z.coerce.boolean().optional(),
 })
 
 // 3. Schema Cập nhật trạng thái đơn hàng (Dành cho Admin)

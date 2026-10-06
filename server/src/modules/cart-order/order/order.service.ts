@@ -47,8 +47,12 @@ export class OrderService {
     return baseStandardFee + extraWeightKg * 5_000
   }
 
-  async list(userId: number, query: ListOrderInput) {
-    return this.orderRepo.list(userId, query)
+  async list(userId: number, query: ListOrderInput, isAdmin: boolean = false) {
+    return this.orderRepo.list(userId, query, isAdmin)
+  }
+
+  async getDashboardStats() {
+    return this.orderRepo.getDashboardStats()
   }
 
   async findById(userId: number, orderId: number) {

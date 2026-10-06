@@ -54,10 +54,11 @@ export interface Order {
   paymentStatus: PaymentStatus; //[cite: 1, 2]
   status: OrderStatus; //[cite: 1, 2]
   customerNote?: string | null;
-  orderDate: string;
+  orderDate?: string;
+  createdAt?: string;
   orderItems: OrderItem[];
-  shipment?: any;
-  paymentTransactions?: any[];
+  shipment?: unknown;
+  paymentTransactions?: unknown[];
 }
 
 // Payload Thêm vào giỏ

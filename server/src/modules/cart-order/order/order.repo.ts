@@ -33,11 +33,11 @@ export class OrderRepo {
     return carts[0]
   }
 
-  async list(userId: number, query: ListOrderInput) {
-    const { page = 1, limit = 10, status } = query
+  async list(userId: number, query: ListOrderInput, isAdmin: boolean = false) {
+    const { page = 1, limit = 10, status, all } = query
 
     const where: Prisma.OrderWhereInput = {
-      userId,
+      ...(isAdmin && all ? {} : { userId }),
       deletedAt: null,
       ...(status ? { status } : {}),
     }
@@ -396,5 +396,37 @@ export class OrderRepo {
         description: `Tích lũy điểm thưởng từ đơn hàng ${orderCode}`,
       },
     })
+  }
+
+  async getDashboardStats() {
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+
+    const [totalUsers, totalOrders, totalProducts, revenueResult, newUsersThisMonth, ordersPending] = await Promise.all([
+      prisma.user.count({ where: { deletedAt: null } }),
+      prisma.order.count({ where: { deletedAt: null } }),
+      prisma.product.count({ where: { deletedAt: null } }),
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { deletedAt: null, status: { notIn: ['CANCELLED', 'RETURNED'] } },
+      }),
+      prisma.user.count({
+        where: {
+          deletedAt: null,
+          createdAt: { gte: startOfMonth },
+        },
+      }),
+      prisma.order.count({
+        where: { deletedAt: null, status: { in: ['PENDING_PAYMENT', 'PROCESSING', 'CONFIRMED'] } },
+      }),
+    ])
+
+    return {
+      totalUsers,
+      totalOrders,
+      totalProducts,
+      totalRevenue: Number(revenueResult._sum.totalAmount || 0),
+      newUsersThisMonth,
+      ordersPending,
+    }
   }
 }
