@@ -32,6 +32,10 @@ export class ProductRepo {
           brand: { select: { id: true, defaultName: true, logoUrl: true } },
           tags: { select: { id: true, name: true } },
           images: { orderBy: { displayOrder: 'asc' } },
+          variants: {
+            where: { deletedAt: null },
+            select: { id: true, sku: true, originalPrice: true, sellingPrice: true, stockQuantity: true },
+          },
           translations: {
             where:
               languageId === ALL_LANGUAGE_CODE
