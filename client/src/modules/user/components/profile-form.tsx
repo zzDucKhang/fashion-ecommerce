@@ -59,7 +59,10 @@ export function ProfileForm() {
     },
     onSuccess: (res) => {
       if (res.data) {
-        localStorage.setItem('user', JSON.stringify(res.data));
+        // Merge với dữ liệu user hiện tại để không mất các field API không trả về
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUser = { ...currentUser, ...res.data };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
         window.dispatchEvent(new Event('local-storage-change'));
         toast.success('Cập nhật hồ sơ thành công!');
       }

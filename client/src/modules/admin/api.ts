@@ -57,12 +57,19 @@ export const adminApi = {
   },
 
   // === User Management ===
-  getUsers: async (query?: UserQuery) => {
-    const res = await apiClient.get<PaginatedResult<UserProfile>>(
+  getUsers: async (query?: UserQuery): Promise<PaginatedResult<UserProfile>> => {
+    const res = await apiClient.get<any>(
       API_ENDPOINTS.IDENTITY.USERS,
       { params: query }
     );
-    return res.data;
+    const body = res.data;
+    if (body?.data?.data && Array.isArray(body.data.data)) {
+      return body.data;
+    }
+    if (body?.data && Array.isArray(body.data)) {
+      return body;
+    }
+    return body?.data || body || { data: [], totalItems: 0, totalPages: 1, page: 1, limit: 10 };
   },
 
   getUserById: async (userId: number) => {
@@ -96,12 +103,19 @@ export const adminApi = {
   },
 
   // === Role Management ===
-  getRoles: async (query?: RoleQuery) => {
-    const res = await apiClient.get<PaginatedResult<Role>>(
+  getRoles: async (query?: RoleQuery): Promise<PaginatedResult<Role>> => {
+    const res = await apiClient.get<any>(
       API_ENDPOINTS.IDENTITY.ROLES,
       { params: query }
     );
-    return res.data;
+    const body = res.data;
+    if (body?.data?.data && Array.isArray(body.data.data)) {
+      return body.data;
+    }
+    if (body?.data && Array.isArray(body.data)) {
+      return body;
+    }
+    return body?.data || body || { data: [], totalItems: 0, totalPages: 1, page: 1, limit: 10 };
   },
 
   getRoleById: async (roleId: number) => {
@@ -135,12 +149,19 @@ export const adminApi = {
   },
 
   // === Permission Management ===
-  getPermissions: async (query?: PermissionQuery) => {
-    const res = await apiClient.get<PaginatedResult<Permission>>(
+  getPermissions: async (query?: PermissionQuery): Promise<PaginatedResult<Permission>> => {
+    const res = await apiClient.get<any>(
       API_ENDPOINTS.IDENTITY.PERMISSIONS,
       { params: query }
     );
-    return res.data;
+    const body = res.data;
+    if (body?.data?.data && Array.isArray(body.data.data)) {
+      return body.data;
+    }
+    if (body?.data && Array.isArray(body.data)) {
+      return body;
+    }
+    return body?.data || body || { data: [], totalItems: 0, totalPages: 1, page: 1, limit: 10 };
   },
 };
 
