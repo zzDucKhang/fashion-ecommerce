@@ -40,6 +40,8 @@ export function CheckoutView() {
       paymentMethod: data.paymentMethod as any,
       shippingMethod: data.shippingMethod,
       customerNote: data.customerNote,
+      voucherCode: data.voucherCode,
+      pointUsed: data.pointUsed,
     });
   };
 
