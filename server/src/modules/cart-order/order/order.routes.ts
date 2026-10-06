@@ -15,6 +15,9 @@ const controller = new OrderController()
 
 orderRouter.use(requireAuth)
 
+// Thống kê Dashboard dành riêng cho Quản trị viên (Admin)
+orderRouter.get('/dashboard-stats', requireAdmin, controller.getDashboardStats)
+
 orderRouter.get('/', validateRequest({ query: listOrderSchema }), controller.list)
 orderRouter.post('/', validateRequest({ body: createOrderSchema }), controller.create)
 orderRouter.get('/:orderId', validateRequest({ params: orderIdParamSchema }), controller.findById)

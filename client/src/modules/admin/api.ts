@@ -4,6 +4,7 @@ import type {
   ApiResponse,
   PaginatedResult,
   UserProfile,
+  Product,
   Role,
   Permission,
 } from '@/types';
@@ -22,35 +23,33 @@ export const adminApi = {
   // === Dashboard Stats ===
   getDashboardStats: async (): Promise<ApiResponse<DashboardStats>> => {
     try {
-      const usersRes = await apiClient.get<PaginatedResult<UserProfile>>(
-        API_ENDPOINTS.IDENTITY.USERS,
-        { params: { limit: 1 } }
+      const res = await apiClient.get<ApiResponse<DashboardStats>>(
+        `${API_ENDPOINTS.CART_ORDER.ORDERS}/dashboard-stats`
       );
-      const rolesRes = await apiClient.get<PaginatedResult<Role>>(
-        API_ENDPOINTS.IDENTITY.ROLES,
-        { params: { limit: 1 } }
-      );
+      if (res.data?.data) {
+        return res.data;
+      }
       return {
         statusCode: 200,
-        data: {
-          totalUsers: usersRes.data.totalItems || 120,
-          totalOrders: 348,
-          totalRevenue: 284500000,
-          totalProducts: 85,
-          newUsersThisMonth: 24,
-          ordersPending: 12,
-        },
+        data: (res.data as unknown) as DashboardStats,
       };
     } catch {
+      const [usersRes, productsRes] = await Promise.all([
+        apiClient.get<PaginatedResult<UserProfile>>(API_ENDPOINTS.IDENTITY.USERS, { params: { limit: 1 } }).catch(() => null),
+        apiClient.get<PaginatedResult<Product>>(API_ENDPOINTS.CATALOG.PRODUCTS, { params: { limit: 1 } }).catch(() => null),
+      ]);
+      const totalUsers = usersRes?.data?.totalItems || 0;
+      const totalProducts = productsRes?.data?.totalItems || 0;
+
       return {
         statusCode: 200,
         data: {
-          totalUsers: 156,
-          totalOrders: 412,
-          totalRevenue: 348900000,
-          totalProducts: 92,
-          newUsersThisMonth: 38,
-          ordersPending: 15,
+          totalUsers,
+          totalOrders: 0,
+          totalRevenue: 0,
+          totalProducts,
+          newUsersThisMonth: 0,
+          ordersPending: 0,
         },
       };
     }

@@ -1,40 +1,72 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowUpRight, ChevronRight, Star } from 'lucide-react';
-import { categories, products } from '@/modules/catalog/mock';
+import { ArrowUpRight, ChevronRight, Star, ShoppingBag } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { catalogApi } from '@/api/catalog.api';
 import { ProductCard } from '@/modules/catalog/components/product-card';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { Product } from '@/modules/catalog/mock';
+import { SiteHeader } from '@/components/layouts/site-header';
+// Danh sách ảnh fallback minh họa chất lượng cao khi danh mục chưa cấu hình iconUrl
+const CATEGORY_IMAGES = [
+  'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1506629905607-d9b1f1f3d7a8?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80',
+];
 
 export default function Home() {
+  // 1. Fetch danh mục từ server
+  const { data: categoryResponse, isLoading: isLoadingCategories } = useQuery({
+    queryKey: ['home-categories'],
+    queryFn: () => catalogApi.getCategories('vi'),
+  });
+
+  // 2. Fetch danh sách sản phẩm từ server
+  const { data: productResponse, isLoading: isLoadingProducts } = useQuery({
+    queryKey: ['home-products'],
+    queryFn: () => catalogApi.getProducts({ limit: 8, status: 'PUBLISHED' }),
+  });
+
+  const categories = categoryResponse?.data || [];
+  const apiProducts = productResponse?.data || [];
+
+  // Map dữ liệu sản phẩm từ Server API sang model hiển thị của ProductCard
+  const products: Product[] = apiProducts.map((p: any) => {
+    const firstVariant = p.variants?.[0];
+    const originalPrice = firstVariant?.originalPrice ? Number(firstVariant.originalPrice) : 350000;
+    const sellingPrice = firstVariant?.sellingPrice ? Number(firstVariant.sellingPrice) : undefined;
+    const images =
+      p.images && p.images.length > 0
+        ? p.images.map((img: any) => img.imageUrl)
+        : [p.thumbnailUrl || 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=800&q=80'];
+
+    return {
+      slug: String(p.id),
+      name: p.translations?.[0]?.name || p.defaultName,
+      brand: p.brand?.defaultName || 'Fashion Studio',
+      category: p.category?.defaultName || 'Thời trang',
+      price: sellingPrice || originalPrice,
+      originalPrice: sellingPrice && sellingPrice < originalPrice ? originalPrice : undefined,
+      flashSalePrice: undefined,
+      rating: 5.0,
+      reviews: 12,
+      tag: p.tags?.[0]?.name || undefined,
+      images,
+      colors: ['#1D1F20', '#EAE6DF', '#a38a75'],
+      sizes: ['S', 'M', 'L', 'XL'],
+      description: p.translations?.[0]?.shortDesc || p.defaultName,
+    };
+  });
+
   return (
     <main>
-      <section className="mx-auto max-w-[1440px] px-4 pb-6 pt-4 sm:px-8 lg:px-12">
-        <div className="relative min-h-[500px] overflow-hidden rounded-2xl bg-[#1D1F20] px-7 py-10 text-white sm:px-12 sm:py-16 lg:px-20">
-          <div className="absolute -right-10 top-0 h-full w-3/5 bg-[radial-gradient(circle_at_70%_35%,rgba(132,234,83,.5),transparent_34%),linear-gradient(120deg,transparent_10%,rgba(255,255,255,.05)_90%)] opacity-90" />
-          <div className="relative z-10 max-w-xl">
-            <p className="mb-6 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.23em] text-[#84EA53]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#84EA53]" /> The new
-              essentials
-            </p>
-            <h1 className="font-display text-6xl leading-[.9] tracking-[-.04em] sm:text-8xl">
-              Objects with a point of view.
-            </h1>
-            <p className="mt-7 max-w-md text-sm leading-6 text-white/65 sm:text-base">
-              Thoughtful fashion and everyday pieces, chosen for the way they
-              make a room, an outfit, or a day feel.
-            </p>
-            <Link
-              href="/search"
-              className="mt-9 inline-flex items-center gap-3 rounded-full bg-[#84EA53] px-6 py-3.5 text-sm font-bold text-[#1D1F20] transition-transform hover:-translate-y-0.5"
-            >
-              Shop new arrivals <ArrowUpRight size={17} />
-            </Link>
-          </div>
-          <div className="absolute bottom-8 right-8 hidden max-w-[190px] border-l border-white/20 pl-5 text-xs leading-5 text-white/55 lg:block">
-            <Star size={15} fill="#84EA53" color="#84EA53" className="mb-3" />
-            Curated goods for a considered life.
-          </div>
-        </div>
-      </section>
+      <SiteHeader />
+      {/* Danh mục nổi bật (Categories) */}
       <section className="mx-auto max-w-[1440px] px-4 py-12 sm:px-8 lg:px-12 lg:py-20">
         <div className="mb-7 flex items-end justify-between">
           <div>
@@ -42,37 +74,55 @@ export default function Home() {
             <h2 className="section-title mt-2">Shop by feeling</h2>
           </div>
           <Link
-            href="/search"
-            className="hidden items-center gap-1 text-sm font-semibold sm:flex"
+            href="/products"
+            className="hidden items-center gap-1 text-sm font-semibold sm:flex hover:text-[#84EA53] transition-colors"
           >
             View all <ChevronRight size={16} />
           </Link>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {categories.slice(0, 4).map((category) => (
-            <Link
-              key={category.name}
-              href={`/search?category=${category.name}`}
-              className="group relative min-h-[220px] overflow-hidden rounded-xl bg-white sm:min-h-[300px]"
-            >
-              <Image
-                src={category.image}
-                alt=""
-                fill
-                sizes="(max-width: 640px) 50vw, 25vw"
-                className="object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
-              <div className="absolute bottom-5 left-5 text-white">
-                <p className="font-display text-3xl">{category.name}</p>
-                <p className="mt-1 text-xs text-white/70">
-                  {category.count} pieces
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
+
+        {isLoadingCategories ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="min-h-[220px] rounded-xl sm:min-h-[300px]" />
+            ))}
+          </div>
+        ) : categories.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-neutral-300 p-8 text-center text-sm text-neutral-500">
+            Chưa có danh mục nào từ máy chủ.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {categories.slice(0, 4).map((category, index) => {
+              const name = category.translations?.[0]?.name || category.defaultName;
+              const image = category.iconUrl || CATEGORY_IMAGES[index % CATEGORY_IMAGES.length];
+
+              return (
+                <Link
+                  key={category.id}
+                  href={`/products?categoryId=${category.id}`}
+                  className="group relative min-h-[220px] overflow-hidden rounded-xl bg-white sm:min-h-[300px]"
+                >
+                  <Image
+                    src={image}
+                    alt={name}
+                    fill
+                    sizes="(max-width: 640px) 50vw, 25vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
+                  <div className="absolute bottom-5 left-5 text-white">
+                    <p className="font-display text-2xl sm:text-3xl">{name}</p>
+                    <p className="mt-1 text-xs text-white/70">Khám phá ngay</p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </section>
+
+      {/* Sản phẩm nổi bật (Products) */}
       <section className="mx-auto max-w-[1440px] px-4 pb-20 sm:px-8 lg:px-12">
         <div className="mb-7 flex items-end justify-between">
           <div>
@@ -80,17 +130,35 @@ export default function Home() {
             <h2 className="section-title mt-2">The good stuff</h2>
           </div>
           <Link
-            href="/search"
-            className="flex items-center gap-1 text-sm font-semibold"
+            href="/products"
+            className="flex items-center gap-1 text-sm font-semibold hover:text-[#84EA53] transition-colors"
           >
             Explore edit <ChevronRight size={16} />
           </Link>
         </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
-          {products.slice(0, 4).map((product) => (
-            <ProductCard key={product.slug} product={product} />
-          ))}
-        </div>
+
+        {isLoadingProducts ? (
+          <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="space-y-3">
+                <Skeleton className="aspect-[.88] w-full rounded-xl" />
+                <Skeleton className="h-4 w-3/4 rounded" />
+                <Skeleton className="h-4 w-1/2 rounded" />
+              </div>
+            ))}
+          </div>
+        ) : products.length === 0 ? (
+          <div className="py-16 text-center">
+            <ShoppingBag className="mx-auto size-10 text-neutral-300 mb-3" />
+            <p className="text-sm font-medium text-neutral-700">Chưa có sản phẩm nào từ máy chủ.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+            {products.slice(0, 8).map((product) => (
+              <ProductCard key={product.slug} product={product} />
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );

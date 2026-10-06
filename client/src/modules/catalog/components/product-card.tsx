@@ -4,9 +4,12 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Heart, Star } from 'lucide-react';
 import { useState } from 'react';
 import type { Product } from '@/modules/catalog/mock';
+import { formatCurrency } from '@/lib/utils/format-currency';
 
 export function ProductCard({ product }: { product: Product }) {
   const [index, setIndex] = useState(0);
+  const formatPrice = (val?: number) =>
+    val !== undefined && val !== null ? (val > 1000 ? formatCurrency(val) : `$${val}`) : '';
   return (
     <article className="group min-w-0">
       <div className="relative overflow-hidden rounded-xl bg-[#e9e5dc]">
@@ -65,11 +68,11 @@ export function ProductCard({ product }: { product: Product }) {
         </p>
         <div className="mt-2 flex items-center gap-2">
           <span className="text-sm font-bold">
-            ${product.flashSalePrice ?? product.price}
+            {formatPrice(product.flashSalePrice ?? product.price)}
           </span>
           {product.originalPrice && (
             <span className="text-xs text-[#9b9991] line-through">
-              ${product.originalPrice}
+              {formatPrice(product.originalPrice)}
             </span>
           )}
         </div>
