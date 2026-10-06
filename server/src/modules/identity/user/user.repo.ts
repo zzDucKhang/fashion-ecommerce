@@ -94,6 +94,10 @@ export class UserRepo {
                 phoneNumber: true,
                 avatarUrl: true,
                 status: true,
+                roleId: true,
+                role: { select: { id: true, name: true, code: true } },
+                rewardPoints: true,
+                createdAt: true,
             },
         })
     }

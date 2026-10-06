@@ -62,16 +62,18 @@ export default function AdminRolesPage() {
     queryFn: () => adminApi.getPermissions({ limit: 100 }),
   });
 
-  const permissions = permissionsData?.data || [];
+  const permissions = Array.isArray(permissionsData?.data) ? permissionsData.data : [];
 
   // Group permissions by module
   const permissionsByModule = React.useMemo(() => {
     const groups: Record<string, Permission[]> = {};
-    permissions.forEach((perm) => {
-      const mod = perm.module || 'CHUNG';
-      if (!groups[mod]) groups[mod] = [];
-      groups[mod].push(perm);
-    });
+    if (Array.isArray(permissions)) {
+      permissions.forEach((perm) => {
+        const mod = perm.module || 'CHUNG';
+        if (!groups[mod]) groups[mod] = [];
+        groups[mod].push(perm);
+      });
+    }
     return groups;
   }, [permissions]);
 
@@ -303,7 +305,7 @@ export default function AdminRolesPage() {
       {/* Roles Data Table */}
       <DataTable
         columns={columns}
-        data={rolesData?.data || []}
+        data={Array.isArray(rolesData?.data) ? rolesData.data : []}
         isLoading={isLoading}
         page={page}
         totalPages={rolesData?.totalPages || 1}

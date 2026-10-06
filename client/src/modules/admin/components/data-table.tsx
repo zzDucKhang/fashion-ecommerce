@@ -62,7 +62,7 @@ export function DataTable<T extends { id: string | number }>({
                   ))}
                 </TableRow>
               ))
-            ) : data.length === 0 ? (
+            ) : !Array.isArray(data) || data.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={columns.length}

@@ -256,7 +256,7 @@ export default function AdminUsersPage() {
       {/* Data Table */}
       <DataTable
         columns={columns}
-        data={usersData?.data || []}
+        data={Array.isArray(usersData?.data) ? usersData.data : []}
         isLoading={isLoading}
         page={page}
         totalPages={usersData?.totalPages || 1}
