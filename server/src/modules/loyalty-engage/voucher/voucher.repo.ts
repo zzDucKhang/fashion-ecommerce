@@ -1,11 +1,18 @@
 // src/modules/loyalty-engage/voucher/voucher.repo.ts
 import Redis from 'ioredis'
 import { prisma } from '@/database/prisma'
-import { redisClient } from '@/database/redis'
+import { redisClient, redlock } from '@/database/redis'
 import { createLogger } from '@/common/logger'
 import { CreateVoucherBodyType, UpdateVoucherBodyType } from './voucher.schema'
 
 const logger = createLogger('VoucherRepo')
+
+/**
+ * TTL for the Distributed Lock used during cold-start seed.
+ * Short enough to not block concurrent requests, long enough for the DB query to finish.
+ * 3 000 ms is well above the p99 latency of a COUNT query on an indexed column.
+ */
+const COLD_START_LOCK_TTL_MS = 3_000
 
 export type VoucherFailureReason =
   | 'VOUCHER_NOT_FOUND'
@@ -263,6 +270,17 @@ export class VoucherRepo {
     const userIdStr = userId.toString()
 
     // Bước 3: Cold-start Seed (nếu Redis chưa có dữ liệu, seed an toàn không ghi đè với NX)
+    //
+    // STAMPEDE GUARD: Seed tổng lượt dùng không cần lock vì `SET NX` đảm bảo chỉ một request
+    // ghi được. Nhưng seed lượt dùng theo user yêu cầu một lần đọc DB (COUNT) trước khi ghi —
+    // đây chính là điểm gây Cache Stampede khi N request đồng thời phát hiện field chưa tồn tại
+    // và tất cả cùng lao vào DB.
+    //
+    // Giải pháp: bọc đoạn read-DB bằng Distributed Lock (Redlock) với key per-(code, userId).
+    //   - Chỉ 1 request thắng lock → đọc DB → ghi Redis bằng HSETNX.
+    //   - Các request thua lock → skip DB (HSETNX ở vòng lặp sau sẽ thấy key đã tồn tại).
+    //   - Nếu Redis đang down → lock.acquire() ném exception → rơi vào catch → tiếp tục mà
+    //     không cần seed, đảm bảo availability > perfect accuracy.
     try {
       await this.redis.set(
         totalUsageKey,
@@ -275,11 +293,48 @@ export class VoucherRepo {
       if (voucher.userUsageLimit > 0) {
         const userFieldExists = await this.redis.hexists(userUsageKey, userIdStr)
         if (!userFieldExists) {
-          const priorUsage = await prisma.order.count({
-            where: { userId, voucherCode: normalizedCode, deletedAt: null },
-          })
-          await this.redis.hsetnx(userUsageKey, userIdStr, priorUsage.toString())
-          await this.redis.expire(userUsageKey, ttlSeconds)
+          // ── Distributed Lock: chặn Thundering Herd trước khi đọc DB ──
+          const lockKey = `lock:voucher:seed:${normalizedCode}:${userIdStr}`
+          let lock: Awaited<ReturnType<typeof redlock.acquire>> | null = null
+          try {
+            lock = await redlock.acquire([lockKey], COLD_START_LOCK_TTL_MS)
+
+            // Re-check sau khi thắng lock: request trước có thể đã seed xong
+            const fieldExistsAfterLock = await this.redis.hexists(userUsageKey, userIdStr)
+            if (!fieldExistsAfterLock) {
+              const priorUsage = await prisma.order.count({
+                where: { userId, voucherCode: normalizedCode, deletedAt: null },
+              })
+              await this.redis.hsetnx(userUsageKey, userIdStr, priorUsage.toString())
+              await this.redis.expire(userUsageKey, ttlSeconds)
+              logger.debug(
+                { code: normalizedCode, userId, priorUsage },
+                'atomicApplyVoucher: cold-start seed completed under distributed lock',
+              )
+            } else {
+              logger.debug(
+                { code: normalizedCode, userId },
+                'atomicApplyVoucher: field already seeded by concurrent winner, skipping DB read',
+              )
+            }
+          } catch (lockErr: unknown) {
+            // Lock không thể acquire (Redis down hoặc tranh chấp vượt retryCount).
+            // Chấp nhận skip seed thay vì bão-truy-vấn DB.
+            // Worst-case: user có thể dùng lố 1 lần trong khoảng thời gian Redis degraded.
+            logger.warn(
+              { code: normalizedCode, userId, err: lockErr },
+              'atomicApplyVoucher: could not acquire cold-start seed lock — skipping DB seed to prevent stampede',
+            )
+          } finally {
+            if (lock) {
+              await lock.release().catch((releaseErr: unknown) => {
+                logger.warn(
+                  { code: normalizedCode, userId, err: releaseErr },
+                  'atomicApplyVoucher: failed to release cold-start seed lock',
+                )
+              })
+            }
+          }
         }
       }
     } catch (seedErr) {
