@@ -12,11 +12,15 @@ import {
   Shield,
   Layers,
   Clock,
+  PackageX,
 } from 'lucide-react';
 import { adminApi } from '@/modules/admin/api';
+import { orderApi } from '@/api/order.api';
 import { DashboardCard } from '@/modules/admin/components/dashboard-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { formatCurrency } from '@/lib/utils/format-currency';
 import {
   Table,
   TableHeader,
@@ -25,34 +29,56 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
+import type { Order } from '@/types';
+
+function formatRelativeTime(dateInput?: string | Date): string {
+  if (!dateInput) return 'Gần đây';
+  const diffSec = Math.floor((Date.now() - new Date(dateInput).getTime()) / 1000);
+  if (diffSec < 60) return 'Vừa xong';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`;
+  return `${Math.floor(diffSec / 86400)} ngày trước`;
+}
 
 export default function AdminDashboardPage() {
-  const { data: statsData, isLoading } = useQuery({
+  // 1. Lấy dữ liệu KPI thống kê từ server
+  const { data: statsData, isLoading: isLoadingStats } = useQuery({
     queryKey: ['admin-dashboard-stats'],
     queryFn: () => adminApi.getDashboardStats(),
   });
 
+  // 2. Lấy danh sách 5 đơn hàng mới nhất từ server
+  const { data: ordersData, isLoading: isLoadingOrders } = useQuery({
+    queryKey: ['admin-recent-orders'],
+    queryFn: () => orderApi.getOrders({ limit: 5, all: true }),
+  });
+
   const stats = statsData?.data;
 
-  const mockRecentOrders = [
-    { id: 'ORD-8921', customer: 'Hoàng Minh Tuấn', items: 'Áo sơ mi Oxford (Trắng) x1', total: '450.000 ₫', status: 'CONFIRMED', time: '10 phút trước' },
-    { id: 'ORD-8920', customer: 'Lê Thuỳ Dung', items: 'Quần tây Pleated Trousers x1', total: '790.000 ₫', status: 'PROCESSING', time: '35 phút trước' },
-    { id: 'ORD-8919', customer: 'Phạm Thanh Sơn', items: 'Blazer Oversized Knit x1, Khăn lụa x1', total: '1.650.000 ₫', status: 'DELIVERED', time: '2 giờ trước' },
-    { id: 'ORD-8918', customer: 'Trần Bảo Ngọc', items: 'Váy Linen Midi Dress x1', total: '920.000 ₫', status: 'PENDING_PAYMENT', time: '4 giờ trước' },
-    { id: 'ORD-8917', customer: 'Đỗ Quốc Anh', items: 'Áo thun Pima Cotton x2', total: '580.000 ₫', status: 'SHIPPED', time: '5 giờ trước' },
-  ];
+  // Trích xuất danh sách đơn hàng thực tế
+  const rawOrders = ordersData?.data as unknown;
+  const recentOrders: Order[] = Array.isArray(rawOrders)
+    ? (rawOrders as Order[])
+    : Array.isArray((rawOrders as { data?: Order[] })?.data)
+    ? ((rawOrders as { data: Order[] }).data)
+    : [];
 
   const getOrderStatusBadge = (status: string) => {
     switch (status) {
       case 'DELIVERED':
         return <Badge variant="success">Hoàn thành</Badge>;
       case 'CONFIRMED':
+        return <Badge variant="lime">Đã xác nhận</Badge>;
       case 'PROCESSING':
         return <Badge variant="lime">Đang xử lý</Badge>;
       case 'SHIPPED':
         return <Badge variant="secondary">Đang giao</Badge>;
       case 'PENDING_PAYMENT':
         return <Badge variant="warning">Chờ thanh toán</Badge>;
+      case 'CANCELLED':
+        return <Badge variant="destructive">Đã hủy</Badge>;
+      case 'RETURNED':
+        return <Badge variant="outline">Trả hàng</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -90,7 +116,7 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <DashboardCard
           title="Tổng doanh thu"
-          value={isLoading ? '...' : `${(stats?.totalRevenue || 0).toLocaleString('vi-VN')} ₫`}
+          value={isLoadingStats ? '...' : formatCurrency(stats?.totalRevenue || 0)}
           icon={TrendingUp}
           change="+18.4%"
           trend="up"
@@ -98,27 +124,27 @@ export default function AdminDashboardPage() {
         />
         <DashboardCard
           title="Tổng đơn hàng"
-          value={isLoading ? '...' : (stats?.totalOrders || 0).toLocaleString('vi-VN')}
+          value={isLoadingStats ? '...' : (stats?.totalOrders || 0).toLocaleString('vi-VN')}
           icon={PackageCheck}
-          change="+8.2%"
-          trend="up"
-          description="tỷ lệ hoàn tất 96%"
+          change={`${stats?.ordersPending || 0} đang chờ`}
+          trend="neutral"
+          description="tất cả giao dịch"
         />
         <DashboardCard
           title="Người dùng đăng ký"
-          value={isLoading ? '...' : (stats?.totalUsers || 0).toLocaleString('vi-VN')}
+          value={isLoadingStats ? '...' : (stats?.totalUsers || 0).toLocaleString('vi-VN')}
           icon={Users}
-          change="+12.5%"
+          change={`+${stats?.newUsersThisMonth || 0} mới`}
           trend="up"
-          description={`+${stats?.newUsersThisMonth || 0} trong tháng này`}
+          description="trong tháng hiện tại"
         />
         <DashboardCard
           title="Sản phẩm đang bán"
-          value={isLoading ? '...' : (stats?.totalProducts || 0).toLocaleString('vi-VN')}
+          value={isLoadingStats ? '...' : (stats?.totalProducts || 0).toLocaleString('vi-VN')}
           icon={ShoppingBag}
-          change="+4 mới"
-          trend="neutral"
-          description="12 danh mục hiện hữu"
+          change="Đang hoạt động"
+          trend="up"
+          description="danh mục toàn sàn"
         />
       </div>
 
@@ -191,7 +217,7 @@ export default function AdminDashboardPage() {
                 Đơn hàng gần đây
               </h3>
               <p className="text-xs text-neutral-500 mt-0.5">
-                Các giao dịch vừa phát sinh trên hệ thống
+                Các giao dịch thực tế vừa phát sinh trên hệ thống
               </p>
             </div>
             <Link href="/admin/orders">
@@ -213,27 +239,57 @@ export default function AdminDashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockRecentOrders.map((ord) => (
-                  <TableRow key={ord.id}>
-                    <TableCell className="font-semibold text-neutral-900 text-xs">
-                      {ord.id}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      <p className="font-medium text-neutral-800">{ord.customer}</p>
-                      <p className="text-[11px] text-neutral-400 truncate max-w-[160px]">{ord.items}</p>
-                    </TableCell>
-                    <TableCell className="font-medium text-xs text-neutral-900">
-                      {ord.total}
-                    </TableCell>
-                    <TableCell>{getOrderStatusBadge(ord.status)}</TableCell>
-                    <TableCell className="text-right text-xs text-neutral-400">
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="size-3" />
-                        {ord.time}
-                      </span>
+                {isLoadingOrders ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : recentOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-10 text-center">
+                      <PackageX className="mx-auto size-8 text-neutral-300 mb-2" />
+                      <p className="text-xs text-neutral-500 font-medium">
+                        Chưa có đơn hàng nào phát sinh trên hệ thống.
+                      </p>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  recentOrders.map((ord) => {
+                    const itemsSummary =
+                      ord.orderItems && ord.orderItems.length > 0
+                        ? ord.orderItems.map((item) => `${item.productName} x${item.quantity}`).join(', ')
+                        : '1 sản phẩm';
+
+                    return (
+                      <TableRow key={ord.id}>
+                        <TableCell className="font-semibold text-neutral-900 text-xs">
+                          {ord.orderCode || `ORD-${ord.id}`}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <p className="font-medium text-neutral-800">{ord.receiverName || 'Khách hàng'}</p>
+                          <p className="text-[11px] text-neutral-400 truncate max-w-[200px]" title={itemsSummary}>
+                            {itemsSummary}
+                          </p>
+                        </TableCell>
+                        <TableCell className="font-medium text-xs text-neutral-900">
+                          {formatCurrency(ord.totalAmount)}
+                        </TableCell>
+                        <TableCell>{getOrderStatusBadge(ord.status)}</TableCell>
+                        <TableCell className="text-right text-xs text-neutral-400">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="size-3" />
+                            {formatRelativeTime(ord.createdAt || ord.orderDate)}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </div>
@@ -242,4 +298,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-

@@ -11,6 +11,7 @@ import {
 
 interface OrderQuery extends BasePaginationQuery {
   status?: string;
+  all?: boolean;
 }
 
 export const orderApi = {

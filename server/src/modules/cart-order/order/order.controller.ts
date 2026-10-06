@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express'
 import { BadRequestError, UnauthorizedError } from '@/common/errors'
 import { createOrderSchema, listOrderSchema, updateOrderStatusSchema } from './order.schema'
 import { OrderService } from './order.service'
+import { prisma } from '@/database/prisma'
 
 /**
  * Lấy userId BẮT BUỘC từ Middleware Xác thực (Auth Middleware)
@@ -30,7 +31,17 @@ const parseOrderId = (param: string): number => {
 export class OrderController {
   constructor(private readonly service = new OrderService()) {}
 
-  // Lấy danh sách đơn hàng của User
+  // Lấy thống kê Dashboard cho Admin
+  getDashboardStats = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.service.getDashboardStats()
+      return res.status(200).json({ statusCode: 200, data })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  // Lấy danh sách đơn hàng của User (hoặc toàn bộ đơn nếu là Admin)
   list = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = getRequiredUserId(req)
@@ -40,7 +51,15 @@ export class OrderController {
         throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Tham số truy vấn không hợp lệ')
       }
 
-      const data = await this.service.list(userId, parsed.data)
+      let isAdmin = false
+      if ((req as any).user?.roleId) {
+        const role = await prisma.role.findFirst({
+          where: { id: (req as any).user.roleId, isActive: true, deletedAt: null },
+        })
+        isAdmin = role?.code === 'ADMIN'
+      }
+
+      const data = await this.service.list(userId, parsed.data, isAdmin)
       return res.status(200).json({ statusCode: 200, data })
     } catch (error) {
       next(error)
