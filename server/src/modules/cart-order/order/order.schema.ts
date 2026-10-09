@@ -33,6 +33,7 @@ export const createOrderSchema = z
   .object({
     // Danh sách ID các sản phẩm trong giỏ muốn thanh toán (Nếu rỗng thì checkout toàn bộ giỏ)
     cartItemIds: z.array(z.coerce.number().int().positive()).min(1, 'Danh sách chọn thanh toán không hợp lệ').optional(),
+    directBuy: z.object({ variantId: z.coerce.number().int().positive(), quantity: z.coerce.number().int().positive() }).optional(),
     
     // Địa chỉ giao hàng (Chọn ID có sẵn HOẶC nhập địa chỉ mới)
     shippingAddressId: z.coerce.number().int().positive().optional(),

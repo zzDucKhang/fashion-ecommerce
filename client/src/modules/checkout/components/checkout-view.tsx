@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { ArrowLeft, Check, Lock } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { catalogApi } from '@/api/catalog.api';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,6 +48,17 @@ export function CheckoutView() {
       .catch(() => {});
   }, []);
 
+    const isDirectBuy = searchParams.get('directBuy') === 'true';
+  const directProductId = Number(searchParams.get('productId'));
+  const directVariantId = Number(searchParams.get('variantId'));
+  const directQuantity = Number(searchParams.get('quantity')) || 1;
+
+  const { data: directProductRes } = useQuery({
+    queryKey: ['direct-buy-product', directProductId],
+    queryFn: () => catalogApi.getProductById(directProductId),
+    enabled: isDirectBuy && !!directProductId,
+  });
+
   const itemsParam = searchParams.get('items');
   const selectedItemIds = useMemo(() => {
     if (!itemsParam) return null;
@@ -53,10 +66,26 @@ export function CheckoutView() {
   }, [itemsParam]);
 
   const allCartItems = cartResponse?.data?.cartItems || [];
+  
   const checkoutItems = useMemo(() => {
+    if (isDirectBuy && directProductRes?.data) {
+      const variant = directProductRes.data.variants?.find((v: any) => v.id === directVariantId);
+      if (variant) {
+        return [{
+          id: -1,
+          cartId: -1,
+          variantId: variant.id,
+          quantity: directQuantity,
+          variant: {
+            ...variant,
+            product: directProductRes.data
+          }
+        }];
+      }
+    }
     if (!selectedItemIds || selectedItemIds.length === 0) return allCartItems;
     return allCartItems.filter((item) => selectedItemIds.includes(item.id));
-  }, [allCartItems, selectedItemIds]);
+  }, [allCartItems, selectedItemIds, isDirectBuy, directProductRes, directVariantId, directQuantity]);
 
   const methods = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutSchema),
@@ -75,15 +104,25 @@ export function CheckoutView() {
   const finalTotal = Math.max(0, subTotal - voucherDiscount - pointDiscount);
 
   const onSubmit = (data: CheckoutFormValues) => {
-    createOrderMutation.mutate({
-      cartItemIds: selectedItemIds && selectedItemIds.length > 0 ? selectedItemIds : undefined,
+    const orderPayload: any = {
       shippingAddress: data.shippingAddress,
       paymentMethod: data.paymentMethod,
       shippingMethod: data.shippingMethod,
       customerNote: data.customerNote,
       voucherCode: data.voucherCode,
       pointUsed: data.pointUsed,
-    }, {
+    };
+
+    if (isDirectBuy) {
+      orderPayload.directBuy = {
+        variantId: directVariantId,
+        quantity: directQuantity,
+      };
+    } else {
+      orderPayload.cartItemIds = selectedItemIds && selectedItemIds.length > 0 ? selectedItemIds : undefined;
+    }
+
+    createOrderMutation.mutate(orderPayload, {
       onSuccess: async (res) => {
         const orderData = res.data;
         if (data.paymentMethod !== 'COD') {

@@ -125,22 +125,21 @@ export class OrderService {
         // =====================================================================
         // 1. KHÓA GIỎ HÀNG (PESSIMISTIC LOCK) & KIỂM TRA ĐẦU VÀO
         // =====================================================================
-        const initialCart = await this.cartRepo.findOrCreateOwner(userId, undefined, tx);
-
-        // Chống Double-Submit: Khóa dòng Cart này lại cho đến khi Transaction kết thúc
-        await tx.$queryRaw`SELECT id FROM "Cart" WHERE id = ${initialCart.id} FOR UPDATE`;
-
-        const cart = await this.cartRepo.findByOwner(userId, undefined, tx);
-        if (!cart || !cart.cartItems.length) {
-          throw new BadRequestError("Giỏ hàng của bạn đang trống");
-        }
-
-        const items = cart.cartItems.filter(
-          (item) => !input.cartItemIds || input.cartItemIds.includes(item.id),
-        );
-        if (!items.length) {
-          throw new BadRequestError("Không có sản phẩm nào được chọn để đặt hàng");
-        }
+        let items: any[] = [];
+          if (input.directBuy) {
+            items = [{ id: -1, variantId: input.directBuy.variantId, quantity: input.directBuy.quantity }];
+          } else {
+            const initialCart = await this.cartRepo.findOrCreateOwner(userId, undefined, tx);
+            await tx.$queryRaw`SELECT id FROM "Cart" WHERE id = ${initialCart.id} FOR UPDATE`;
+            const cart = await this.cartRepo.findByOwner(userId, undefined, tx);
+            if (!cart || !cart.cartItems.length) {
+              throw new BadRequestError("Giỏ hàng của bạn đang trống");
+            }
+            items = cart.cartItems.filter((item) => !input.cartItemIds || input.cartItemIds.includes(item.id));
+            if (!items.length) {
+              throw new BadRequestError("Không có sản phẩm nào được chọn để đặt hàng");
+            }
+          }
 
         // =====================================================================
         // 2. CHUẨN HÓA ĐỊA CHỈ GIAO HÀNG (SNAPSHOT STRING)
@@ -325,7 +324,7 @@ export class OrderService {
           await this.orderRepo.deductUserPoints(userId, order.id, pointUsed, orderCode, tx);
         }
 
-        await this.cartRepo.deleteCartItemsByIds(items.map((i) => i.id), tx);
+        if (!input.directBuy) { await this.cartRepo.deleteCartItemsByIds(items.map((i) => i.id), tx); }
 
         return order;
       },
