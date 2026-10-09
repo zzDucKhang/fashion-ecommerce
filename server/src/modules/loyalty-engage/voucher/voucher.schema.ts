@@ -1,9 +1,4 @@
-// src/modules/loyalty-engage/voucher/voucher.schema.ts
 import { z } from 'zod'
-
-// ───────────────────────────────────────────
-// Base object (for partial reuse)
-// ───────────────────────────────────────────
 
 const voucherBaseSchema = z.object({
   code: z
@@ -25,11 +20,6 @@ const voucherBaseSchema = z.object({
   isActive: z.boolean().default(true),
 })
 
-// ───────────────────────────────────────────
-// Request Schemas
-// ───────────────────────────────────────────
-
-/** Admin tạo mới voucher */
 export const createVoucherBodySchema = voucherBaseSchema
   .refine(
     (data) => new Date(data.endDate) > new Date(data.startDate),
@@ -40,15 +30,10 @@ export const createVoucherBodySchema = voucherBaseSchema
     { message: 'Phần trăm giảm phải từ 1 đến 100', path: ['discountValue'] },
   )
 
-/**
- * Admin cập nhật voucher (partial) – giữ các luật validate khi trường được truyền vào.
- * FIX 2.4: Thêm .refine() để kiểm tra endDate > startDate và % giảm từ 1-100.
- */
 export const updateVoucherBodySchema = voucherBaseSchema
   .partial()
   .refine(
     (data) => {
-      // Chỉ kiểm tra khi CẢ HAI trường cùng được cung cấp
       if (data.endDate && data.startDate) {
         return new Date(data.endDate) > new Date(data.startDate)
       }
@@ -64,7 +49,6 @@ export const updateVoucherBodySchema = voucherBaseSchema
     { message: 'Phần trăm giảm phải từ 1 đến 100', path: ['discountValue'] },
   )
 
-/** Params id voucher */
 export const voucherIdParamSchema = z.object({
   id: z
     .string()
@@ -72,13 +56,11 @@ export const voucherIdParamSchema = z.object({
     .transform(Number),
 })
 
-/** User validate voucher – check hạn sử dụng, giới hạn, điều kiện */
 export const validateVoucherBodySchema = z.object({
   code: z.string().trim().min(1, 'Mã voucher là bắt buộc').toUpperCase(),
   orderTotal: z.number().positive('Tổng tiền đơn hàng phải lớn hơn 0'),
 })
 
-/** Query danh sách voucher */
 export const listVoucherQuerySchema = z.object({
   page: z
     .string()
@@ -100,9 +82,6 @@ export const listVoucherQuerySchema = z.object({
     }),
 })
 
-// ───────────────────────────────────────────
-// Inferred Types
-// ───────────────────────────────────────────
 export type CreateVoucherBodyType = z.infer<typeof createVoucherBodySchema>
 export type UpdateVoucherBodyType = z.infer<typeof updateVoucherBodySchema>
 export type VoucherIdParamType = z.infer<typeof voucherIdParamSchema>

@@ -1,5 +1,3 @@
-// src/modules/loyalty-engage/voucher/voucher.service.ts
-import { Prisma } from '@prisma/client'
 import { BadRequestError, ConflictError, NotFoundError, isUniqueConstraintPrismaError } from '@/common/errors'
 import { createLogger } from '@/common/logger'
 import { VoucherRepo, VoucherFailureReason } from './voucher.repo'
@@ -15,9 +13,6 @@ const logger = createLogger('VoucherService')
 export class VoucherService {
   constructor(private voucherRepo = new VoucherRepo()) {}
 
-  // ─────────────── Admin APIs ───────────────
-
-  /** Lấy danh sách voucher */
   async listVouchers(query: ListVoucherQueryType) {
     const { page, limit, isActive } = query
     const skip = (page - 1) * limit
@@ -28,17 +23,12 @@ export class VoucherService {
     }
   }
 
-  /** Lấy chi tiết một voucher */
   async getVoucherById(id: number) {
     const voucher = await this.voucherRepo.findById(id)
     if (!voucher) throw new NotFoundError('Voucher không tồn tại')
     return { data: voucher }
   }
 
-  /**
-   * Admin tạo voucher mới.
-   * Ngăn chặn trùng lặp code bằng cách bắt lỗi P2002 Unique Constraint từ PostgreSQL.
-   */
   async createVoucher(body: CreateVoucherBodyType) {
     logger.info({ code: body.code }, 'createVoucher: initiated')
 
@@ -55,9 +45,6 @@ export class VoucherService {
     }
   }
 
-  /**
-   * Admin cập nhật voucher.
-   */
   async updateVoucher(id: number, body: UpdateVoucherBodyType) {
     const voucher = await this.voucherRepo.findById(id)
     if (!voucher) throw new NotFoundError('Voucher không tồn tại')
@@ -75,7 +62,6 @@ export class VoucherService {
     }
   }
 
-  /** Admin xoá mềm voucher */
   async deleteVoucher(id: number) {
     const voucher = await this.voucherRepo.findById(id)
     if (!voucher) throw new NotFoundError('Voucher không tồn tại')
@@ -86,16 +72,6 @@ export class VoucherService {
     return { message: 'Xoá voucher thành công' }
   }
 
-  // ─────────────── User APIs ───────────────
-
-  /**
-   * User kiểm tra & tính toán số tiền được giảm từ voucher (Read-only UI preview).
-   *
-   * Race-free validation:
-   *   - Read-only preview for the cart/checkout UI.
-   *   - Enforces business rules: dates, minimum order value, global usage limit, and user usage limit.
-   *   - Actual transactional enforcement is handled in `applyVoucher` with Redis atomic counters.
-   */
   async validateAndCalculate(body: ValidateVoucherBodyType, userId: number) {
     logger.info({ code: body.code, userId, orderTotal: body.orderTotal }, 'validateAndCalculate: initiated')
 
@@ -117,7 +93,6 @@ export class VoucherService {
       throw new BadRequestError('Voucher đã hết lượt sử dụng')
     }
 
-    // Kiểm tra giới hạn sử dụng theo từng user (userUsageLimit)
     if (voucher.userUsageLimit > 0) {
       const userUsageCount = await this.voucherRepo.countUserVoucherUsage(userId, voucher.code)
       if (userUsageCount >= voucher.userUsageLimit) {
@@ -134,7 +109,6 @@ export class VoucherService {
       )
     }
 
-    // Tính số tiền giảm
     let discountAmount: number
     if (voucher.discountType === 'PERCENTAGE') {
       discountAmount = (body.orderTotal * Number(voucher.discountValue)) / 100
@@ -164,19 +138,9 @@ export class VoucherService {
     }
   }
 
-  /**
-   * Áp dụng voucher và tăng usedCount với High-Concurrency Redis Atomic Counters.
-   *
-   * HIGH-CONCURRENCY RACE-CONDITION FIX:
-   *   - Delegates directly to `voucherRepo.atomicApplyVoucher`, which executes Redis atomic multi/exec
-   *     and strictly validates both `totalUsageLimit` and `userUsageLimit`.
-   *   - Eliminates `SELECT ... FOR UPDATE` row locks, preventing DB connection pool exhaustion.
-   *   - Translates failure reasons to appropriate HTTP status codes.
-   */
   async applyVoucher(code: string, userId: number) {
     logger.info({ code, userId }, 'applyVoucher: initiating atomic voucher application')
 
-    // Direct atomic delegation — no manual existence pre-check in service layer
     const result = await this.voucherRepo.atomicApplyVoucher(code, userId)
 
     if (!result.success) {
@@ -199,7 +163,7 @@ export class VoucherService {
           throw new BadRequestError('Voucher đã hết lượt sử dụng')
         },
         USER_USAGE_LIMIT_REACHED: () => {
-          throw new BadRequestError('Bạn đã dùng hết lượt sử dụng voucher này')
+          throw new BadRequestError('Bạn đã dùng hết lượt sử dụng mã voucher này')
         },
       }
 
@@ -214,5 +178,31 @@ export class VoucherService {
     logger.info({ code, userId, voucherId: result.voucherId }, 'applyVoucher: atomic apply succeeded')
 
     return { message: 'Đã áp dụng voucher thành công' }
+  }
+
+  /**
+   * =========================================================================================
+   * @WARNING CONTRACT RULES: CROSS-MODULE DEFENSIVE INTERFACE FOR CART-ORDER CHECKOUT
+   * 
+   * GỬI TEAM CART-ORDER:
+   * BẮT BUỘC GỌI QUA INTERACTIVE TRANSACTION: `applyVoucherSafely(voucherCode, userId, prismaTx)`
+   * ĐỂ BẢO ĐẢM TÍNH TOÀN VẸN ATOMIC TRÊN REDIS VÀ POSTGRESQL, CHỐNG OVERSELL VÀ SPLIT-BRAIN!
+   * =========================================================================================
+   */
+  async applyVoucherSafely(voucherCode: string, userId: number, prismaTx: any) {
+    return this.voucherRepo.applyVoucherSafely(voucherCode, userId, prismaTx)
+  }
+
+  /**
+   * =========================================================================================
+   * @WARNING CONTRACT RULES: CROSS-MODULE DEFENSIVE INTERFACE FOR CART-ORDER ROLLBACK/CANCEL
+   * 
+   * GỬI TEAM CART-ORDER & PAYMENT:
+   * BẮT BUỘC GỌI QUA TRANSACTION: `releaseVoucherSafely(voucherCode, userId, prismaTx)`
+   * ĐỂ HOÀN LẠI ATOMIC COUNTER TRÊN REDIS VÀ POSTGRESQL KHI ĐƠN BỊ HỦY!
+   * =========================================================================================
+   */
+  async releaseVoucherSafely(voucherCode: string, userId: number, prismaTx?: any) {
+    return this.voucherRepo.releaseVoucherSafely(voucherCode, userId, prismaTx)
   }
 }

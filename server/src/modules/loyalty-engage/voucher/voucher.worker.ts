@@ -1,4 +1,3 @@
-// src/modules/loyalty-engage/voucher/voucher.worker.ts
 import cron from 'node-cron'
 import { prisma } from '@/database/prisma'
 import { redisClient } from '@/database/redis'
@@ -23,17 +22,6 @@ export interface ReconciliationReport {
   }>
 }
 
-/**
- * Reconciles voucher usage between Redis and PostgreSQL.
- *
- * EVENTUAL CONSISTENCY GUARANTEE:
- *   - During flash sales, Redis atomic counters serve as the real-time source-of-truth.
- *   - If network partitions, DB connection timeouts, or sudden pod crashes prevent
- *     PostgreSQL from recording usedCount, Redis maintains the authoritative count.
- *   - This reconciliation job scans all non-deleted, active vouchers, compares
- *     `voucher:total:{code}` in Redis against `usedCount` in PostgreSQL,
- *     and overwrites PostgreSQL with the Redis source-of-truth.
- */
 export async function reconcileVouchers(): Promise<ReconciliationReport> {
   logger.info('Starting nightly voucher reconciliation job...')
 
@@ -68,7 +56,6 @@ export async function reconcileVouchers(): Promise<ReconciliationReport> {
         const redisCountStr = await redisClient.get(totalKey)
 
         if (redisCountStr === null) {
-          // Key doesn't exist in Redis yet: seed it with DB usedCount so subsequent concurrent redemptions start with valid base
           const now = Date.now()
           const endTimestamp = new Date(voucher.endDate).getTime()
           const ttlSeconds = Math.max(Math.ceil((endTimestamp - now) / 1000) + 86400, 3600)
@@ -98,7 +85,6 @@ export async function reconcileVouchers(): Promise<ReconciliationReport> {
             'Reconciliation discrepancy detected: Redis count differs from PostgreSQL count',
           )
 
-          // Overwrite PostgreSQL with Redis source-of-truth
           await prisma.voucher.update({
             where: { id: voucher.id },
             data: { usedCount: redisCount },
@@ -153,10 +139,6 @@ export async function reconcileVouchers(): Promise<ReconciliationReport> {
   return report
 }
 
-/**
- * Initializes the nightly reconciliation cron job.
- * Default schedule: `0 2 * * *` (Daily at 2:00 AM)
- */
 export function startVoucherReconciliationCron(cronExpression = '0 2 * * *') {
   logger.info({ schedule: cronExpression }, 'Registering voucher reconciliation cron job')
 

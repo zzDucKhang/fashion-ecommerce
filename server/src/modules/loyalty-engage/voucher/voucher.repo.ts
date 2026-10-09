@@ -1,17 +1,12 @@
-// src/modules/loyalty-engage/voucher/voucher.repo.ts
 import Redis from 'ioredis'
 import { prisma } from '@/database/prisma'
 import { redisClient, redlock } from '@/database/redis'
 import { createLogger } from '@/common/logger'
+import { BadRequestError, NotFoundError } from '@/common/errors'
 import { CreateVoucherBodyType, UpdateVoucherBodyType } from './voucher.schema'
 
 const logger = createLogger('VoucherRepo')
 
-/**
- * TTL for the Distributed Lock used during cold-start seed.
- * Short enough to not block concurrent requests, long enough for the DB query to finish.
- * 3 000 ms is well above the p99 latency of a COUNT query on an indexed column.
- */
 const COLD_START_LOCK_TTL_MS = 3_000
 
 export type VoucherFailureReason =
@@ -29,15 +24,11 @@ export type AtomicApplyVoucherResult =
 export const VOUCHER_TOTAL_KEY_PREFIX = 'voucher:total:'
 export const VOUCHER_USAGE_KEY_PREFIX = 'voucher:usage:'
 export const VOUCHER_META_KEY_PREFIX = 'voucher:meta:'
-const VOUCHER_META_CACHE_TTL_SECONDS = 30 // Cache metadata 30s to withstand 10k+ req/sec flash sales
+const VOUCHER_META_CACHE_TTL_SECONDS = 30
 
 export class VoucherRepo {
-  /**
-   * Injectable Redis client instance (defaults to global redisClient).
-   */
   constructor(private readonly redis: Redis = redisClient) {}
 
-  /** Lấy danh sách voucher (phân trang, lọc trạng thái) */
   async findAll(skip: number, take: number, isActive?: boolean) {
     const where = {
       deletedAt: null,
@@ -50,30 +41,20 @@ export class VoucherRepo {
     return { data, total }
   }
 
-  /** Tìm voucher theo id */
   async findById(id: number) {
     return prisma.voucher.findFirst({ where: { id, deletedAt: null } })
   }
 
-  /** Tìm voucher theo code (không phân biệt hoa thường, đã uppercase ở schema) */
   async findByCode(code: string) {
     const normalized = code.trim().toUpperCase()
     return prisma.voucher.findFirst({ where: { code: normalized, deletedAt: null } })
   }
 
-  /**
-   * Tìm voucher theo code kể cả đã xóa mềm.
-   * Dùng để kiểm tra trùng code trước khi tạo/sửa, ngăn lỗi P2002 Unique Constraint.
-   */
   async findByCodeIncludingDeleted(code: string) {
     const normalized = code.trim().toUpperCase()
     return prisma.voucher.findFirst({ where: { code: normalized } })
   }
 
-  /**
-   * Đếm số lần user đã sử dụng mã voucher này.
-   * Ưu tiên đọc từ Redis Hash `voucher:usage:{code}`, fallback về bảng Order trong PostgreSQL.
-   */
   async countUserVoucherUsage(userId: number, voucherCode: string): Promise<number> {
     const normalized = voucherCode.trim().toUpperCase()
     const usageKey = `${VOUCHER_USAGE_KEY_PREFIX}${normalized}`
@@ -92,9 +73,6 @@ export class VoucherRepo {
     })
   }
 
-  /**
-   * Lấy metadata voucher được cache trong Redis để chịu tải 10k+ req/sec.
-   */
   async getVoucherMetadata(code: string) {
     const normalized = code.trim().toUpperCase()
     const metaKey = `${VOUCHER_META_KEY_PREFIX}${normalized}`
@@ -130,9 +108,6 @@ export class VoucherRepo {
     return voucher
   }
 
-  /**
-   * Xoá cache metadata voucher khỏi Redis khi Admin cập nhật hoặc xoá.
-   */
   async invalidateVoucherCache(code: string) {
     const normalized = code.trim().toUpperCase()
     const metaKey = `${VOUCHER_META_KEY_PREFIX}${normalized}`
@@ -144,7 +119,6 @@ export class VoucherRepo {
     }
   }
 
-  /** Tạo voucher mới */
   async create(data: CreateVoucherBodyType) {
     return prisma.voucher.create({
       data: {
@@ -162,7 +136,6 @@ export class VoucherRepo {
     })
   }
 
-  /** Cập nhật voucher và xóa cache Redis */
   async update(id: number, data: UpdateVoucherBodyType) {
     const updated = await prisma.voucher.update({
       where: { id },
@@ -184,34 +157,12 @@ export class VoucherRepo {
     return updated
   }
 
-  /** Soft-delete voucher và xóa cache Redis */
   async softDelete(id: number) {
     const deleted = await prisma.voucher.update({ where: { id }, data: { deletedAt: new Date() } })
     await this.invalidateVoucherCache(deleted.code)
     return deleted
   }
 
-  /**
-   * Áp dụng voucher nguyên tử chịu tải cao (High Concurrency 10k+ req/sec).
-   *
-   * HIGH-CONCURRENCY ARCHITECTURE:
-   *   1. LOẠI BỎ TOÀN BỘ `SELECT ... FOR UPDATE` row-level lock trên PostgreSQL:
-   *      Ngăn chặn triệt để tình trạng lock contention, table bloat và cạn kiệt connection pool.
-   *   2. Atomic Counters trên Redis:
-   *      - Tracking tổng lượt dùng toàn hệ thống qua Redis String: `INCR voucher:total:{code}`
-   *      - Tracking lượt dùng theo từng user qua Redis Hash: `HINCRBY voucher:usage:{code} {userId} 1`
-   *      - Thực thi nguyên tử bằng `ioredis` multi/exec pipeline.
-   *   3. Strict Limit Enforcement:
-   *      - Kiểm tra cả `totalUsageLimit` (toàn cục) và `userUsageLimit` (theo từng user).
-   *      - Nếu bất kỳ giới hạn nào bị vượt quá, lập tức rollback nguyên tử bằng decrement (`hincrby -1` & `decr`)
-   *        và trả về mã lỗi thích hợp (`VOUCHER_USAGE_LIMIT_REACHED` hoặc `USER_USAGE_LIMIT_REACHED`).
-   *   4. Eventual Consistency fallback:
-   *      - Sau khi atomic check trên Redis vượt qua an toàn, ghi nhận vào PostgreSQL bằng `prisma.voucher.update`
-   *        không khoá hàng (non-blocking atomic increment).
-   *
-   * @param code - Voucher code to apply
-   * @param userId - ID of the user applying the voucher
-   */
   async atomicApplyVoucher(
     code: string,
     userId: number,
@@ -222,7 +173,6 @@ export class VoucherRepo {
       'atomicApplyVoucher: initiating high-concurrency voucher application',
     )
 
-    // Bước 1: Lấy metadata voucher (có cache Redis 30s để chịu tải 10k+ req/s)
     const voucher = await this.getVoucherMetadata(normalizedCode)
 
     if (!voucher) {
@@ -230,7 +180,6 @@ export class VoucherRepo {
       return { success: false, reason: 'VOUCHER_NOT_FOUND' }
     }
 
-    // Bước 2: Kiểm tra trạng thái hoạt động & thời gian hiệu lực
     if (!voucher.isActive) {
       logger.warn(
         { code: normalizedCode, userId, voucherId: voucher.id },
@@ -259,7 +208,6 @@ export class VoucherRepo {
       return { success: false, reason: 'VOUCHER_EXPIRED' }
     }
 
-    // Tính toán TTL cho Redis keys (hạn voucher + 24h buffer, tối thiểu 3600s)
     const ttlSeconds = Math.max(
       Math.ceil((endDate.getTime() - now.getTime()) / 1000) + 86400,
       3600,
@@ -269,18 +217,6 @@ export class VoucherRepo {
     const userUsageKey = `${VOUCHER_USAGE_KEY_PREFIX}${normalizedCode}`
     const userIdStr = userId.toString()
 
-    // Bước 3: Cold-start Seed (nếu Redis chưa có dữ liệu, seed an toàn không ghi đè với NX)
-    //
-    // STAMPEDE GUARD: Seed tổng lượt dùng không cần lock vì `SET NX` đảm bảo chỉ một request
-    // ghi được. Nhưng seed lượt dùng theo user yêu cầu một lần đọc DB (COUNT) trước khi ghi —
-    // đây chính là điểm gây Cache Stampede khi N request đồng thời phát hiện field chưa tồn tại
-    // và tất cả cùng lao vào DB.
-    //
-    // Giải pháp: bọc đoạn read-DB bằng Distributed Lock (Redlock) với key per-(code, userId).
-    //   - Chỉ 1 request thắng lock → đọc DB → ghi Redis bằng HSETNX.
-    //   - Các request thua lock → skip DB (HSETNX ở vòng lặp sau sẽ thấy key đã tồn tại).
-    //   - Nếu Redis đang down → lock.acquire() ném exception → rơi vào catch → tiếp tục mà
-    //     không cần seed, đảm bảo availability > perfect accuracy.
     try {
       await this.redis.set(
         totalUsageKey,
@@ -293,13 +229,11 @@ export class VoucherRepo {
       if (voucher.userUsageLimit > 0) {
         const userFieldExists = await this.redis.hexists(userUsageKey, userIdStr)
         if (!userFieldExists) {
-          // ── Distributed Lock: chặn Thundering Herd trước khi đọc DB ──
           const lockKey = `lock:voucher:seed:${normalizedCode}:${userIdStr}`
           let lock: Awaited<ReturnType<typeof redlock.acquire>> | null = null
           try {
             lock = await redlock.acquire([lockKey], COLD_START_LOCK_TTL_MS)
 
-            // Re-check sau khi thắng lock: request trước có thể đã seed xong
             const fieldExistsAfterLock = await this.redis.hexists(userUsageKey, userIdStr)
             if (!fieldExistsAfterLock) {
               const priorUsage = await prisma.order.count({
@@ -318,9 +252,6 @@ export class VoucherRepo {
               )
             }
           } catch (lockErr: unknown) {
-            // Lock không thể acquire (Redis down hoặc tranh chấp vượt retryCount).
-            // Chấp nhận skip seed thay vì bão-truy-vấn DB.
-            // Worst-case: user có thể dùng lố 1 lần trong khoảng thời gian Redis degraded.
             logger.warn(
               { code: normalizedCode, userId, err: lockErr },
               'atomicApplyVoucher: could not acquire cold-start seed lock — skipping DB seed to prevent stampede',
@@ -344,7 +275,6 @@ export class VoucherRepo {
       )
     }
 
-    // Bước 4: Nguyên tử tăng bộ đếm trên Redis bằng multi/exec pipeline
     const multi = this.redis.multi()
     multi.hincrby(userUsageKey, userIdStr, 1)
     multi.incr(totalUsageKey)
@@ -387,7 +317,6 @@ export class VoucherRepo {
       'atomicApplyVoucher: Redis atomic counters incremented',
     )
 
-    // Bước 5: Kiểm tra Total Usage Limit toàn cục
     if (voucher.totalUsageLimit > 0 && newTotalUsage > voucher.totalUsageLimit) {
       logger.warn(
         {
@@ -407,7 +336,6 @@ export class VoucherRepo {
       return { success: false, reason: 'VOUCHER_USAGE_LIMIT_REACHED' }
     }
 
-    // Bước 6: Kiểm tra User Usage Limit theo từng user
     if (voucher.userUsageLimit > 0 && newUserUsage > voucher.userUsageLimit) {
       logger.warn(
         {
@@ -427,7 +355,6 @@ export class VoucherRepo {
       return { success: false, reason: 'USER_USAGE_LIMIT_REACHED' }
     }
 
-    // Bước 7: Cập nhật PostgreSQL usedCount (Eventual Consistency fallback)
     try {
       await prisma.voucher.update({
         where: { id: voucher.id },
@@ -452,7 +379,6 @@ export class VoucherRepo {
         'atomicApplyVoucher: DB update failed after Redis commit, executing compensating rollback',
       )
 
-      // Compensating transaction: hoàn trả bộ đếm Redis khi DB ghi nhận thất bại
       const rollbackMulti = this.redis.multi()
       rollbackMulti.hincrby(userUsageKey, userIdStr, -1)
       rollbackMulti.decr(totalUsageKey)
@@ -462,9 +388,6 @@ export class VoucherRepo {
     }
   }
 
-  /**
-   * Hoàn trả lượt voucher khi huỷ đơn hàng hoặc thanh toán thất bại (Compensating Transaction).
-   */
   async releaseVoucher(code: string, userId: number) {
     const normalizedCode = code.trim().toUpperCase()
     const totalUsageKey = `${VOUCHER_TOTAL_KEY_PREFIX}${normalizedCode}`
@@ -482,5 +405,227 @@ export class VoucherRepo {
       where: { code: normalizedCode, usedCount: { gt: 0 } },
       data: { usedCount: { decrement: 1 } },
     })
+  }
+
+  /**
+   * =========================================================================================
+   * @WARNING CONTRACT RULES: CROSS-MODULE DEFENSIVE INTERFACE FOR CART-ORDER
+   * 
+   *  ██╗    ██╗ █████╗ ██████╗ ███╗   ██╗██╗███╗   ██╗ ██████╗ 
+   *  ██║    ██║██╔══██╗██╔══██╗████╗  ██║██║████╗  ██║██╔════╝ 
+   *  ██║ █╗ ██║███████║██████╔╝██╔██╗ ██║██║██╔██╗ ██║██║  ███╗
+   *  ██║███╗██║██╔══██║██╔══██╗██║╚██╗██║██║██║╚██╗██║██║   ██║
+   *  ╚███╔███╔╝██║  ██║██║  ██║██║ ╚████║██║██║ ╚████║╚██████╔╝
+   *   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝ 
+   * =========================================================================================
+   * GỬI TEAM CART-ORDER (CHECKOUT MODULE):
+   * 
+   * TUYỆT ĐỐI KHÔNG GỌI TRỰC TIẾP `increment` VÀO DB (PostgreSQL) KHI CREATE ORDER!
+   * Việc tự ý cập nhật DB mà không qua Redis sẽ gây ra lỗi SPLIT-BRAIN cực kỳ nguy hiểm:
+   *   - Redis Atomic Counter bị lệch pha hoàn toàn với PostgreSQL.
+   *   - Gây lỗi OVERSELL (bán vượt số lượng voucher) trong các đợt Flash Sale / Traffic cao.
+   * 
+   * BẮT BUỘC PHẢI GỌI HÀM NÀY: `applyVoucherSafely(voucherCode, userId, prismaTx)`
+   * và truyền Prisma Interactive Transaction Client (`tx`) vào để bảo đảm:
+   *   1. Tăng/Trừ Redis Atomic Counter trước (ioredis).
+   *   2. Báo lỗi ngay lập tức nếu Redis báo hết lượt (Oversell Protection).
+   *   3. Cập nhật biến động vào bảng Voucher thông qua `prismaTx` (Transaction chung).
+   *   4. Tự động Rollback bộ đếm Redis nếu cập nhật DB thất bại.
+   * =========================================================================================
+   */
+  async applyVoucherSafely(voucherCode: string, userId: number, prismaTx: any) {
+    const normalizedCode = voucherCode.trim().toUpperCase()
+    logger.info({ voucherCode: normalizedCode, userId }, 'applyVoucherSafely: cross-module application initiated')
+
+    const voucher = await this.getVoucherMetadata(normalizedCode)
+    if (!voucher) {
+      throw new NotFoundError('Mã voucher không tồn tại')
+    }
+
+    if (!voucher.isActive) {
+      throw new BadRequestError('Voucher đã bị vô hiệu hóa')
+    }
+
+    const now = new Date()
+    const startDate = new Date(voucher.startDate)
+    const endDate = new Date(voucher.endDate)
+
+    if (now < startDate) {
+      throw new BadRequestError('Voucher chưa đến thời gian áp dụng')
+    }
+    if (now > endDate) {
+      throw new BadRequestError('Voucher đã hết hạn sử dụng')
+    }
+
+    const ttlSeconds = Math.max(
+      Math.ceil((endDate.getTime() - now.getTime()) / 1000) + 86400,
+      3600,
+    )
+    const totalUsageKey = `${VOUCHER_TOTAL_KEY_PREFIX}${normalizedCode}`
+    const userUsageKey = `${VOUCHER_USAGE_KEY_PREFIX}${normalizedCode}`
+    const userIdStr = userId.toString()
+
+    try {
+      await this.redis.set(totalUsageKey, voucher.usedCount.toString(), 'EX', ttlSeconds, 'NX')
+      if (voucher.userUsageLimit > 0) {
+        const userFieldExists = await this.redis.hexists(userUsageKey, userIdStr)
+        if (!userFieldExists) {
+          const lockKey = `lock:voucher:seed:${normalizedCode}:${userIdStr}`
+          let lock: Awaited<ReturnType<typeof redlock.acquire>> | null = null
+          try {
+            lock = await redlock.acquire([lockKey], COLD_START_LOCK_TTL_MS)
+            const fieldExistsAfterLock = await this.redis.hexists(userUsageKey, userIdStr)
+            if (!fieldExistsAfterLock) {
+              const priorUsage = await prisma.order.count({
+                where: { userId, voucherCode: normalizedCode, deletedAt: null },
+              })
+              await this.redis.hsetnx(userUsageKey, userIdStr, priorUsage.toString())
+              await this.redis.expire(userUsageKey, ttlSeconds)
+            }
+          } catch (lockErr) {
+            logger.warn({ code: normalizedCode, userId, lockErr }, 'applyVoucherSafely: seed lock failed, continuing')
+          } finally {
+            if (lock) await lock.release().catch(() => {})
+          }
+        }
+      }
+    } catch (seedErr) {
+      logger.warn({ code: normalizedCode, userId, seedErr }, 'applyVoucherSafely: seed warning')
+    }
+
+    const multi = this.redis.multi()
+    multi.hincrby(userUsageKey, userIdStr, 1)
+    multi.incr(totalUsageKey)
+    multi.expire(userUsageKey, ttlSeconds)
+    multi.expire(totalUsageKey, ttlSeconds)
+
+    const execResults = await multi.exec()
+    if (!execResults || execResults.length < 2) {
+      throw new Error('Lỗi giao dịch phân tán Redis khi áp dụng voucher')
+    }
+
+    const [userIncrErr, rawUserUsage] = execResults[0]
+    const [totalIncrErr, rawTotalUsage] = execResults[1]
+
+    if (userIncrErr || totalIncrErr) {
+      throw (userIncrErr || totalIncrErr)
+    }
+
+    const newUserUsage = Number(rawUserUsage)
+    const newTotalUsage = Number(rawTotalUsage)
+
+    if (voucher.totalUsageLimit > 0 && newTotalUsage > voucher.totalUsageLimit) {
+      const rollbackMulti = this.redis.multi()
+      rollbackMulti.hincrby(userUsageKey, userIdStr, -1)
+      rollbackMulti.decr(totalUsageKey)
+      await rollbackMulti.exec()
+
+      throw new BadRequestError('Mã giảm giá đã hết lượt sử dụng toàn hệ thống')
+    }
+
+    if (voucher.userUsageLimit > 0 && newUserUsage > voucher.userUsageLimit) {
+      const rollbackMulti = this.redis.multi()
+      rollbackMulti.hincrby(userUsageKey, userIdStr, -1)
+      rollbackMulti.decr(totalUsageKey)
+      await rollbackMulti.exec()
+
+      throw new BadRequestError(`Bạn đã dùng hết ${voucher.userUsageLimit} lượt sử dụng mã voucher này`)
+    }
+
+    const client = prismaTx || prisma
+    try {
+      const updatedVoucher = await client.voucher.update({
+        where: { id: voucher.id },
+        data: { usedCount: { increment: 1 } },
+      })
+
+      logger.info(
+        { voucherId: voucher.id, code: normalizedCode, userId, newTotalUsage, newUserUsage },
+        'applyVoucherSafely: synchronized across Redis and PostgreSQL transaction successfully',
+      )
+
+      return updatedVoucher
+    } catch (dbError) {
+      const rollbackMulti = this.redis.multi()
+      rollbackMulti.hincrby(userUsageKey, userIdStr, -1)
+      rollbackMulti.decr(totalUsageKey)
+      await rollbackMulti.exec()
+
+      logger.error(
+        { err: dbError, voucherId: voucher.id, code: normalizedCode, userId },
+        'applyVoucherSafely: DB update failed within transaction, rolled back Redis counter',
+      )
+
+      throw dbError
+    }
+  }
+
+  /**
+   * =========================================================================================
+   * @WARNING CONTRACT RULES: CROSS-MODULE DEFENSIVE INTERFACE FOR ORDER CANCELLATION / ROLLBACK
+   * 
+   *  ██╗    ██╗ █████╗ ██████╗ ███╗   ██╗██╗███╗   ██╗ ██████╗ 
+   *  ██║    ██║██╔══██╗██╔══██╗████╗  ██║██║████╗  ██║██╔════╝ 
+   *  ██║ █╗ ██║███████║██████╔╝██╔██╗ ██║██║██╔██╗ ██║██║  ███╗
+   *  ██║███╗██║██╔══██║██╔══██╗██║╚██╗██║██║██║╚██╗██║██║   ██║
+   *  ╚███╔███╔╝██║  ██║██║  ██║██║ ╚████║██║██║ ╚████║╚██████╔╝
+   *   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝ 
+   * =========================================================================================
+   * GỬI TEAM CART-ORDER & PAYMENT/CHECKOUT:
+   * 
+   * KHI HỦY ĐƠN HÀNG (CANCEL), HOÀN TIỀN (REFUND), HOẶC CHECKOUT TRANSACTION THẤT BẠI:
+   * TUYỆT ĐỐI KHÔNG TỰ Ý SỬA DB HOẶC BỎ QUA REDIS COUNTER!
+   * Nếu không gọi qua Voucher Service:
+   *   - Bộ đếm Redis (`voucher:used:{code}` và `voucher:users:{code}`) KHÔNG được hoàn lại.
+   *   - Khách hàng bị mất vĩnh viễn lượt dùng mã dù đơn hàng đã hủy!
+   *   - Hiện tại hàm `orderRepo.refundVoucherUsage()` KHÔNG TỒN TẠI trong Order Module!
+   * 
+   * BẮT BUỘC GỌI HÀM NÀY: `releaseVoucherSafely(voucherCode, userId, prismaTx)`
+   * và truyền Prisma Transaction Client (`tx`) vào:
+   *   1. Giảm bộ đếm Redis tổng và Redis per-user (`hincrby -1`, `decr`).
+   *   2. Giảm `usedCount` trong bảng Voucher thông qua `prismaTx` (không âm).
+   *   3. Đảm bảo toàn vẹn tính nhất quán giữa Redis và PostgreSQL.
+   * =========================================================================================
+   */
+  async releaseVoucherSafely(voucherCode: string, userId: number, prismaTx?: any) {
+    const normalizedCode = voucherCode.trim().toUpperCase()
+    const voucher = await this.getVoucherMetadata(normalizedCode)
+    if (!voucher) {
+      logger.warn({ voucherCode: normalizedCode }, 'releaseVoucherSafely: voucher not found')
+      return null
+    }
+
+    const totalUsageKey = `${VOUCHER_TOTAL_KEY_PREFIX}${normalizedCode}`
+    const userUsageKey = `${VOUCHER_USAGE_KEY_PREFIX}${normalizedCode}`
+    const userIdStr = userId.toString()
+
+    try {
+      const multi = this.redis.multi()
+      multi.hincrby(userUsageKey, userIdStr, -1)
+      multi.decr(totalUsageKey)
+      await multi.exec()
+    } catch (redisErr) {
+      logger.error({ err: redisErr, code: normalizedCode, userId }, 'releaseVoucherSafely: redis decrement error')
+    }
+
+    const client = prismaTx || prisma
+    try {
+      const updated = await client.voucher.updateMany({
+        where: { id: voucher.id, usedCount: { gt: 0 } },
+        data: {
+          usedCount: {
+            decrement: 1,
+          },
+        },
+      })
+      logger.info(
+        { voucherId: voucher.id, code: normalizedCode, userId },
+        'releaseVoucherSafely: voucher quota released successfully',
+      )
+      return updated
+    } catch (dbErr) {
+      logger.error({ err: dbErr, voucherId: voucher.id, code: normalizedCode }, 'releaseVoucherSafely: db update error')
+      throw dbErr
+    }
   }
 }

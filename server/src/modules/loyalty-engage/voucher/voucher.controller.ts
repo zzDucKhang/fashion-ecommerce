@@ -1,11 +1,9 @@
-// src/modules/loyalty-engage/voucher/voucher.controller.ts
 import { NextFunction, Request, Response } from 'express'
 import { VoucherService } from './voucher.service'
 
 export class VoucherController {
   constructor(private voucherService = new VoucherService()) {}
 
-  /** GET /vouchers – Danh sách voucher (Admin) */
   listVouchers = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = await this.voucherService.listVouchers(req.query as any)
@@ -15,7 +13,6 @@ export class VoucherController {
     }
   }
 
-  /** GET /vouchers/:id – Chi tiết voucher (Admin) */
   getVoucherById = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = Number(req.params.id)
@@ -26,7 +23,6 @@ export class VoucherController {
     }
   }
 
-  /** POST /vouchers – Tạo voucher mới (Admin) */
   createVoucher = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = await this.voucherService.createVoucher(req.body)
@@ -36,7 +32,6 @@ export class VoucherController {
     }
   }
 
-  /** PATCH /vouchers/:id – Cập nhật voucher (Admin) */
   updateVoucher = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = Number(req.params.id)
@@ -47,7 +42,6 @@ export class VoucherController {
     }
   }
 
-  /** DELETE /vouchers/:id – Xóa mềm voucher (Admin) */
   deleteVoucher = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = Number(req.params.id)
@@ -58,7 +52,6 @@ export class VoucherController {
     }
   }
 
-  /** POST /vouchers/validate – Kiểm tra & tính tiền giảm (User) */
   validateVoucher = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user!.userId
@@ -69,7 +62,6 @@ export class VoucherController {
     }
   }
 
-  /** POST /vouchers/apply – Áp dụng voucher (tăng usedCount) */
   applyVoucher = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user!.userId

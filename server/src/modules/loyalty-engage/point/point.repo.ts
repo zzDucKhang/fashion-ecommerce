@@ -1,13 +1,9 @@
-// src/modules/loyalty-engage/point/point.repo.ts
 import { prisma } from '@/database/prisma'
 import { createLogger } from '@/common/logger'
+import { NotFoundError } from '@/common/errors'
 
 const logger = createLogger('PointRepo')
 
-/**
- * Row shape returned by `SELECT ... FOR UPDATE` on the User table.
- * Used for pessimistic row-level locking inside interactive transactions.
- */
 interface LockedUserRow {
   id: number
   rewardPoints: number
@@ -25,9 +21,6 @@ export type AtomicRedeemResult =
   | { error: 'EXCEEDS_ORDER_TOTAL'; orderTotal: number }
 
 export class PointRepo {
-  // ─────────────── Read-Only Queries (outside transaction) ───────────────
-
-  /** Lấy thông tin user (cần rewardPoints hiện tại) — read-only, no lock */
   async findUserById(userId: number) {
     return prisma.user.findUnique({
       where: { id: userId, deletedAt: null },
@@ -35,7 +28,6 @@ export class PointRepo {
     })
   }
 
-  /** Lấy lịch sử giao dịch điểm của user có phân trang */
   async findTransactionsByUserId(userId: number, skip: number, take: number) {
     const [data, total] = await prisma.$transaction([
       prisma.pointTransaction.findMany({
@@ -49,7 +41,6 @@ export class PointRepo {
     return { data, total }
   }
 
-  /** Kiểm tra đơn hàng tồn tại, lấy thông tin cần thiết */
   async findOrderById(orderId: number) {
     return prisma.order.findUnique({
       where: { id: orderId },
@@ -57,17 +48,6 @@ export class PointRepo {
     })
   }
 
-  // ─────────────── ACID Transaction Methods (Pessimistic Locking & Idempotency) ───────────────
-
-  /**
-   * Atomic EARN flow with row-level pessimistic locking and strict idempotency.
-   *
-   * Wraps the ENTIRE sequence inside a single `prisma.$transaction`:
-   *   1. Acquires Row-Level Lock on User row: `SELECT ... FOR UPDATE`
-   *   2. Enforces Idempotency: checks for pre-existing EARN transaction for this orderId
-   *   3. Updates user rewardPoints
-   *   4. Records PointTransaction audit log
-   */
   async atomicEarnPoints(
     userId: number,
     orderId: number,
@@ -76,10 +56,8 @@ export class PointRepo {
   ): Promise<AtomicEarnResult | null> {
     logger.info({ userId, orderId, pointChange }, 'atomicEarnPoints: entering transaction')
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return prisma.$transaction(
       async (tx: any): Promise<AtomicEarnResult | null> => {
-        // Step 1: Enforce Row-Level Pessimistic Locking on User table
         const lockedRows: LockedUserRow[] = await tx.$queryRaw`
           SELECT id, "rewardPoints"
           FROM "User"
@@ -93,7 +71,6 @@ export class PointRepo {
         }
         const lockedUser = lockedRows[0]
 
-        // Step 2: Strict Idempotency check inside the locked critical section
         const existingEarn = await tx.pointTransaction.findFirst({
           where: { orderId, transactionType: 'EARN' },
         })
@@ -110,7 +87,6 @@ export class PointRepo {
           }
         }
 
-        // Step 3: Compute new balance and persist atomically
         const newPoints = lockedUser.rewardPoints + pointChange
 
         await tx.user.update({
@@ -118,7 +94,6 @@ export class PointRepo {
           data: { rewardPoints: newPoints },
         })
 
-        // Step 4: Persist audit log
         const transaction = await tx.pointTransaction.create({
           data: {
             userId,
@@ -149,30 +124,17 @@ export class PointRepo {
     )
   }
 
-  /**
-   * Atomic REDEEM flow with row-level pessimistic locking and strict idempotency.
-   *
-   * Wraps the ENTIRE sequence inside a single `prisma.$transaction`:
-   *   1. Acquires Row-Level Lock on User row: `SELECT ... FOR UPDATE`
-   *   2. Enforces Idempotency: checks for pre-existing REDEEM transaction for this orderId
-   *   3. Checks balance sufficiency against true locked balance (eliminates Check-Then-Act race condition)
-   *   4. Enforces redemption cap against order total
-   *   5. Decrements user rewardPoints
-   *   6. Records PointTransaction audit log
-   */
   async atomicRedeemPoints(
     userId: number,
     orderId: number,
     pointsToRedeem: number,
     orderTotal: number,
-    description: string
+    description: string,
   ): Promise<AtomicRedeemResult> {
     logger.info({ userId, orderId, pointsToRedeem }, 'atomicRedeemPoints: entering transaction')
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return prisma.$transaction(
       async (tx: any): Promise<AtomicRedeemResult> => {
-        // Step 1: Enforce Row-Level Pessimistic Locking on User table
         const lockedRows: LockedUserRow[] = await tx.$queryRaw`
           SELECT id, "rewardPoints"
           FROM "User"
@@ -186,7 +148,6 @@ export class PointRepo {
         }
         const lockedUser = lockedRows[0]
 
-        // Step 2: Strict Idempotency check inside the locked critical section
         const existingRedeem = await tx.pointTransaction.findFirst({
           where: { orderId, transactionType: 'REDEEM' },
         })
@@ -204,7 +165,6 @@ export class PointRepo {
           }
         }
 
-        // Step 3: Atomic balance sufficiency verification (NO Check-Then-Act gap)
         if (lockedUser.rewardPoints < pointsToRedeem) {
           logger.warn(
             { userId, currentPoints: lockedUser.rewardPoints, pointsToRedeem },
@@ -217,7 +177,6 @@ export class PointRepo {
           }
         }
 
-        // Step 4: Cap check against order total (1 point = 1 VND)
         if (pointsToRedeem > orderTotal) {
           logger.warn(
             { userId, pointsToRedeem, orderTotal },
@@ -229,7 +188,6 @@ export class PointRepo {
           }
         }
 
-        // Step 5: Atomic decrement
         const newPoints = lockedUser.rewardPoints - pointsToRedeem
 
         await tx.user.update({
@@ -237,7 +195,6 @@ export class PointRepo {
           data: { rewardPoints: newPoints },
         })
 
-        // Step 6: Persist audit log
         const transaction = await tx.pointTransaction.create({
           data: {
             userId,
@@ -266,5 +223,107 @@ export class PointRepo {
         timeout: 10000,
       },
     )
+  }
+
+  async compensatePointsForCancelledOrder(orderId: number, tx?: any) {
+    const executeLogic = async (client: any) => {
+      const order = await client.order.findUnique({
+        where: { id: orderId },
+        select: { id: true, userId: true, orderCode: true, pointUsed: true, pointEarned: true, status: true },
+      })
+      if (!order) {
+        throw new NotFoundError(`Đơn hàng #${orderId} không tồn tại`)
+      }
+
+      const userId = order.userId
+
+      const lockedRows: LockedUserRow[] = await client.$queryRaw`
+        SELECT id, "rewardPoints"
+        FROM "User"
+        WHERE id = ${userId} AND "deletedAt" IS NULL
+        FOR UPDATE
+      `
+      if (lockedRows.length === 0) {
+        throw new NotFoundError(`Người dùng #${userId} không tồn tại`)
+      }
+
+      let currentPoints = lockedRows[0].rewardPoints
+      let refundedPoints = 0
+      let revokedPoints = 0
+
+      if (order.pointUsed > 0) {
+        const existingRefund = await client.pointTransaction.findFirst({
+          where: { orderId: order.id, transactionType: 'REFUND' },
+        })
+        if (!existingRefund) {
+          currentPoints += order.pointUsed
+          refundedPoints = order.pointUsed
+          await client.user.update({
+            where: { id: userId },
+            data: { rewardPoints: currentPoints },
+          })
+          await client.pointTransaction.create({
+            data: {
+              userId,
+              orderId: order.id,
+              pointChange: order.pointUsed,
+              currentPoint: currentPoints,
+              transactionType: 'REFUND',
+              description: `Hoàn ${order.pointUsed} điểm do hủy/hoàn đơn hàng #${order.orderCode}`,
+            },
+          })
+        }
+      }
+
+      if (order.pointEarned > 0) {
+        const existingEarn = await client.pointTransaction.findFirst({
+          where: { orderId: order.id, transactionType: 'EARN' },
+        })
+        if (existingEarn) {
+          const existingRevoke = await client.pointTransaction.findFirst({
+            where: {
+              orderId: order.id,
+              transactionType: 'REDEEM',
+              description: { contains: 'Thu hồi' },
+            },
+          })
+          if (!existingRevoke) {
+            const pointsToDeduct = Math.min(currentPoints, order.pointEarned)
+            currentPoints -= pointsToDeduct
+            revokedPoints = pointsToDeduct
+            await client.user.update({
+              where: { id: userId },
+              data: { rewardPoints: currentPoints },
+            })
+            await client.pointTransaction.create({
+              data: {
+                userId,
+                orderId: order.id,
+                pointChange: -pointsToDeduct,
+                currentPoint: currentPoints,
+                transactionType: 'REDEEM',
+                description: `Thu hồi ${pointsToDeduct} điểm thưởng do hủy/hoàn đơn hàng #${order.orderCode}`,
+              },
+            })
+          }
+        }
+      }
+
+      return {
+        userId,
+        orderId: order.id,
+        refundedPoints,
+        revokedPoints,
+        finalBalance: currentPoints,
+      }
+    }
+
+    if (tx) {
+      return executeLogic(tx)
+    }
+    return prisma.$transaction(executeLogic, {
+      isolationLevel: 'ReadCommitted',
+      timeout: 10000,
+    })
   }
 }

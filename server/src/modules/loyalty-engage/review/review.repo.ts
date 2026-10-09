@@ -1,11 +1,10 @@
-// src/modules/loyalty-engage/review/review.repo.ts
 import { prisma } from '@/database/prisma'
+import { redisClient } from '@/database/redis'
 import { createLogger } from '@/common/logger'
 
 const logger = createLogger('ReviewRepo')
 
 export class ReviewRepo {
-  /** Kiểm tra product tồn tại (dùng cho read query / catalog metadata) */
   async findProductById(productId: number) {
     return prisma.product.findFirst({
       where: { id: productId, deletedAt: null },
@@ -13,14 +12,26 @@ export class ReviewRepo {
     })
   }
 
-  /**
-   * Tạo review mới kèm media (sử dụng nested create cho ReviewMedia).
-   *
-   * RACE-CONDITION FIX:
-   * Rely on the database-level @@unique([orderId, productId]) constraint.
-   * If two concurrent requests try to insert a review for the same order and product,
-   * PostgreSQL enforces uniqueness at the storage engine level and throws P2002.
-   */
+  async verifyDeliveredOrderProduct(userId: number, orderId: number, productId: number) {
+    return prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId,
+        status: 'DELIVERED',
+        deletedAt: null,
+        orderItems: {
+          some: {
+            deletedAt: null,
+            variant: {
+              productId,
+            },
+          },
+        },
+      },
+      select: { id: true },
+    })
+  }
+
   async createReview(data: {
     userId: number
     productId: number
@@ -62,11 +73,11 @@ export class ReviewRepo {
     return review
   }
 
-  /** Lấy danh sách review theo productId (có phân trang, lọc theo rating) */
   async findReviewsByProductId(productId: number, skip: number, take: number, rating?: number) {
     const where = {
       productId,
       isHidden: false,
+      deletedAt: null,
       ...(rating !== undefined ? { rating } : {}),
     }
 
@@ -87,13 +98,9 @@ export class ReviewRepo {
     return { data, total }
   }
 
-  /**
-   * Tính rating trung bình của product.
-   * Bảo vệ chia cho 0: trả về 0 nếu không có review nào.
-   */
   async getAverageRating(productId: number) {
     const result = await prisma.productReview.aggregate({
-      where: { productId, isHidden: false },
+      where: { productId, isHidden: false, deletedAt: null },
       _avg: { rating: true },
       _count: { rating: true },
     })
@@ -108,7 +115,6 @@ export class ReviewRepo {
     return { averageRating, totalReviews }
   }
 
-  /** Lấy một review theo id */
   async findReviewById(id: number) {
     return prisma.productReview.findUnique({
       where: { id },
@@ -119,13 +125,38 @@ export class ReviewRepo {
     })
   }
 
-  /** Admin trả lời review */
   async updateShopReply(id: number, shopReply: string) {
     return prisma.productReview.update({ where: { id }, data: { shopReply } })
   }
 
-  /** Admin ẩn/hiện review */
   async toggleHideReview(id: number, isHidden: boolean) {
     return prisma.productReview.update({ where: { id }, data: { isHidden } })
+  }
+
+  async syncProductRatingHook(productId: number, tx?: any) {
+    const client = tx || prisma
+    const result = await client.productReview.aggregate({
+      where: { productId, isHidden: false, deletedAt: null },
+      _avg: { rating: true },
+      _count: { rating: true },
+    })
+
+    const totalReviews = result._count.rating || 0
+    const rawAvg = result._avg.rating
+    const averageRating = rawAvg !== null && totalReviews > 0 ? Math.round(rawAvg * 10) / 10 : 0
+
+    try {
+      const cacheKey = `catalog:product:${productId}:rating`
+      await redisClient.set(
+        cacheKey,
+        JSON.stringify({ productId, averageRating, totalReviews, updatedAt: new Date().toISOString() }),
+        'EX',
+        86400,
+      )
+    } catch (cacheErr) {
+      logger.warn({ productId, cacheErr }, 'syncProductRatingHook: Redis cache sync warning')
+    }
+
+    return { productId, averageRating, totalReviews }
   }
 }
