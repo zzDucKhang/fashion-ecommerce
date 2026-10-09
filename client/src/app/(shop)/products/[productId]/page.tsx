@@ -105,19 +105,23 @@ export default function ProductDetailPage() {
           {/* Chọn biến thể (SKU) */}
           {variants.length > 1 && (
             <div className="space-y-3 mb-6">
-              <span className="text-xs font-semibold text-neutral-800">Biến thể / Phân loại</span>
+              <span className="text-xs font-semibold text-neutral-800">Phân loại sản phẩm</span>
               <div className="flex flex-wrap gap-2">
                 {variants.map((v: any, idx: number) => (
                   <button
                     key={v.id}
                     onClick={() => setSelectedVariantIndex(idx)}
+                    disabled={v.stockQuantity <= 0}
                     className={`rounded-xl border px-3.5 py-2 text-xs font-medium transition ${
                       selectedVariantIndex === idx
                         ? 'border-neutral-900 bg-neutral-900 text-white'
+                        : v.stockQuantity <= 0 
+                        ? 'border-[#EAE6DF] bg-neutral-50 text-neutral-400 cursor-not-allowed opacity-60'
                         : 'border-[#EAE6DF] bg-white text-neutral-700 hover:border-neutral-400'
                     }`}
                   >
-                    {v.sku} ({v.stockQuantity > 0 ? `Còn ${v.stockQuantity}` : 'Hết hàng'})
+                    {/* Ưu tiên hiển thị variantValue (VD: Đen - XL), nếu không có mới hiện SKU */}
+                    {v.variantValue || v.sku} 
                   </button>
                 ))}
               </div>

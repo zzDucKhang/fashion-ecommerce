@@ -2,12 +2,15 @@ import Image from 'next/image';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { CartItem } from '@/types';
 import { useUpdateCartItem, useRemoveCartItem } from '../hooks/use-cart';
+import { formatCurrency } from '@/lib/utils/format-currency';
 
 interface CartItemProps {
   item: CartItem;
+  isSelected?: boolean;
+  onToggleSelect?: (id: number) => void;
 }
 
-export function CartItemComponent({ item }: CartItemProps) {
+export function CartItemComponent({ item, isSelected = false, onToggleSelect }: CartItemProps) {
   const updateMutation = useUpdateCartItem();
   const removeMutation = useRemoveCartItem();
 
@@ -22,19 +25,23 @@ export function CartItemComponent({ item }: CartItemProps) {
     removeMutation.mutate(item.id);
   };
 
-  // Convert prices that might be strings to numbers
   const price = Number(item.variant.sellingPrice || item.variant.originalPrice || 0);
   const totalItemPrice = price * item.quantity;
   const imageUrl = item.variant.imageUrl || item.variant.product.thumbnailUrl || '/placeholder.png';
-  
-  // Format variant attributes (e.g. Color / Size)
-  const variantDisplay = item.variant.attributeValues
-    ? item.variant.attributeValues.map((av: any) => av.value).join(' / ')
-    : 'Default';
+  const variantDisplay = item.variant.variantValue || 'Phân loại mặc định';
 
   return (
-    <div className="flex gap-4 py-5">
-      <div className="relative h-32 w-28 shrink-0 overflow-hidden rounded-xl bg-[#e9e5dc]">
+    <div className="flex items-center gap-3.5 py-5">
+      {/* Checkbox chọn sản phẩm */}
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={() => onToggleSelect?.(item.id)}
+        className="size-4 shrink-0 rounded border-[#EAE6DF] accent-[#84EA53] cursor-pointer"
+        aria-label={`Chọn sản phẩm ${item.variant.product.defaultName}`}
+      />
+
+      <div className="relative h-28 w-24 sm:h-32 sm:w-28 shrink-0 overflow-hidden rounded-xl bg-[#e9e5dc]">
         <Image
           src={imageUrl}
           alt={item.variant.product.defaultName || 'Product'}
@@ -43,47 +50,49 @@ export function CartItemComponent({ item }: CartItemProps) {
           className="object-cover"
         />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col">
+
+      <div className="flex min-w-0 flex-1 flex-col justify-between self-stretch">
         <div className="flex justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold line-clamp-2">
+            <p className="text-sm font-semibold line-clamp-2 text-neutral-900">
               {item.variant.product.defaultName}
             </p>
-            <p className="mt-2 text-xs text-[#74736e]">{variantDisplay}</p>
+            <p className="mt-1.5 text-xs text-[#74736e]">{variantDisplay}</p>
           </div>
           <button
             onClick={handleRemove}
             disabled={removeMutation.isPending}
             aria-label="Remove item"
-            className="h-fit text-[#9b9991] hover:text-red-500 disabled:opacity-50 transition-colors"
+            className="h-fit text-[#9b9991] hover:text-red-500 disabled:opacity-50 transition-colors p-1"
           >
             <Trash2 size={15} />
           </button>
         </div>
-        <div className="mt-auto flex items-center justify-between">
-          <div className="flex items-center rounded-lg border border-[#EAE6DF]">
+
+        <div className="mt-3 flex items-center justify-between">
+          <div className="flex items-center rounded-lg border border-[#EAE6DF] bg-white">
             <button
               onClick={() => handleUpdate(-1)}
               disabled={updateMutation.isPending || item.quantity <= 1}
-              className="p-2 disabled:opacity-50"
+              className="p-1.5 disabled:opacity-50 text-neutral-600 hover:text-neutral-900"
               aria-label="Decrease quantity"
             >
               <Minus size={12} />
             </button>
-            <span className="w-5 text-center text-xs">
+            <span className="w-6 text-center text-xs font-semibold">
               {updateMutation.isPending ? '...' : item.quantity}
             </span>
             <button
               onClick={() => handleUpdate(1)}
               disabled={updateMutation.isPending}
-              className="p-2 disabled:opacity-50"
+              className="p-1.5 disabled:opacity-50 text-neutral-600 hover:text-neutral-900"
               aria-label="Increase quantity"
             >
               <Plus size={12} />
             </button>
           </div>
-          <span className="text-sm font-bold">
-            ${totalItemPrice.toLocaleString()}
+          <span className="text-sm font-bold text-neutral-900">
+            {formatCurrency(totalItemPrice)}
           </span>
         </div>
       </div>

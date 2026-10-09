@@ -16,6 +16,16 @@ export class ChatController {
     }
   }
 
+  getActiveChat = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.userId
+      const data = await this.chatService.getOrCreateActiveChat(userId)
+      return res.status(200).json({ statusCode: 200, ...data })
+    } catch (error) {
+      next(error)
+    }
+  }
+
   /** GET /chat/messages?withUserId=&page=&limit= – Lịch sử hội thoại */
   getChatHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {

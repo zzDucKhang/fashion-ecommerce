@@ -165,6 +165,7 @@ export class PointRepo {
     orderId: number,
     pointsToRedeem: number,
     orderTotal: number,
+    description: string
   ): Promise<AtomicRedeemResult> {
     logger.info({ userId, orderId, pointsToRedeem }, 'atomicRedeemPoints: entering transaction')
 
@@ -244,7 +245,7 @@ export class PointRepo {
             pointChange: -pointsToRedeem,
             currentPoint: newPoints,
             transactionType: 'REDEEM',
-            description: `Dùng ${pointsToRedeem} điểm (tương đương ${pointsToRedeem} VNĐ) thanh toán đơn hàng #${orderId}`,
+            description: description,
           },
         })
 

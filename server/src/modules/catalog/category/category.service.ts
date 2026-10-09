@@ -69,18 +69,5 @@ export class CategoryService {
     }
   }
 
-  async upsertTranslation({
-    categoryId,
-    languageId,
-    userId,
-    data,
-  }: {
-    categoryId: number
-    languageId: string
-    userId: number
-    data: UpsertCategoryTranslationType
-  }) {
-    await this.findById(categoryId, languageId)
-    return this.categoryRepo.upsertTranslation({ categoryId, languageId, userId, data })
-  }
+  
 }

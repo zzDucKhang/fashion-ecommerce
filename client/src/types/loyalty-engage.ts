@@ -1,4 +1,4 @@
-import { DiscountType, PointTransType } from './enums'; //[cite: 1, 2]
+import { DiscountType, PointTransType } from './enums';
 import { UserProfile } from './auth';
 import { Product } from './catalog';
 
@@ -7,7 +7,7 @@ export type { FlashSaleItem, FlashSaleCampaign } from './inventory-sale';
 export interface Voucher {
   id: number;
   code: string;
-  discountType: DiscountType; //[cite: 1, 2]
+  discountType: DiscountType;
   discountValue: number | string;
   minOrderValue: number | string;
   maxDiscountAmt?: number | string | null;
@@ -25,7 +25,7 @@ export interface PointTransaction {
   orderId?: number | null;
   pointChange: number;
   currentPoint: number;
-  transactionType: PointTransType; //[cite: 1, 2]
+  transactionType: PointTransType;
   description: string;
   createdAt: string;
 }
@@ -35,7 +35,7 @@ export interface ProductReview {
   productId: number;
   userId: number;
   orderId?: number | null;
-  rating: number; // 1-5
+  rating: number;
   content: string;
   shopReply?: string | null;
   updateCount: number;
@@ -50,12 +50,24 @@ export interface ProductReview {
   }>;
 }
 
+// Khớp chuẩn model Chat & Message trong Prisma
+export interface ChatSession {
+  id: number;
+  customerId: number;
+  status: 'OPEN' | 'RESOLVED' | 'CLOSED';
+  createdAt: string;
+  updatedAt: string;
+  customer?: UserProfile;
+  messages?: ChatMessage[];
+}
+
 export interface ChatMessage {
   id: number;
+  chatId: number;
   senderId: number;
-  receiverId: number;
+  senderRole: 'CUSTOMER' | 'STAFF' | 'ADMIN';
   content: string;
-  attachmentUrl?: string | null;
-  readAt?: string | null;
+  isRead: boolean;
   createdAt: string;
+  sender?: UserProfile;
 }

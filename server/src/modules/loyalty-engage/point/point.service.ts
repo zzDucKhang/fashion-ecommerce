@@ -48,7 +48,7 @@ export class PointService {
       userId,
       body.orderId,
       pointChange,
-      body.description,
+      body.description || `Cộng điểm từ đơn hàng #${order.id}`, 
     )
 
     if (!result) {
@@ -114,6 +114,7 @@ export class PointService {
       body.orderId,
       body.pointsToRedeem,
       orderTotal,
+      `Dùng ${body.pointsToRedeem} điểm (tương đương ${body.pointsToRedeem} VNĐ) thanh toán đơn hàng #${order.id}`
     )
 
     if ('error' in result) {

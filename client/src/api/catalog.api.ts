@@ -27,10 +27,9 @@ export const catalogApi = {
     return res.data;
   },
 
-  getProductById: async (productId: number, lang = 'vi') => {
+  getProductById: async (productId: number) => {
     const res = await apiClient.get<ApiResponse<Product>>(
-      `${API_ENDPOINTS.CATALOG.PRODUCTS}/${productId}`,
-      { params: { lang } }
+      `${API_ENDPOINTS.CATALOG.PRODUCTS}/${productId}`
     );
     return res.data;
   },
@@ -59,10 +58,9 @@ export const catalogApi = {
   },
 
   // Danh mục & Thương hiệu
-  getCategories: async (lang = 'vi') => {
+  getCategories: async () => {
     const res = await apiClient.get<{ data: Category[]; totalItems: number }>(
-      API_ENDPOINTS.CATALOG.CATEGORIES,
-      { params: { lang } }
+      API_ENDPOINTS.CATALOG.CATEGORIES
     );
     return res.data;
   },

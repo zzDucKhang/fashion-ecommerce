@@ -77,18 +77,5 @@ export class BrandService {
     }
   }
 
-  async upsertTranslation({
-    brandId,
-    languageId,
-    userId,
-    data,
-  }: {
-    brandId: number
-    languageId: string
-    userId: number
-    data: UpsertBrandTranslationType
-  }) {
-    await this.findById(brandId, languageId)
-    return this.brandRepo.upsertTranslation({ brandId, languageId, userId, data })
-  }
+  
 }

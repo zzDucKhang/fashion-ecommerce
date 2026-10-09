@@ -9,7 +9,7 @@ import {
   getBrandParamsSchema,
   createBrandBodySchema,
   updateBrandBodySchema,
-  upsertBrandTranslationSchema,
+
 } from './brand.schema'
 
 export const brandRouter = Router()
@@ -42,13 +42,3 @@ brandRouter.delete(
   controller.delete,
 )
 
-brandRouter.put(
-  '/:brandId/translations/:languageId',
-  requireAuth,
-  requireAdmin,
-  validateRequest({
-    params: getBrandParamsSchema.extend({ languageId: z.string().min(2) }),
-    body: upsertBrandTranslationSchema,
-  }),
-  controller.upsertTranslation,
-)

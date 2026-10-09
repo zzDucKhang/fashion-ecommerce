@@ -45,11 +45,19 @@ export const orderApi = {
     return res.data;
   },
 
-  // Dành riêng cho Admin
   updateOrderStatus: async (orderId: number, payload: UpdateOrderStatusPayload) => {
     const res = await apiClient.patch<ApiResponse<Order>>(
       `${API_ENDPOINTS.CART_ORDER.ORDERS}/${orderId}/status`,
       payload
+    );
+    return res.data;
+  },
+
+  // THÊM API TẠO THANH TOÁN (QR CODE)
+  createPayment: async (orderId: number) => {
+    const res = await apiClient.post<ApiResponse<{ qrUrl: string; amount: number; transferContent: string; paymentId: string }>>(
+      API_ENDPOINTS.FULFILLMENT.PAYMENTS,
+      { orderId }
     );
     return res.data;
   },

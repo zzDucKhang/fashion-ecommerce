@@ -10,9 +10,7 @@ export const orderItemInclude = {
           product: {
             select: { id: true, defaultName: true, thumbnailUrl: true },
           },
-          attributeValues: {
-            include: { attribute: true },
-          },
+         
         },
       },
     },
@@ -133,9 +131,36 @@ export class OrderRepo {
       where: { id: variantId, deletedAt: null },
       include: {
         product: true,
-        attributeValues: {
-          include: { attribute: true },
+       
+        flashSaleItems: {
+          where: {
+            campaign: {
+              isActive: true,
+              deletedAt: null,
+              startTime: { lte: now },
+              endTime: { gte: now },
+            },
+          },
+          include: {
+            campaign: true,
+          },
         },
+      },
+    })
+  }
+
+  async findVariantsForOrderList(
+    variantIds: number[],
+    db: Prisma.TransactionClient | typeof prisma = prisma
+  ) {
+    const now = new Date()
+    return db.productVariant.findMany({
+      where: { 
+        id: { in: variantIds }, 
+        deletedAt: null 
+      },
+      include: {
+        product: true,
         flashSaleItems: {
           where: {
             campaign: {
@@ -184,12 +209,7 @@ export class OrderRepo {
     })
   }
 
-  async createInventoryLog(
-    data: Prisma.InventoryLogUncheckedCreateInput,
-    db: Prisma.TransactionClient | typeof prisma = prisma
-  ) {
-    return db.inventoryLog.create({ data })
-  }
+  
 
   async refundUserPoints(
     userId: number,

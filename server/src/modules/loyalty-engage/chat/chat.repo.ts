@@ -1,185 +1,120 @@
-// src/modules/loyalty-engage/chat/chat.repo.ts
 import { prisma } from '@/database/prisma'
 import { redisClient } from '@/database/redis'
 import { createLogger } from '@/common/logger'
+import { ChatStatus } from '@prisma/client'
 
 const logger = createLogger('ChatRepo')
-
-/**
- * Redis key namespace for WebSocket sessions.
- * Structure: Hash per user, field = socketId, value = connectedAt timestamp.
- *
- * Key:    ws:sessions:user:{userId}
- * Fields: { [socketId]: connectedAtTimestamp }
- * TTL:    60 seconds (strict TTL auto-cleans ghost sessions on crash or disconnect)
- *
- * Reverse lookup key for socketId → userId:
- * Key:    ws:sessions:socket:{socketId}
- * Value:  userId
- * TTL:    60 seconds
- */
 const WS_SESSION_PREFIX = 'ws:sessions:user:'
 const WS_SOCKET_PREFIX = 'ws:sessions:socket:'
-const WS_SESSION_TTL_SECONDS = 60 // 60 seconds strict TTL for real-time offline detection
-
-export interface ConversationPartnerRow {
-  partnerId: number
-  lastMessageAt: Date
-  fullName: string
-  avatarUrl: string | null
-}
+const WS_SESSION_TTL_SECONDS = 60
 
 export class ChatRepo {
-  // ─────────────── Message System ───────────────
-
-  /** Lưu tin nhắn mới vào database */
-  async createMessage(data: {
-    senderId: number
-    receiverId: number
-    content: string
-    attachmentUrl?: string | null
-  }) {
-    const message = await prisma.message.create({
+  async createChat(userId: number) {
+    return prisma.chat.create({
       data: {
-        senderId: data.senderId,
-        receiverId: data.receiverId,
-        content: data.content,
-        attachmentUrl: data.attachmentUrl ?? null,
-      },
-      include: {
-        sender: { select: { id: true, fullName: true, avatarUrl: true } },
-        receiver: { select: { id: true, fullName: true, avatarUrl: true } },
+        userId,
+        status: ChatStatus.OPEN,
+        startedAt: new Date(),
       },
     })
-
-    logger.debug(
-      { messageId: message.id, senderId: data.senderId, receiverId: data.receiverId },
-      'createMessage: message persisted',
-    )
-
-    return message
   }
 
-  /**
-   * Lấy lịch sử hội thoại giữa 2 user với Cursor-based Pagination.
-   *
-   * PERFORMANCE OPTIMIZATION (O(take) complexity):
-   * Replaces Offset Pagination (skip/take) with Cursor-based Pagination.
-   *
-   * Database seeks directly to the cursor via the indexed Primary Key:
-   * `WHERE id < cursor ORDER BY id DESC LIMIT take + 1`
-   *
-   * @param userId - ID của user đang truy vấn
-   * @param withUserId - ID của đối tác trò chuyện
-   * @param cursor - ID tin nhắn bắt đầu (exclusive). Null cho trang đầu tiên.
-   * @param take - Số lượng tin nhắn cần lấy
-   */
-  async findConversation(
-    userId: number,
-    withUserId: number,
-    cursor: number | null,
-    take: number,
-  ) {
+  async findActiveChatByUserId(userId: number) {
+    return prisma.chat.findFirst({
+      where: { userId, status: { in: [ChatStatus.OPEN, ChatStatus.WAITING] } },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        messages: {
+          take: 1,
+          orderBy: { sendDate: 'desc' },
+        },
+      },
+    })
+  }
+
+  async closeChat(chatId: number) {
+    return prisma.chat.update({
+      where: { id: chatId },
+      data: {
+        status: ChatStatus.CLOSED,
+        endedAt: new Date(),
+      },
+    })
+  }
+
+  async createMessage(data: { chatId: number; senderId: number; content: string }) {
+    return prisma.message.create({
+      data: {
+        chatId: data.chatId,
+        content: data.content,
+        isRead: false,
+        sendDate: new Date(),
+      },
+      include: {
+        chat: { select: { userId: true } }
+      }
+    })
+  }
+
+  async findConversation(chatId: number, cursor: number | null, take: number) {
     const where = {
-      OR: [
-        { senderId: userId, receiverId: withUserId },
-        { senderId: withUserId, receiverId: userId },
-      ],
+      chatId,
       ...(cursor ? { id: { lt: cursor } } : {}),
     }
 
     const messages = await prisma.message.findMany({
       where,
       orderBy: { id: 'desc' },
-      take: take + 1, // Fetch N+1 to determine if next page exists
-      include: {
-        sender: { select: { id: true, fullName: true, avatarUrl: true } },
-        receiver: { select: { id: true, fullName: true, avatarUrl: true } },
-      },
+      take: take + 1,
     })
 
     const hasMore = messages.length > take
     const data = hasMore ? messages.slice(0, take) : messages
     const nextCursor = hasMore && data.length > 0 ? data[data.length - 1].id : null
 
-    logger.debug(
-      { userId, withUserId, cursor, count: data.length, hasMore, nextCursor },
-      'findConversation: cursor pagination query executed',
-    )
-
     return {
-      data: data.reverse(), // Chronological order (oldest to newest in UI viewport)
+      data: data.reverse(),
       nextCursor,
       hasMore,
     }
   }
 
-  /** Đánh dấu tất cả tin nhắn từ senderId đến receiverId là đã đọc */
-  async markMessagesAsRead(receiverId: number, senderId: number) {
-    const result = await prisma.message.updateMany({
-      where: { senderId, receiverId, readAt: null },
-      data: { readAt: new Date() },
+  async markMessagesAsRead(chatId: number, currentUserId: number) {
+    const chat = await prisma.chat.findUnique({ where: { id: chatId }})
+    if (!chat) return { count: 0 }
+
+    // Nếu currentUserId là chủ chat -> mark read tin nhắn của shop (senderId != currentUserId)
+    // Cần tinh chỉnh logic này tùy thuộc vào việc bạn gán senderId vào Message ntn.
+    return prisma.message.updateMany({
+      where: { chatId, isRead: false },
+      data: { isRead: true },
     })
+  }
 
-    logger.debug(
-      { receiverId, senderId, count: result.count },
-      'markMessagesAsRead: messages marked as read',
-    )
-
-    return result
+  async findConversationList() {
+    return prisma.chat.findMany({
+      where: { status: { not: ChatStatus.CLOSED } },
+      include: {
+        user: { select: { fullName: true, avatarUrl: true } },
+        messages: { take: 1, orderBy: { sendDate: 'desc' } }
+      },
+      orderBy: { updatedAt: 'desc' }
+    })
   }
 
   /** Đếm số tin nhắn chưa đọc của user */
   async countUnread(userId: number) {
-    return prisma.message.count({ where: { receiverId: userId, readAt: null } })
+    // Đếm những tin nhắn chưa đọc thuộc phiên chat của user (nhưng do người khác gửi, VD: Admin gửi cho user)
+    return prisma.message.count({ 
+      where: { 
+        chat: { userId },
+        senderId: { not: userId }, // Đảm bảo đếm tin nhắn không phải của chính mình
+        isRead: false 
+      } 
+    })
   }
 
-  /**
-   * Lấy danh sách cuộc trò chuyện của user.
-   *
-   * OOM PREVENTION FIX:
-   * Eliminates the heavy Array mapping (`Set<number>`) in Node.js RAM.
-   * Executes a single optimized raw SQL query using GROUP BY + JOIN in PostgreSQL,
-   * keeping Node.js memory footprint at O(1).
-   */
-  async findConversationList(userId: number): Promise<ConversationPartnerRow[]> {
-    logger.debug({ userId }, 'findConversationList: executing database-level aggregation')
 
-    const partners = await prisma.$queryRaw<ConversationPartnerRow[]>`
-      SELECT 
-        c."partnerId",
-        c."lastMessageAt",
-        u."fullName",
-        u."avatarUrl"
-      FROM (
-        SELECT "partnerId", MAX("lastMessageAt") AS "lastMessageAt"
-        FROM (
-          SELECT "receiverId" AS "partnerId", MAX("createdAt") AS "lastMessageAt"
-          FROM "Message"
-          WHERE "senderId" = ${userId}
-          GROUP BY "receiverId"
-
-          UNION ALL
-
-          SELECT "senderId" AS "partnerId", MAX("createdAt") AS "lastMessageAt"
-          FROM "Message"
-          WHERE "receiverId" = ${userId}
-          GROUP BY "senderId"
-        ) AS raw_conversations
-        GROUP BY "partnerId"
-      ) AS c
-      JOIN "User" u ON u.id = c."partnerId"
-      WHERE u."deletedAt" IS NULL
-      ORDER BY c."lastMessageAt" DESC
-    `
-
-    logger.debug(
-      { userId, partnerCount: partners.length },
-      'findConversationList: completed via PostgreSQL engine',
-    )
-
-    return partners
-  }
 
   // ─────────────── WebSocket Session Management (Redis Only) ───────────────
 

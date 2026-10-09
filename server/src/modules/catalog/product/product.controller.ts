@@ -63,20 +63,5 @@ export class ProductController {
     }
   }
 
-  upsertTranslation = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = req.user!.userId
-      const productId = Number(req.params.productId)
-      const languageId = req.params.languageId
-      const data = await this.productService.upsertTranslation({
-        productId,
-        languageId,
-        userId,
-        data: req.body,
-      })
-      return res.status(200).json({ statusCode: 200, message: 'Cập nhật bản dịch sản phẩm thành công', data })
-    } catch (err) {
-      next(err)
-    }
-  }
+  
 }

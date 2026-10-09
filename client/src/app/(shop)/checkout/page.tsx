@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Metadata } from 'next';
 import { CheckoutView } from '@/modules/checkout/components/checkout-view';
 
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function CheckoutPage() {
-  return <CheckoutView />;
+  return (
+    <Suspense fallback={<div className="py-20 text-center text-sm text-neutral-500">Đang tải trang thanh toán...</div>}>
+      <CheckoutView />
+    </Suspense>
+  );
 }

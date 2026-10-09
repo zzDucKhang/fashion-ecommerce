@@ -17,26 +17,21 @@ export class ChatService {
 
   // ─────────────── Message APIs ───────────────
 
+  async getOrCreateActiveChat(userId: number) {
+    let chat = await this.chatRepo.findActiveChatByUserId(userId)
+    if (!chat) chat = await this.chatRepo.createChat(userId)
+    return { data: chat }
+  }
+
   /**
    * Lưu tin nhắn mới vào bảng Message.
    */
   async sendMessage(senderId: number, body: SendMessageBodyType) {
-    if (senderId === body.receiverId) {
-      throw new BadRequestError('Không thể gửi tin nhắn cho chính mình')
-    }
-
-    logger.info(
-      { senderId, receiverId: body.receiverId },
-      'sendMessage: persisting message to database',
-    )
-
     const message = await this.chatRepo.createMessage({
+      chatId: body.chatId,
       senderId,
-      receiverId: body.receiverId,
       content: body.content,
-      attachmentUrl: body.attachmentUrl,
     })
-
     return { message: 'Tin nhắn đã được gửi', data: message }
   }
 
@@ -47,36 +42,10 @@ export class ChatService {
    *   - O(take) seek time via indexed primary key.
    *   - Eliminates database IO degradation caused by high-offset skips.
    */
-  async getChatHistory(userId: number, query: GetChatHistoryQueryType) {
-    const { withUserId, limit, cursor, page } = query
-
-    if (userId === withUserId) {
-      throw new BadRequestError('Không thể xem lịch sử chat với chính mình')
-    }
-
-    const cursorValue = cursor ?? null
-
-    logger.debug(
-      { userId, withUserId, cursor: cursorValue, limit },
-      'getChatHistory: fetching messages via cursor pagination',
-    )
-
-    const { data, nextCursor, hasMore } = await this.chatRepo.findConversation(
-      userId,
-      withUserId,
-      cursorValue,
-      limit,
-    )
-
-    return {
-      data,
-      pagination: {
-        page: page ?? 1,
-        limit,
-        nextCursor,
-        hasMore,
-      },
-    }
+  async getChatHistory(query: GetChatHistoryQueryType) {
+    const { chatId, limit, cursor, page } = query
+    const { data, nextCursor, hasMore } = await this.chatRepo.findConversation(chatId, cursor ?? null, limit)
+    return { data, pagination: { page, limit, nextCursor, hasMore } }
   }
 
   /** Đánh dấu đã đọc tất cả tin nhắn từ một sender */

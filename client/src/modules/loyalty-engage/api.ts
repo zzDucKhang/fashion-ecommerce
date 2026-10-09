@@ -1,6 +1,6 @@
 // src/modules/loyalty-engage/api.ts
-import { api } from "@/lib/api/client";
-
+import { apiClient } from "@/api/client"
+import { API_ENDPOINTS } from "@/api/endpoints";
 // ==========================================
 // 1. Voucher Types & Interfaces
 // ==========================================
@@ -158,46 +158,33 @@ export interface ChatMessageItem {
 // 5. API Client Methods
 // ==========================================
 
-/**
- * Kiểm tra tính hợp lệ của Voucher và tính toán số tiền giảm.
- * @param code - Mã Voucher người dùng nhập
- * @param orderTotal - Tổng giá trị đơn hàng trước giảm giá
- */
 export async function validateVoucher(
   code: string,
   orderTotal: number
 ): Promise<VoucherValidationResponse> {
-  return api.post<VoucherValidationResponse>("/vouchers/validate", {
+  const res = await apiClient.post<VoucherValidationResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.VOUCHERS}/validate`, {
     code: code.trim().toUpperCase(),
     orderTotal,
   });
+  return res.data;
 }
 
-/**
- * Lấy số điểm thưởng tích lũy hiện tại của người dùng.
- */
 export async function getPointBalance(): Promise<PointBalanceResponse> {
-  return api.get<PointBalanceResponse>("/points/balance");
+  const res = await apiClient.get<PointBalanceResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.POINTS}/balance`);
+  return res.data;
 }
 
-/**
- * Dùng điểm thưởng tích lũy để thanh toán đơn hàng.
- * @param orderId - ID đơn hàng cần áp dụng điểm
- * @param pointsToRedeem - Số điểm muốn sử dụng
- */
 export async function redeemPoints(
   orderId: number,
   pointsToRedeem: number
 ): Promise<RedeemPointsResponse> {
-  return api.post<RedeemPointsResponse>("/points/redeem", {
+  const res = await apiClient.post<RedeemPointsResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.POINTS}/redeem`, {
     orderId,
     pointsToRedeem,
   });
+  return res.data;
 }
 
-/**
- * Lấy danh sách đánh giá của sản phẩm theo productId kèm thống kê điểm số và phân trang.
- */
 export async function getReviewsByProduct(params: {
   productId: number;
   page?: number;
@@ -210,26 +197,23 @@ export async function getReviewsByProduct(params: {
   if (params.limit) query.append("limit", params.limit.toString());
   if (params.rating) query.append("rating", params.rating.toString());
 
-  return api.get<ProductReviewsResponse>(`/reviews?${query.toString()}`);
+  const res = await apiClient.get<ProductReviewsResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.REVIEWS}?${query.toString()}`);
+  return res.data;
 }
 
-/**
- * Tạo bài đánh giá sản phẩm từ đơn hàng đã nhận.
- */
 export async function createReview(
   payload: CreateReviewPayload
 ): Promise<CreateReviewResponse> {
-  return api.post<CreateReviewResponse>("/reviews", payload);
+  const res = await apiClient.post<CreateReviewResponse>(API_ENDPOINTS.LOYALTY_ENGAGE.REVIEWS, payload);
+  return res.data;
 }
 
-/**
- * Gửi heartbeat ping lên server để gia hạn TTL của WebSocket session (chống ghost sessions).
- * @param socketId - Socket ID nhận được từ kết nối socket.io
- */
 export async function sendSocketHeartbeat(
   socketId: string
 ): Promise<SocketHeartbeatResponse> {
-  return api.post<SocketHeartbeatResponse>("/chat/sessions/heartbeat", {
+  // Domain chat chưa có trong endpoints.ts nên gọi trực tiếp với prefix chuẩn
+  const res = await apiClient.post<SocketHeartbeatResponse>("/loyalty-engage/chat/sessions/heartbeat", {
     socketId,
   });
+  return res.data;
 }

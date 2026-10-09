@@ -36,12 +36,7 @@ export class ProductRepo {
             where: { deletedAt: null },
             select: { id: true, sku: true, originalPrice: true, sellingPrice: true, stockQuantity: true },
           },
-          translations: {
-            where:
-              languageId === ALL_LANGUAGE_CODE
-                ? { deletedAt: null }
-                : { deletedAt: null, languageId },
-          },
+         
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -65,12 +60,7 @@ export class ProductRepo {
         tags: true,
         images: { orderBy: { displayOrder: 'asc' } },
         variants: { where: { deletedAt: null } },
-        translations: {
-          where:
-            languageId === ALL_LANGUAGE_CODE
-              ? { deletedAt: null }
-              : { deletedAt: null, languageId },
-        },
+       
       },
     })
   }
@@ -107,7 +97,7 @@ export class ProductRepo {
       include: {
         images: true,
         tags: true,
-        translations: true,
+        
       },
     })
   }
@@ -161,38 +151,5 @@ export class ProductRepo {
     })
   }
 
-  async upsertTranslation({
-    productId,
-    languageId,
-    userId,
-    data,
-  }: {
-    productId: number
-    languageId: string
-    userId: number
-    data: UpsertProductTranslationType
-  }) {
-    const existing = await prisma.productTranslation.findFirst({
-      where: { productId, languageId, deletedAt: null },
-    })
-
-    if (existing) {
-      return prisma.productTranslation.update({
-        where: { id: existing.id },
-        data: {
-          ...data,
-          updatedById: userId,
-        },
-      })
-    }
-
-    return prisma.productTranslation.create({
-      data: {
-        ...data,
-        productId,
-        languageId,
-        createdById: userId,
-      },
-    })
-  }
+  
 }

@@ -1,4 +1,4 @@
-import { OrderStatus, PaymentMethod, PaymentStatus } from './enums'; //[cite: 1, 2]
+import { OrderStatus, PaymentMethod, PaymentStatus } from './enums';
 import { ProductVariant, Product } from './catalog';
 
 export interface CartItem {
@@ -34,12 +34,17 @@ export interface Order {
   id: number;
   orderCode: string;
   userId: number;
-  receiverName: string;
-  receiverPhone: string;
-  province: string;
-  district: string;
-  ward: string;
-  detailAddress: string;
+  // Chuỗi địa chỉ snapshot chuẩn Backend Prisma
+  shippingAddress: string;
+  
+  // Các trường parse mềm phục vụ hiển thị UI
+  receiverName?: string;
+  receiverPhone?: string;
+  province?: string;
+  district?: string;
+  ward?: string;
+  detailAddress?: string;
+
   subTotal: number | string;
   shippingFee: number | string;
   shippingMethod: string;
@@ -50,9 +55,9 @@ export interface Order {
   pointDiscount: number | string;
   pointEarned: number;
   totalAmount: number | string;
-  paymentMethod: PaymentMethod; //[cite: 1, 2]
-  paymentStatus: PaymentStatus; //[cite: 1, 2]
-  status: OrderStatus; //[cite: 1, 2]
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  status: OrderStatus;
   customerNote?: string | null;
   orderDate?: string;
   createdAt?: string;
@@ -61,22 +66,20 @@ export interface Order {
   paymentTransactions?: unknown[];
 }
 
-// Payload Thêm vào giỏ
 export interface AddToCartPayload {
   variantId: number;
   quantity: number;
 }
 
-// Payload Cập nhật số lượng giỏ
 export interface UpdateCartItemPayload {
   quantity: number;
 }
 
-// Payload Đặt hàng (Checkout)
 export interface CreateOrderPayload {
   cartItemIds?: number[];
   shippingAddressId?: number;
-  shippingAddress?: {
+  // Nhận dạng Object để backend tạo snapshot hoặc truyền string trực tiếp
+  shippingAddress?: string | {
     receiverName: string;
     receiverPhone: string;
     province: string;
@@ -84,14 +87,13 @@ export interface CreateOrderPayload {
     ward: string;
     detailAddress: string;
   };
-  paymentMethod: PaymentMethod; //[cite: 1, 2]
+  paymentMethod: PaymentMethod;
   shippingMethod?: string;
   customerNote?: string;
   voucherCode?: string | null;
   pointUsed?: number;
 }
 
-// Payload Admin đổi trạng thái đơn
 export interface UpdateOrderStatusPayload {
-  status: OrderStatus; //[cite: 1, 2]
+  status: OrderStatus;
 }

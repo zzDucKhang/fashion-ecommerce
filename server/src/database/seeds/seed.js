@@ -1,528 +1,583 @@
 const { PrismaClient } = require('@prisma/client');
+
+
 const prisma = new PrismaClient();
 
+
+
 async function main() {
-  console.log('--- Đang xóa sạch dữ liệu cũ (Clean Database) ---');
-  // Xóa theo thứ tự từ bảng phụ thuộc (child) lên bảng cha (parent)
-  await prisma.reviewMedia.deleteMany({});
-  await prisma.productReview.deleteMany({});
-  await prisma.message.deleteMany({});
-  await prisma.websocketSession.deleteMany({});
-  await prisma.pointTransaction.deleteMany({});
-  await prisma.paymentTransaction.deleteMany({});
-  await prisma.returnMedia.deleteMany({});
-  await prisma.returnRequest.deleteMany({});
-  await prisma.shipment.deleteMany({});
-  await prisma.orderItem.deleteMany({});
-  await prisma.order.deleteMany({});
-  await prisma.cartItem.deleteMany({});
-  await prisma.cart.deleteMany({});
-  await prisma.flashSaleItem.deleteMany({});
-  await prisma.flashSaleCampaign.deleteMany({});
-  await prisma.inventoryLog.deleteMany({});
-  await prisma.productVariant.deleteMany({});
-  await prisma.attributeValue.deleteMany({});
-  await prisma.attribute.deleteMany({});
-  await prisma.productImage.deleteMany({});
-  await prisma.productTranslation.deleteMany({});
-  await prisma.product.deleteMany({});
-  await prisma.tag.deleteMany({});
-  await prisma.brandTranslation.deleteMany({});
-  await prisma.brand.deleteMany({});
-  await prisma.categoryTranslation.deleteMany({});
-  await prisma.category.deleteMany({});
-  await prisma.language.deleteMany({});
-  await prisma.shippingAddress.deleteMany({});
-  await prisma.deviceSession.deleteMany({});
-  await prisma.verificationCode.deleteMany({});
-  await prisma.user.deleteMany({});
-  await prisma.role.deleteMany({});
-  await prisma.permission.deleteMany({});
-  await prisma.voucher.deleteMany({});
-
-  console.log('--- 1. Seed Languages (2 bản ghi) ---');
-  const langVi = await prisma.language.create({ data: { id: 'vi', name: 'Tiếng Việt', isDefault: true } });
-  const langEn = await prisma.language.create({ data: { id: 'en', name: 'English', isDefault: false } });
-
-  console.log('--- 2. Seed Permissions (10 bản ghi) ---');
-  const permissionCodes = [
-    { code: 'USER_READ', module: 'USER', description: 'Xem danh sách người dùng' },
-    { code: 'USER_WRITE', module: 'USER', description: 'Tạo và cập nhật người dùng' },
-    { code: 'ROLE_MANAGE', module: 'ROLE', description: 'Quản lý vai trò và quyền hạn' },
-    { code: 'CATALOG_READ', module: 'CATALOG', description: 'Xem danh mục và sản phẩm' },
-    { code: 'CATALOG_WRITE', module: 'CATALOG', description: 'Thêm/sửa danh mục và sản phẩm' },
-    { code: 'ORDER_READ', module: 'ORDER', description: 'Xem danh sách đơn hàng' },
-    { code: 'ORDER_UPDATE', module: 'ORDER', description: 'Cập nhật trạng thái đơn hàng' },
-    { code: 'INVENTORY_MANAGE', module: 'INVENTORY', description: 'Quản lý nhập xuất tồn kho' },
-    { code: 'FLASH_SALE_MANAGE', module: 'PROMOTION', description: 'Tạo và chỉnh sửa Flash Sale' },
-    { code: 'VOUCHER_MANAGE', module: 'PROMOTION', description: 'Tạo mã voucher giảm giá' },
-  ];
-  const permissions = [];
-  for (const perm of permissionCodes) {
-    permissions.push(await prisma.permission.create({ data: perm }));
+  console.log('🚀 Bắt đầu làm sạch dữ liệu cũ...');
+  async function safeDelete(modelName) {
+  if (prisma[modelName] && typeof prisma[modelName].deleteMany === 'function') {
+    await prisma[modelName].deleteMany();
   }
+}
 
-  console.log('--- 3. Seed Roles (10 bản ghi) ---');
-  const roleNames = [
-    { code: 'ADMIN', name: 'Quản trị viên tối cao' },
-    { code: 'CUSTOMER', name: 'Khách hàng thông thường' },
-    { code: 'STAFF', name: 'Nhân viên vận hành' },
-    { code: 'WAREHOUSE_STAFF', name: 'Thủ kho' },
-    { code: 'MARKETING_LEAD', name: 'Trưởng nhóm Marketing' },
-    { code: 'CONTENT_CREATOR', name: 'Nhân viên nội dung' },
-    { code: 'SALES_REP', name: 'Nhân viên bán hàng' },
-    { code: 'CUSTOMER_SUPPORT', name: 'Hỗ trợ khách hàng' },
-    { code: 'FINANCE_STAFF', name: 'Nhân viên kế toán' },
-    { code: 'BRANCH_MANAGER', name: 'Quản lý chi nhánh' },
+  // 1. XÓA DỮ LIỆU CŨ THEO THỨ TỰ NGƯỢC CỦA RÀNG BUỘC KHÓA NGOẠI
+  await safeDelete('message');
+  await safeDelete('chat');
+  await safeDelete('reviewMedia');
+  await safeDelete('productReview');
+  await safeDelete('pointTransaction');
+  await safeDelete('flashSaleItem');
+  await safeDelete('flashSaleCampaign');
+  await safeDelete('inventoryTransaction');
+  await safeDelete('returnMedia');
+  await safeDelete('returnRequest');
+  await safeDelete('paymentTransaction');
+  await safeDelete('shipment');
+  await safeDelete('orderItem');
+  await safeDelete('order');
+  await safeDelete('cartItem');
+  await safeDelete('cart');
+  await safeDelete('productImage');
+  await safeDelete('productVariant');
+  await safeDelete('product');
+  await safeDelete('voucher');
+  await safeDelete('tag');
+  await safeDelete('brand');
+  await safeDelete('category');
+  await safeDelete('deviceSession');
+  await safeDelete('shippingAddress');
+  await safeDelete('user');
+
+  console.log('🧹 Đã xóa sạch dữ liệu cũ. Bắt đầu seed 10 records mỗi bảng...\n');
+
+  
+
+  // ==========================================
+  // BẢNG 4: USER (10 records)
+  // ==========================================
+  const defaultPassword = '123'
+  const usersData = [
+    { fullName: 'Nguyễn Quản Trị', email: 'admin@fashion.com', phoneNumber: '0901000001', roleId: 4, status: 'ACTIVE', rewardPoints: 5000 },
+    { fullName: 'Trần Nhân Viên', email: 'staff@fashion.com', phoneNumber: '0901000002', roleId: 5, status: 'ACTIVE', rewardPoints: 200 },
+    { fullName: 'Lê Hoàng Nam', email: 'nam.le@gmail.com', phoneNumber: '0901000003', roleId: 5, status: 'ACTIVE', rewardPoints: 1200 },
+    { fullName: 'Phạm Thị Thảo', email: 'thao.pham@gmail.com', phoneNumber: '0901000004', roleId: 5, status: 'ACTIVE', rewardPoints: 450 },
+    { fullName: 'Vũ Minh Tuấn', email: 'tuan.vu@gmail.com', phoneNumber: '0901000005', roleId: 6, status: 'ACTIVE', rewardPoints: 0 },
+    { fullName: 'Hoàng Mai Anh', email: 'maianh.hoang@gmail.com', phoneNumber: '0901000006', roleId: 6, status: 'ACTIVE', rewardPoints: 3400 },
+    { fullName: 'Đặng Quốc Bảo', email: 'bao.dang@gmail.com', phoneNumber: '0901000007', roleId: 6, status: 'ACTIVE', rewardPoints: 80 },
+    { fullName: 'Bùi Phương Ly', email: 'ly.bui@gmail.com', phoneNumber: '0901000008', roleId: 6, status: 'ACTIVE', rewardPoints: 950 },
+    { fullName: 'Đỗ Tiến Dũng', email: 'dung.do@gmail.com', phoneNumber: '0901000009', roleId: 6, status: 'INACTIVE', rewardPoints: 0 },
+    { fullName: 'Ngô Khánh Linh', email: 'linh.ngo@gmail.com', phoneNumber: '0901000010', roleId: 6, status: 'BLOCKED', rewardPoints: 10 },
   ];
-  const roles = [];
-  for (let i = 0; i < roleNames.length; i++) {
-    const role = await prisma.role.create({
+
+  const users = [];
+  for (const u of usersData) {
+    const item = await prisma.user.create({
       data: {
-        code: roleNames[i].code,
-        name: roleNames[i].name,
-        isActive: true,
-        permissions: {
-          connect: permissions.slice(0, 3 + (i % 7)).map(p => ({ id: p.id })),
-        },
+        ...u,
+        passwordHash: defaultPassword,
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
       },
     });
-    roles.push(role);
+    users.push(item);
   }
+  console.log('✅ Đã tạo 10 Users (Mật khẩu: Password123@)');
 
-  console.log('--- 4. Seed Users (10 bản ghi) ---');
-  // PasswordHash tương ứng: "Password@123"
-  const defaultPasswordHash = '$2a$10$wT8h5uKjL66o70FmHsz5hO1tH5yQ82M60jYmRrn4PekgPms36eTWW';
-  const users = [];
-  const userSeeds = [
-    { fullName: 'Đức Khang Admin', email: 'admin@fashionstore.com', phone: '0901234567', roleId: roles[0].id },
-    { fullName: 'Trần Văn Bình', email: 'binh.tran@fashionstore.com', phone: '0912345678', roleId: roles[1].id },
-    { fullName: 'Lê Thị Cúc', email: 'cuc.le@fashionstore.com', phone: '0923456789', roleId: roles[1].id },
-    { fullName: 'Phạm Minh Duy', email: 'duy.pham@fashionstore.com', phone: '0934567890', roleId: roles[1].id },
-    { fullName: 'Hoàng Thị Giang', email: 'giang.hoang@fashionstore.com', phone: '0945678901', roleId: roles[2].id },
-    { fullName: 'Đỗ Hùng Dũng', email: 'dung.do@fashionstore.com', phone: '0956789012', roleId: roles[1].id },
-    { fullName: 'Vũ Thanh Hằng', email: 'hang.vu@fashionstore.com', phone: '0967890123', roleId: roles[1].id },
-    { fullName: 'Ngô Kiến Huy', email: 'huy.ngo@fashionstore.com', phone: '0978901234', roleId: roles[1].id },
-    { fullName: 'Bùi Kim Ngân', email: 'ngan.bui@fashionstore.com', phone: '0989012345', roleId: roles[1].id },
-    { fullName: 'Đặng Tuấn Tú', email: 'tu.dang@fashionstore.com', phone: '0990123456', roleId: roles[1].id },
-  ];
-  for (const u of userSeeds) {
-    users.push(
-      await prisma.user.create({
-        data: {
-          fullName: u.fullName,
-          email: u.email,
-          phoneNumber: u.phone,
-          passwordHash: defaultPasswordHash,
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-          rewardPoints: Math.floor(Math.random() * 500) * 10,
-          status: 'ACTIVE',
-          roleId: u.roleId,
-        },
-      })
-    );
-  }
-
-  console.log('--- 5. Seed Shipping Addresses (10 bản ghi) ---');
+  // ==========================================
+  // BẢNG 5: SHIPPING_ADDRESS (10 records)
+  // ==========================================
+  const addresses = [];
   for (let i = 0; i < 10; i++) {
-    await prisma.shippingAddress.create({
+    const addr = await prisma.shippingAddress.create({
       data: {
         userId: users[i].id,
         receiverName: users[i].fullName,
         phoneNumber: users[i].phoneNumber,
         province: 'Thành phố Hồ Chí Minh',
-        district: 'Thành phố Thủ Đức',
-        ward: 'Phường Linh Chiểu',
-        detailAddress: `${10 + i * 2} Đường Võ Văn Ngân, Khu phố ${i + 1}`,
+        district: `Quận ${i + 1}`,
+        ward: `Phường 0${i + 1}`,
+        detailAddress: `${100 + i * 15} Đường Lê Lợi`,
         isDefault: true,
       },
     });
+    addresses.push(addr);
   }
+  console.log('✅ Đã tạo 10 ShippingAddresses');
 
-  console.log('--- 6. Seed Device Sessions & Verification Codes (10 bản ghi mỗi loại) ---');
+  // ==========================================
+  // BẢNG 6: DEVICE_SESSION (10 records)
+  // ==========================================
   for (let i = 0; i < 10; i++) {
     await prisma.deviceSession.create({
       data: {
         userId: users[i].id,
-        refreshToken: `refresh_token_sample_string_hash_${i}_${Date.now()}`,
+        refreshToken: `refresh_token_sample_string_hash_${i + 1}_uuid`,
         ipAddress: `192.168.1.${10 + i}`,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    });
-
-    await prisma.verificationCode.create({
-      data: {
-        email: users[i].email,
-        code: `12345${i}`,
-        type: i % 2 === 0 ? 'REGISTER' : 'FORGOT_PASSWORD',
-        isUsed: false,
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        isActive: i % 2 === 0,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
   }
+  console.log('✅ Đã tạo 10 DeviceSessions');
 
-  console.log('--- 7. Seed Categories & Translations (10 bản ghi) ---');
-  const categoryNames = [
-    'Áo sơ mi', 'Áo thun Pima', 'Quần tây công sở', 'Quần Jeans Denim', 'Áo Blazer & Suit',
-    'Váy đầm Linen', 'Áo khoác gió', 'Túi xách da', 'Giày Sneakers', 'Phụ kiện thời trang'
+  // ==========================================
+  // BẢNG 7: CATEGORY (10 records - ĐÃ THAY EMOJI BẰNG URL HỢP LỆ)
+  // ==========================================
+  const categoriesData = [
+    { defaultName: 'Áo Nam', iconUrl: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=800&q=80', isVisible: true },
+    { defaultName: 'Quần Nam', iconUrl: 'https://images.unsplash.com/photo-1506629905607-d9b1f1f3d7a8?auto=format&fit=crop&w=800&q=80', isVisible: true },
+    { defaultName: 'Áo Nữ', iconUrl: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80', isVisible: true },
+    { defaultName: 'Váy & Đầm', iconUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80', isVisible: true },
+    { defaultName: 'Áo Khoác & Blazer', iconUrl: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=800&q=80', isVisible: true },
+    { defaultName: 'Đồ Thể Thao', iconUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=800&q=80', isVisible: true },
+    { defaultName: 'Phụ Kiện Thời Trang', iconUrl: 'https://images.unsplash.com/photo-1525507119028-ed4c629a60a3?auto=format&fit=crop&w=800&q=80', isVisible: true },
+    { defaultName: 'Giày & Dép', iconUrl: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=800&q=80', isVisible: true },
+    { defaultName: 'Nón & Mũ', iconUrl: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=800&q=80', isVisible: true },
+    { defaultName: 'Đồ Lót & Mặc Nhà', iconUrl: 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=800&q=80', isVisible: true },
   ];
+
   const categories = [];
-  for (let i = 0; i < categoryNames.length; i++) {
-    const cat = await prisma.category.create({
-      data: {
-        defaultName: categoryNames[i],
-        isVisible: true,
-        translations: {
-          create: [
-            { languageId: langVi.id, name: categoryNames[i], description: `Danh mục thời trang cao cấp: ${categoryNames[i]}` },
-            { languageId: langEn.id, name: `Category ${categoryNames[i]}`, description: `Luxury category ${categoryNames[i]}` },
-          ],
-        },
-      },
-    });
-    categories.push(cat);
+  for (const c of categoriesData) {
+    const item = await prisma.category.create({ data: c });
+    categories.push(item);
   }
+  console.log('✅ Đã tạo 10 Categories (iconUrl chuẩn URL hình ảnh)');
 
-  console.log('--- 8. Seed Brands & Translations (10 bản ghi) ---');
-  const brandNames = [
-    'Morrow Studio', 'Form & Field', 'House of Common', 'Sunday Objects', 'Lumen Goods',
-    'Kiln Notes', 'Urban Tailor', 'Nordic Minimal', 'Aesthetic Label', 'Zenith Heritage'
+  // ==========================================
+  // BẢNG 8: BRAND (10 records)
+  // ==========================================
+  const brandsData = [
+    { defaultName: 'Morrow Studio', logoUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=300&q=80' },
+    { defaultName: 'Form & Field', logoUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=300&q=80' },
+    { defaultName: 'House of Common', logoUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=300&q=80' },
+    { defaultName: 'Sunday Objects', logoUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=300&q=80' },
+    { defaultName: 'Lumen Goods', logoUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=300&q=80' },
+    { defaultName: 'Urban Minimal', logoUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=300&q=80' },
+    { defaultName: 'Nordic Clean', logoUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=300&q=80' },
+    { defaultName: 'Cotton Atelier', logoUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=300&q=80' },
+    { defaultName: 'Denim Craft', logoUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=300&q=80' },
+    { defaultName: 'Silk & Linen', logoUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=300&q=80' },
   ];
+
   const brands = [];
-  for (let i = 0; i < brandNames.length; i++) {
-    const br = await prisma.brand.create({
-      data: {
-        defaultName: brandNames[i],
-        logoUrl: `https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=300`,
-        translations: {
-          create: [
-            { languageId: langVi.id, name: brandNames[i], description: `Thương hiệu thiết kế tối giản ${brandNames[i]}` },
-            { languageId: langEn.id, name: brandNames[i], description: `Minimalist brand ${brandNames[i]}` },
-          ],
-        },
-      },
-    });
-    brands.push(br);
+  for (const b of brandsData) {
+    const item = await prisma.brand.create({ data: b });
+    brands.push(item);
   }
+  console.log('✅ Đã tạo 10 Brands');
 
-  console.log('--- 9. Seed Tags (10 bản ghi) ---');
-  const tagList = ['New Arrival', 'Bestseller', 'Summer Collection', 'Minimalism', 'Organic Cotton', 'Linen Blend', 'Hot Deal', 'Vintage', 'Formal Wear', 'Limited Edition'];
-  const tags = [];
-  for (const t of tagList) {
-    tags.push(await prisma.tag.create({ data: { name: t } }));
+  // ==========================================
+  // BẢNG 9: TAG (10 records)
+  // ==========================================
+  const tagsData = [
+    'Hot Trend', 'Bestseller', 'Mùa Hè', 'Thu Đông', 'Vintage',
+    'Minimalist', 'Cotton 100%', 'Cao Cấp', 'Giảm Giá', 'Mới Về'
+  ];
+  for (const name of tagsData) {
+    await prisma.tag.create({ data: { name } });
   }
+  console.log('✅ Đã tạo 10 Tags');
 
-  console.log('--- 10. Seed Attributes & AttributeValues (10 bản ghi giá trị) ---');
-  const attrColor = await prisma.attribute.create({ data: { name: 'Màu sắc' } });
-  const attrSize = await prisma.attribute.create({ data: { name: 'Kích cỡ' } });
-
-  const colorVals = ['Trắng', 'Đen', 'Xám', 'Xanh Navy', 'Beige'];
-  const sizeVals = ['S', 'M', 'L', 'XL', 'FreeSize'];
-
-  const colorValRecords = [];
-  for (const c of colorVals) {
-    colorValRecords.push(await prisma.attributeValue.create({ data: { attributeId: attrColor.id, value: c } }));
-  }
-  const sizeValRecords = [];
-  for (const s of sizeVals) {
-    sizeValRecords.push(await prisma.attributeValue.create({ data: { attributeId: attrSize.id, value: s } }));
-  }
-
-  console.log('--- 11. Seed Products, Translations & Images (10 bản ghi) ---');
-  const productSamples = [
-    { name: 'Áo sơ mi Oxford Linen Classic', price: 450000, img: 'photo-1594633312681-425c7b97ccd1' },
-    { name: 'Quần tây Pleated Trousers', price: 790000, img: 'photo-1506629905607-d9b1f1f3d7a8' },
-    { name: 'Blazer Oversized Cotton Knit', price: 1250000, img: 'photo-1483985988355-763728e1935b' },
-    { name: 'Áo thun Pima Cotton Basic', price: 290000, img: 'photo-1521572267360-ee0c2909d518' },
-    { name: 'Váy đầm Linen Midi Dress', price: 920000, img: 'photo-1515886657613-9f3515b0c78f' },
-    { name: 'Túi xách Everyday Canvas Tote', price: 380000, img: 'photo-1548036328-c9fa89d128fa' },
-    { name: 'Áo khoác gió Urban Windbreaker', price: 850000, img: 'photo-1544441893-675973e31985' },
-    { name: 'Quần Jeans Slimfit Indigo', price: 680000, img: 'photo-1541099649105-f69ad21f3246' },
-    { name: 'Khăn choàng lụa Silk Scarf', price: 320000, img: 'photo-1608571423902-eed4a5ad8108' },
-    { name: 'Set đầm dệt kim Ribbed Knit Set', price: 1100000, img: 'photo-1496747611176-843222e1e57c' },
+  // ==========================================
+  // BẢNG 10: PRODUCT (10 records)
+  // ==========================================
+  const productNames = [
+    'Áo Sơ Mi Linen Form Rộng',
+    'Quần Tây Baggy Xếp Ly',
+    'Áo Thun Heavyweight 260gsm',
+    'Chân Váy Chữ A Lưng Cao',
+    'Áo Khoác Blazer 2 Hàng Nút',
+    'Quần Jeans Ống Suông Indigo',
+    'Áo Len Dệt Kim Cổ Tròn',
+    'Túi Canvas Đeo Vai Minimal',
+    'Mũ Bucket Cotton Washed',
+    'Áo Hoodie Nỉ Bông Unisex'
   ];
 
   const products = [];
-  for (let i = 0; i < productSamples.length; i++) {
-    const item = productSamples[i];
+  for (let i = 0; i < 10; i++) {
     const p = await prisma.product.create({
       data: {
-        defaultName: item.name,
-        thumbnailUrl: `https://images.unsplash.com/${item.img}?auto=format&fit=crop&w=800&q=80`,
+        defaultName: productNames[i],
+        thumbnailUrl: categoriesData[i].iconUrl,
         status: 'PUBLISHED',
         categoryId: categories[i].id,
         brandId: brands[i].id,
-        tags: { connect: [{ id: tags[i % tags.length].id }] },
-        translations: {
-          create: [
-            {
-              languageId: langVi.id,
-              name: item.name,
-              shortDesc: 'Thiết kế tinh xảo, đường may chuẩn xác, chất liệu tự nhiên bền vững.',
-              detailDesc: 'Sản phẩm được gia công từ nguồn vải hữu cơ đã qua xử lý nhiệt chống co rút, mang lại cảm giác thoải mái suốt ngày dài.',
-            },
-            {
-              languageId: langEn.id,
-              name: `EN - ${item.name}`,
-              shortDesc: 'Modern minimal garment crafted with precision.',
-              detailDesc: 'Breathable and durable everyday essential fabric designed for long-lasting comfort.',
-            },
-          ],
-        },
-        images: {
-          create: [
-            { imageUrl: `https://images.unsplash.com/${item.img}?auto=format&fit=crop&w=800&q=80`, displayOrder: 1 },
-          ],
-        },
       },
     });
     products.push(p);
   }
+  console.log('✅ Đã tạo 10 Products');
 
-  console.log('--- 12. Seed Product Variants & Inventory Logs (10 bản ghi) ---');
+  // ==========================================
+  // BẢNG 11: PRODUCT_IMAGE (10 records)
+  // ==========================================
+  for (let i = 0; i < 10; i++) {
+    await prisma.productImage.create({
+      data: {
+        productId: products[i].id,
+        imageUrl: categoriesData[i].iconUrl,
+        displayOrder: 1,
+      },
+    });
+  }
+  console.log('✅ Đã tạo 10 ProductImages');
+
+  // ==========================================
+  // BẢNG 12: PRODUCT_VARIANT (10 records)
+  // ==========================================
   const variants = [];
-  for (let i = 0; i < products.length; i++) {
+  for (let i = 0; i < 10; i++) {
+    const origPrice = 250000 + i * 50000;
+    const sellPrice = origPrice - 30000;
     const v = await prisma.productVariant.create({
       data: {
         productId: products[i].id,
-        sku: `SKU-${1000 + i}`,
+        sku: `SKU-${products[i].id}-DEN-L`,
+        variant: 'Màu sắc - Kích cỡ',
+        variantValue: 'Đen - L',
         stockQuantity: 100,
-        originalPrice: productSamples[i].price,
-        sellingPrice: productSamples[i].price * 0.9,
-        weightGram: 350,
-        imageUrl: products[i].thumbnailUrl,
-        attributeValues: {
-          connect: [
-            { id: colorValRecords[i % colorValRecords.length].id },
-            { id: sizeValRecords[i % sizeValRecords.length].id },
-          ],
-        },
+        originalPrice: origPrice,
+        sellingPrice: sellPrice,
+        weightGram: 300,
+        imageUrl: categoriesData[i].iconUrl,
       },
     });
     variants.push(v);
-
-    await prisma.inventoryLog.create({
-      data: {
-        variantId: v.id,
-        transType: 'IMPORT',
-        quantityChange: 100,
-        note: `Nhập kho ban đầu lô hàng đầu tiên ${v.sku}`,
-      },
-    });
   }
+  console.log('✅ Đã tạo 10 ProductVariants');
 
-  console.log('--- 13. Seed Flash Sale Campaigns & Items (10 bản ghi mỗi loại) ---');
-  const now = new Date();
+  // ==========================================
+  // BẢNG 13: CART (10 records)
+  // ==========================================
+  const carts = [];
   for (let i = 0; i < 10; i++) {
-    const campaign = await prisma.flashSaleCampaign.create({
-      data: {
-        name: `Flash Sale Giờ Vàng Đợt ${i + 1}`,
-        startTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-        endTime: new Date(now.getTime() + (24 + i * 2) * 60 * 60 * 1000),
-        isActive: true,
-        bannerUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200',
-        items: {
-          create: {
-            variantId: variants[i].id,
-            flashSalePrice: Number(variants[i].sellingPrice) * 0.8,
-            promoQuantity: 50,
-            soldQuantity: 10 + i * 2,
-          },
-        },
-      },
-    });
-  }
-
-  console.log('--- 14. Seed Carts & Cart Items (10 bản ghi) ---');
-  for (let i = 0; i < 10; i++) {
-    const cart = await prisma.cart.create({
+    const c = await prisma.cart.create({
       data: {
         userId: users[i].id,
-        sessionId: `session_uuid_demo_${i}`,
+        sessionId: `session_token_${i + 1}`,
       },
     });
+    carts.push(c);
+  }
+  console.log('✅ Đã tạo 10 Carts');
 
+  // ==========================================
+  // BẢNG 14: CART_ITEM (10 records)
+  // ==========================================
+  for (let i = 0; i < 10; i++) {
     await prisma.cartItem.create({
       data: {
-        cartId: cart.id,
+        cartId: carts[i].id,
         variantId: variants[i].id,
         quantity: (i % 3) + 1,
       },
     });
   }
+  console.log('✅ Đã tạo 10 CartItems');
 
-  console.log('--- 15. Seed Vouchers (10 bản ghi) ---');
+  // ==========================================
+  // BẢNG 15: VOUCHER (10 records)
+  // ==========================================
   const vouchers = [];
   for (let i = 0; i < 10; i++) {
-    vouchers.push(
-      await prisma.voucher.create({
-        data: {
-          code: `FASHION${10 + i * 5}`,
-          discountType: i % 2 === 0 ? 'PERCENTAGE' : 'FIXED_AMOUNT',
-          discountValue: i % 2 === 0 ? 10 + i * 2 : 50000,
-          minOrderValue: 300000,
-          maxDiscountAmt: 100000,
-          totalUsageLimit: 500,
-          usedCount: i * 10,
-          startDate: new Date(),
-          endDate: new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000),
-          isActive: true,
-        },
-      })
-    );
-  }
-
-  console.log('--- 16. Seed Orders, OrderItems, Shipments & Payments (10 bản ghi) ---');
-  const orderStatuses = [
-    'DELIVERED', 'PROCESSING', 'CONFIRMED', 'SHIPPED', 'DELIVERED',
-    'PENDING_PAYMENT', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'PROCESSING'
-  ];
-  const paymentMethods = ['COD', 'VNPAY', 'MOMO', 'BANK_TRANSFER'];
-
-  for (let i = 0; i < 10; i++) {
-    const unitPrice = Number(variants[i].sellingPrice);
-    const quantity = 1;
-    const subTotal = unitPrice * quantity;
-    const shippingFee = 30000;
-    const totalAmount = subTotal + shippingFee;
-
-    const order = await prisma.order.create({
+    const v = await prisma.voucher.create({
       data: {
-        orderCode: `ORD-2026-${1000 + i}`,
+        code: `FASHION${(i + 1) * 10}K`,
+        discountType: i % 2 === 0 ? 'FIXED_AMOUNT' : 'PERCENTAGE',
+        discountValue: i % 2 === 0 ? (i + 1) * 20000 : 10 + i,
+        minOrderValue: 200000,
+        maxDiscountAmt: 100000,
+        totalUsageLimit: 500,
+        usedCount: i * 5,
+        userUsageLimit: 1,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        isActive: true,
+      },
+    });
+    vouchers.push(v);
+  }
+  console.log('✅ Đã tạo 10 Vouchers');
+
+  // ==========================================
+  // BẢNG 16: ORDER (10 records)
+  // ==========================================
+  const orderStatuses = [
+    'PENDING_PAYMENT', 'CONFIRMED', 'PROCESSING', 'SHIPPED',
+    'DELIVERED', 'DELIVERED', 'DELIVERED', 'CANCELLED', 'RETURNED', 'PROCESSING'
+  ];
+
+  const orders = [];
+  for (let i = 0; i < 10; i++) {
+    const subTotal = Number(variants[i].sellingPrice) * 2;
+    const shippingFee = 30000;
+    const discount = 20000;
+    const totalAmount = subTotal + shippingFee - discount;
+
+    const ord = await prisma.order.create({
+      data: {
+        orderCode: `ORD-2026100${i + 1}`,
         userId: users[i].id,
-        receiverName: users[i].fullName,
-        receiverPhone: users[i].phoneNumber,
-        province: 'TP. Hồ Chí Minh',
-        district: 'Thành phố Thủ Đức',
-        ward: 'Phường Linh Chiểu',
-        detailAddress: `${15 + i} Đường Võ Văn Ngân`,
+        shippingAddress: `${addresses[i].receiverName} | ${addresses[i].phoneNumber} | ${addresses[i].detailAddress}, ${addresses[i].ward}, ${addresses[i].district}, ${addresses[i].province}`,
         subTotal,
         shippingFee,
+        shippingMethod: 'STANDARD',
+        shippingDiscount: 0,
+        voucherCode: vouchers[i].code,
+        voucherDiscount: discount,
+        pointUsed: 0,
+        pointDiscount: 0,
+        pointEarned: Math.floor(totalAmount * 0.01),
         totalAmount,
-        paymentMethod: paymentMethods[i % paymentMethods.length],
-        paymentStatus: orderStatuses[i] === 'DELIVERED' ? 'SUCCESS' : 'PENDING',
+        paymentMethod: i % 2 === 0 ? 'COD' : 'BANK_TRANSFER',
+        paymentStatus: i >= 4 ? 'SUCCESS' : 'PENDING',
         status: orderStatuses[i],
-        customerNote: `Giao hàng giờ hành chính đơn số ${i + 1}`,
-        orderItems: {
-          create: {
-            variantId: variants[i].id,
-            productName: products[i].defaultName,
-            skuCode: variants[i].sku,
-            variantValue: 'Tiêu chuẩn',
-            productImageUrl: products[i].thumbnailUrl,
-            unitPrice,
-            quantity,
-          },
-        },
-      },
-      include: {
-        orderItems: true,
+        customerNote: 'Giao hàng giờ hành chính',
       },
     });
+    orders.push(ord);
+  }
+  console.log('✅ Đã tạo 10 Orders');
 
-    // Seed Shipment tương ứng
+  // ==========================================
+  // BẢNG 17: ORDER_ITEM (10 records)
+  // ==========================================
+  const orderItems = [];
+  for (let i = 0; i < 10; i++) {
+    const item = await prisma.orderItem.create({
+      data: {
+        orderId: orders[i].id,
+        variantId: variants[i].id,
+        productName: products[i].defaultName,
+        skuCode: variants[i].sku,
+        variantValue: variants[i].variantValue,
+        productImageUrl: variants[i].imageUrl,
+        unitPrice: variants[i].sellingPrice,
+        quantity: 2,
+      },
+    });
+    orderItems.push(item);
+  }
+  console.log('✅ Đã tạo 10 OrderItems');
+
+  // ==========================================
+  // BẢNG 18: SHIPMENT (10 records)
+  // ==========================================
+  const shipmentStatuses = ['PENDING', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED', 'DELIVERED', 'DELIVERED', 'DELIVERED', 'FAILED', 'DELIVERED', 'IN_TRANSIT'];
+  for (let i = 0; i < 10; i++) {
     await prisma.shipment.create({
       data: {
-        orderId: order.id,
-        carrier: i % 2 === 0 ? 'Giao Hàng Tiết Kiệm (GHTK)' : 'Giao Hàng Nhanh (GHN)',
-        trackingCode: `TRACK_${order.orderCode}_VN`,
-        actualShippingFee: 30000,
-        status: orderStatuses[i] === 'DELIVERED' ? 'DELIVERED' : 'IN_TRANSIT',
-        estimatedDelivery: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000),
+        orderId: orders[i].id,
+        carrier: i % 2 === 0 ? 'Giao Hàng Nhanh (GHN)' : 'Viettel Post',
+        trackingCode: `TRK-VN-998877${i}`,
+        actualShippingFee: 28000,
+        status: shipmentStatuses[i],
+        estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
       },
     });
+  }
+  console.log('✅ Đã tạo 10 Shipments');
 
-    // Seed Payment Transaction tương ứng
+  // ==========================================
+  // BẢNG 19: PAYMENT_TRANSACTION (10 records)
+  // ==========================================
+  for (let i = 0; i < 10; i++) {
     await prisma.paymentTransaction.create({
       data: {
-        orderId: order.id,
-        provider: order.paymentMethod,
-        providerTransId: `TRANS_${order.orderCode}_${Date.now()}`,
-        amount: totalAmount,
-        status: order.paymentStatus,
+        orderId: orders[i].id,
+        provider: i % 2 === 0 ? 'COD' : 'SEPAY_BANK',
+        providerTransId: `TXN_SEPAY_202610_${i + 1000}`,
+        amount: orders[i].totalAmount,
+        status: orders[i].paymentStatus,
       },
     });
+  }
+  console.log('✅ Đã tạo 10 PaymentTransactions');
 
-    // Seed Return Request & Return Media cho đơn vị thứ 9 (để demo chức năng đổi trả)
-    if (i === 9) {
-      const returnReq = await prisma.returnRequest.create({
-        data: {
-          orderItemId: order.orderItems[0].id,
-          quantity: 1,
-          reason: 'Kích cỡ không vừa vặn',
-          description: 'Tôi muốn đổi sang kích thước lớn hơn một size.',
-          status: 'PENDING',
-        },
-      });
+  // ==========================================
+  // BẢNG 20: RETURN_REQUEST (10 records)
+  // ==========================================
+  const returnRequests = [];
+  const returnStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'COMPLETED', 'PENDING', 'APPROVED', 'PENDING', 'REJECTED', 'COMPLETED', 'PENDING'];
+  for (let i = 0; i < 10; i++) {
+    const rr = await prisma.returnRequest.create({
+      data: {
+        orderItemId: orderItems[i].id,
+        quantity: 1,
+        reason: i % 2 === 0 ? 'Mặc không vừa size, muốn đổi lớn hơn' : 'Sản phẩm có chỉ thừa / lỗi nhẹ',
+        description: 'Vải đẹp nhưng form hơi rộng so với bảng size chuẩn.',
+        status: returnStatuses[i],
+      },
+    });
+    returnRequests.push(rr);
+  }
+  console.log('✅ Đã tạo 10 ReturnRequests');
 
+  // ==========================================
+  // BẢNG 21: RETURN_MEDIA (10 records)
+  // ==========================================
+  if (prisma.returnMedia) {
+    for (let i = 0; i < 10; i++) {
       await prisma.returnMedia.create({
         data: {
-          returnRequestId: returnReq.id,
-          mediaUrl: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=800',
+          returnRequestId: returnRequests[i].id,
+          mediaUrl: 'https://images.unsplash.com/photo-1506629905607-d9b1f1f3d7a8?auto=format&fit=crop&w=400&q=80',
           mediaType: 'IMAGE',
         },
       });
     }
+    console.log('✅ Đã tạo 10 ReturnMedias');
   }
 
-  console.log('--- 17. Seed Point Transactions (10 bản ghi) ---');
+  // ==========================================
+  // BẢNG 22: INVENTORY_TRANSACTION (10 records)
+  // ==========================================
+  for (let i = 0; i < 10; i++) {
+    await prisma.inventoryTransaction.create({
+      data: {
+        variantId: variants[i].id,
+        quantityChange: 100,
+        type: 'IMPORT',
+        referenceId: `PO-IMPORT-2026-${i + 1}`,
+        note: 'Nhập lô hàng đầu tháng từ xưởng may Hà Nội',
+      },
+    });
+  }
+  console.log('✅ Đã tạo 10 InventoryTransactions');
+
+  // ==========================================
+  // BẢNG 23: FLASH_SALE_CAMPAIGN (10 records)
+  // ==========================================
+  const campaigns = [];
+  for (let i = 0; i < 10; i++) {
+    const fsc = await prisma.flashSaleCampaign.create({
+      data: {
+        name: `Flash Sale Giờ Vàng Ngày 10/${i + 1}`,
+        bannerUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=80',
+        startTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        endTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        isActive: i === 0,
+      },
+    });
+    campaigns.push(fsc);
+  }
+  console.log('✅ Đã tạo 10 FlashSaleCampaigns');
+
+  // ==========================================
+  // BẢNG 24: FLASH_SALE_ITEM (10 records)
+  // ==========================================
+  for (let i = 0; i < 10; i++) {
+    await prisma.flashSaleItem.create({
+      data: {
+        campaignId: campaigns[0].id,
+        variantId: variants[i].id,
+        flashSalePrice: 149000,
+        promoQuantity: 50,
+        soldQuantity: i * 3,
+      },
+    });
+  }
+  console.log('✅ Đã tạo 10 FlashSaleItems');
+
+  // ==========================================
+  // BẢNG 25: POINT_TRANSACTION (10 records)
+  // ==========================================
   for (let i = 0; i < 10; i++) {
     await prisma.pointTransaction.create({
       data: {
         userId: users[i].id,
-        pointChange: 50,
-        currentPoint: users[i].rewardPoints + 50,
+        orderId: orders[i].id,
+        pointChange: 150,
+        currentPoint: users[i].rewardPoints,
         transactionType: 'EARN',
-        description: `Tích lũy điểm thưởng thành viên đơn hàng #${1000 + i}`,
+        description: `Tích điểm 1% từ đơn hàng ${orders[i].orderCode}`,
       },
     });
   }
+  console.log('✅ Đã tạo 10 PointTransactions');
 
-  console.log('--- 18. Seed Product Reviews & Review Medias (10 bản ghi) ---');
+  // ==========================================
+  // BẢNG 26: PRODUCT_REVIEW (10 records)
+  // ==========================================
+  const reviews = [];
+  const reviewContents = [
+    'Chất vải thoáng mát, đường may rất kỹ lưỡng, rất đáng tiền!',
+    'Màu sắc y như hình chụp, giao hàng thần tốc trong 2 ngày.',
+    'Form áo mặc tôn dáng, đóng gói bọc hộp sang trọng.',
+    'Vải mềm mịn không xù lông khi giặt máy.',
+    'Giá quá rẻ so với chất lượng nhận được!',
+    'Tư vấn viên nhiệt tình chọn size chuẩn vừa khít.',
+    'Quần mặc đứng form, vải không bị nhăn nhiều.',
+    'Rất thích phong cách tối giản này, sẽ ủng hộ shop tiếp.',
+    'Sản phẩm đẹp 10/10, chấm shop 5 sao chất lượng.',
+    'Mẫu mã hiện đại, rất dễ phối đồ đi làm hoặc đi chơi.'
+  ];
+
   for (let i = 0; i < 10; i++) {
-    const review = await prisma.productReview.create({
+    const rev = await prisma.productReview.create({
       data: {
         productId: products[i].id,
         userId: users[i].id,
+        orderId: orders[i].id,
         rating: 5,
-        content: `Chất liệu sản phẩm ${products[i].defaultName} rất đẹp, form dáng đúng chuẩn thiết kế. Ủng hộ shop tiếp tục!`,
-        shopReply: 'Cảm ơn quý khách đã tin tưởng trải nghiệm sản phẩm của thương hiệu chúng tôi!',
+        content: reviewContents[i],
+        shopReply: 'Dạ cảm ơn bạn đã tin yêu và ủng hộ sản phẩm của thương hiệu ạ!',
+        updateCount: 0,
+        isHidden: false,
       },
     });
+    reviews.push(rev);
+  }
+  console.log('✅ Đã tạo 10 ProductReviews');
 
-    await prisma.reviewMedia.create({
-      data: {
-        reviewId: review.id,
-        mediaUrl: products[i].thumbnailUrl || 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=800',
-        mediaType: 'IMAGE',
-      },
-    });
+  // ==========================================
+  // BẢNG 27: REVIEW_MEDIA (10 records)
+  // ==========================================
+  if (prisma.reviewMedia) {
+    for (let i = 0; i < 10; i++) {
+      await prisma.reviewMedia.create({
+        data: {
+          productReviewId: reviews[i].id,
+          mediaUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=400&q=80',
+          mediaType: 'IMAGE',
+        },
+      });
+    }
+    console.log('✅ Đã tạo 10 ReviewMedias');
   }
 
-  console.log('--- 19. Seed Messages & Websocket Sessions (10 bản ghi) ---');
+  // ==========================================
+  // BẢNG 28: CHAT (10 records)
+  // ==========================================
+  const chats = [];
+  for (let i = 0; i < 10; i++) {
+    const ch = await prisma.chat.create({
+      data: {
+        customerId: users[i].id,
+        status: i % 3 === 0 ? 'OPEN' : 'RESOLVED',
+      },
+    });
+    chats.push(ch);
+  }
+  console.log('✅ Đã tạo 10 Chats');
+
+  // ==========================================
+  // BẢNG 29: MESSAGE (10 records)
+  // ==========================================
   for (let i = 0; i < 10; i++) {
     await prisma.message.create({
       data: {
+        chatId: chats[i].id,
         senderId: users[i].id,
-        receiverId: users[0].id, // Gửi tới Admin
-        content: `Xin chào Admin, tôi cần hỗ trợ tư vấn chọn size cho đơn hàng #${1000 + i}!`,
-      },
-    });
-
-    await prisma.websocketSession.create({
-      data: {
-        socketId: `socket_conn_id_realtime_${i}_${Date.now()}`,
-        userId: users[i].id,
+        senderRole: 'CUSTOMER',
+        content: `Chào shop, mình cao 1m75 nặng 68kg thì mặc size L của sản phẩm ${products[i].defaultName} có vừa không?`,
+        isRead: true,
       },
     });
   }
+  console.log('✅ Đã tạo 10 Messages');
 
-  console.log(' SEED TOÀN BỘ 10 DATA MỖI BẢNG THÀNH CÔNG RỰC RỠ!');
+  console.log('\n🎉 ================================================ 🎉');
+  console.log('🎉 SEED DỮ LIỆU TOÀN DIỆN THÀNH CÔNG RỰC RỠ (10 records / bảng)! 🎉');
+  console.log('🎉 ================================================ 🎉');
 }
 
 main()
   .catch((e) => {
-    console.error('Lỗi khi seed dữ liệu:', e);
+    console.error('❌ Lỗi khi thực thi seed script:', e);
     process.exit(1);
   })
   .finally(async () => {
