@@ -181,11 +181,11 @@ export default function AdminOrderDetailPage() {
             <div className="space-y-3 text-sm">
               <div>
                 <p className="text-xs text-neutral-500">Người nhận</p>
-                <p className="font-semibold text-neutral-900 mt-0.5">{order.receiverName}</p>
+                <p className="font-semibold text-neutral-900 mt-0.5">{order.shippingAddress?.split('|')[0]?.trim() || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs text-neutral-500">Số điện thoại</p>
-                <p className="font-medium text-neutral-900 mt-0.5">{order.receiverPhone}</p>
+                <p className="font-medium text-neutral-900 mt-0.5">{order.shippingAddress?.split('|')[1]?.trim() || 'N/A'}</p>
               </div>
             </div>
           </div>
@@ -194,8 +194,8 @@ export default function AdminOrderDetailPage() {
             <h3 className="text-sm font-bold text-neutral-900 flex items-center gap-2 border-b border-[#EAE6DF] pb-3">
               <MapPin className="size-4" /> Địa chỉ Giao hàng
             </h3>
-            <p className="text-sm text-neutral-700 leading-relaxed">
-              {order.shippingAddress || `${order.detailAddress}, ${order.ward}, ${order.district}, ${order.province}`}
+            <p className="text-sm text-neutral-700 leading-relaxed whitespace-pre-wrap">
+              {order.shippingAddress}
             </p>
             {order.customerNote && (
               <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">

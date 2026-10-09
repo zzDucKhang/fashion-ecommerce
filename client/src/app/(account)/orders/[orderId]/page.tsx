@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowLeft, PackageCheck, Truck, XCircle, RotateCcw, Star } from 'lucide-react';
 import { orderApi } from '@/api/order.api';
@@ -28,6 +29,7 @@ export default function OrderDetailPage() {
   const params = useParams<{ orderId: string }>();
   const router = useRouter();
   const orderId = Number(params.orderId);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['order-detail', orderId],
@@ -142,15 +144,7 @@ export default function OrderDetailPage() {
             </div>
 
             <div className="mt-4 space-y-2 text-sm text-neutral-700">
-              <p>
-                <span className="font-medium text-neutral-900">Người nhận:</span> {order.receiverName}
-              </p>
-              <p>
-                <span className="font-medium text-neutral-900">Số điện thoại:</span> {order.receiverPhone}
-              </p>
-              <p>
-                <span className="font-medium text-neutral-900">Địa chỉ:</span> {order.detailAddress}, {order.ward}, {order.district}, {order.province}
-              </p>
+              <p className="whitespace-pre-wrap">{order.shippingAddress}</p>
             </div>
           </div>
 
@@ -178,15 +172,34 @@ export default function OrderDetailPage() {
 
           <div className="flex flex-col gap-2">
             {order.status === 'PENDING_PAYMENT' && (
-              <Button
-                onClick={() => cancelMutation.mutate()}
-                variant="destructive"
-                className="rounded-xl"
-                disabled={cancelMutation.isPending}
-              >
-                <XCircle className="mr-2 size-4" />
-                {cancelMutation.isPending ? 'Đang hủy...' : 'Hủy đơn hàng'}
-              </Button>
+              <>
+                {order.paymentMethod !== 'COD' && (
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const res = await orderApi.getPaymentDetails(orderId);
+                        if (res.data?.qrUrl) {
+                          setQrUrl(res.data.qrUrl);
+                        }
+                      } catch (err: any) {
+                        alert(err.response?.data?.message || 'Có lỗi xảy ra');
+                      }
+                    }}
+                    className="rounded-xl w-full"
+                  >
+                    Thanh toán ngay
+                  </Button>
+                )}
+                <Button
+                  onClick={() => cancelMutation.mutate()}
+                  variant="destructive"
+                  className="rounded-xl w-full mt-2"
+                  disabled={cancelMutation.isPending}
+                >
+                  <XCircle className="mr-2 size-4" />
+                  {cancelMutation.isPending ? 'Đang hủy...' : 'Hủy đơn hàng'}
+                </Button>
+              </>
             )}
 
             {order.status === 'DELIVERED' && (
@@ -200,6 +213,19 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </div>
+      
+      {qrUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm relative text-center">
+            <button onClick={() => setQrUrl(null)} className="absolute top-4 right-4 text-neutral-500 hover:text-black">
+              <XCircle className="size-6" />
+            </button>
+            <h3 className="text-lg font-bold mb-4 text-neutral-900">Quét mã QR để thanh toán</h3>
+            <img src={qrUrl} alt="Mã QR thanh toán" className="w-full h-auto rounded-lg mx-auto border" />
+            <p className="mt-4 text-sm text-neutral-500">Sử dụng ứng dụng ngân hàng hoặc ví điện tử để thanh toán</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -61,4 +61,11 @@ export const orderApi = {
     );
     return res.data;
   },
+
+  getPaymentDetails: async (orderId: number) => {
+    const res = await apiClient.get<ApiResponse<{ qrUrl: string }>>(
+      `${API_ENDPOINTS.CART_ORDER.ORDERS}/${orderId}/payment-details`
+    );
+    return res.data;
+  },
 };

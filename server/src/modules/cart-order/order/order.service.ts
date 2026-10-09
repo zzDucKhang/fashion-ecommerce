@@ -87,6 +87,35 @@ export class OrderService {
     return order;
   }
 
+  async getPaymentDetails(userId: number, orderId: number) {
+    const order = await this.orderRepo.findById(orderId, userId);
+    if (!order) throw new NotFoundError("Đơn hàng không tồn tại");
+
+    if (order.status !== "PENDING_PAYMENT") {
+      throw new BadRequestError("Đơn hàng không ở trạng thái chờ thanh toán");
+    }
+
+    if (order.paymentMethod === "COD") {
+       throw new BadRequestError("Đơn hàng COD không cần thanh toán trước");
+    }
+
+    // Generate VietQR URL as mock payment QR
+    const bankId = "970415"; // VietinBank mock
+    const accountNo = "113366668888"; // Mock account
+    const accountName = "FASHION ECOMMERCE";
+    const amount = order.totalAmount;
+    const addInfo = encodeURIComponent(`Thanh toan don hang ${order.orderCode}`);
+
+    const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${amount}&addInfo=${addInfo}&accountName=${encodeURIComponent(accountName)}`;
+
+    return {
+      orderCode: order.orderCode,
+      totalAmount: order.totalAmount,
+      paymentMethod: order.paymentMethod,
+      qrUrl
+    };
+  }
+
   /**
    * Tạo đơn hàng mới (Checkout)
    */
