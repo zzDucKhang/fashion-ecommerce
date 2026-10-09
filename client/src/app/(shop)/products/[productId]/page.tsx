@@ -39,6 +39,11 @@ export default function ProductDetailPage() {
     });
   };
 
+  const handleBuyNow = () => {
+    if (!selectedVariant) return;
+    router.push(`/checkout?directBuy=true&productId=${product?.id}&variantId=${selectedVariant.id}&quantity=${quantity}`);
+  };
+
   if (isLoading) {
     return (
       <div className="mx-auto max-w-[1280px] px-4 py-16 text-center text-sm text-neutral-500">
@@ -146,8 +151,9 @@ export default function ProductDetailPage() {
 
             <Button
               onClick={handleAddToCart}
+              variant="outline"
               disabled={addToCartMutation.isPending || !selectedVariant || selectedVariant.stockQuantity <= 0}
-              className="flex-1 h-12 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium gap-2"
+              className="flex-1 h-12 rounded-xl border-[#EAE6DF] hover:bg-neutral-50 font-medium gap-2 text-neutral-800"
             >
               {addToCartMutation.isPending ? (
                 <>
@@ -155,9 +161,16 @@ export default function ProductDetailPage() {
                 </>
               ) : (
                 <>
-                  <ShoppingBag size={16} /> Thêm vào giỏ ({formatCurrency(currentPrice * quantity)})
+                  <ShoppingBag size={16} /> Thêm vào giỏ
                 </>
               )}
+            </Button>
+            <Button
+              onClick={handleBuyNow}
+              disabled={!selectedVariant || selectedVariant.stockQuantity <= 0}
+              className="flex-1 h-12 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium gap-2"
+            >
+              Mua ngay ({formatCurrency(currentPrice * quantity)})
             </Button>
           </div>
         </div>

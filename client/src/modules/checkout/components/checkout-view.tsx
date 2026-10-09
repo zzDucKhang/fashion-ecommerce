@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { ArrowLeft, Check, Lock } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { catalogApi } from '@/api/catalog.api';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
