@@ -5,6 +5,7 @@ import { requireAdmin } from '@/middlewares/guards/role.guard'
 import { validateRequest } from '@/middlewares/pipes/validate.pipe'
 import { ChatController } from './chat.controller'
 import {
+  extendSocketSessionBodySchema,
   getChatHistoryQuerySchema,
   markReadBodySchema,
   removeSocketSessionBodySchema,
@@ -51,7 +52,7 @@ chatRouter.post(
 /** GET /chat/conversations – Danh sách cuộc trò chuyện */
 chatRouter.get('/conversations', requireAuth, controller.getConversationList)
 
-// ─── WebSocket Session routes (nội bộ, dùng cho Socket.IO server) ────────────
+// ─── WebSocket Session routes (dùng cho Socket.IO / Gateway / Client heartbeat) ──
 
 /**
  * GET /chat/sessions/:userId/online phải đứng TRƯỚC GET /sessions/:userId
@@ -80,7 +81,7 @@ chatRouter.get(
   controller.getSocketSessionsByUser,
 )
 
-/** POST /chat/sessions – Lưu socket session (gọi khi user kết nối WS) (chỉ Admin/nội bộ) */
+/** POST /chat/sessions – Lưu socket session (gọi khi user kết nối WS) (Admin/nội bộ) */
 chatRouter.post(
   '/sessions',
   requireAdmin,
@@ -88,7 +89,14 @@ chatRouter.post(
   controller.upsertSocketSession,
 )
 
-/** DELETE /chat/sessions – Xóa socket session (gọi khi user ngắt kết nối) (chỉ Admin/nội bộ) */
+/** POST /chat/sessions/heartbeat – Gia hạn socket session (Heartbeat ping) (nội bộ / client) */
+chatRouter.post(
+  '/sessions/heartbeat',
+  validateRequest({ body: extendSocketSessionBodySchema }),
+  controller.extendSocketSession,
+)
+
+/** DELETE /chat/sessions – Xóa socket session (gọi khi user ngắt kết nối) (Admin/nội bộ) */
 chatRouter.delete(
   '/sessions',
   requireAdmin,

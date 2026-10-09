@@ -40,8 +40,8 @@ export const checkoutSchema = z
     
     shippingMethod: z.string().optional(),
     customerNote: z.string().max(1000, 'Ghi chú không được quá 1000 ký tự').optional(),
-    voucherCode: z.string().optional(),
-    pointUsed: z.number().min(0, 'Số điểm không hợp lệ').optional(),
+    voucherCode: z.string().optional().nullable(),
+    pointUsed: z.number().min(0).default(0).optional(),
   })
   .refine((data) => data.shippingAddressId || data.shippingAddress, {
     message: 'Vui lòng chọn địa chỉ đã lưu hoặc nhập địa chỉ giao hàng mới',

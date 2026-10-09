@@ -1,0 +1,17 @@
+{
+  "name": "fashion-ecommerce",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fashion E-Commerce Monorepo (Next.js 16 + Express + TypeScript + Prisma)",
+  "scripts": {
+    "dev": "npx concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"yellow.bold,cyan.bold\" \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build:server": "npm --prefix server run build",
+    "build:client": "npm --prefix client run build",
+    "build": "npm run build:server && npm run build:client",
+    "prisma:generate": "npm --prefix server run prisma:generate",
+    "prisma:push": "npx --prefix server prisma db push",
+    "prisma:seed": "npm --prefix server run prisma:seed"
+  }
+}

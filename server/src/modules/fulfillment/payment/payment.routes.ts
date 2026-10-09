@@ -12,7 +12,7 @@ const controller = new PaymentController()
 
 export const sepayWebhookRouter = Router()
 sepayWebhookRouter.post(
-  '/sebay',
+  '/sepay',
   express.raw({ type: 'application/json' }),
   controller.sepay,
 )

@@ -59,20 +59,5 @@ export class BrandController {
     }
   }
 
-  upsertTranslation = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = req.user!.userId
-      const brandId = Number(req.params.brandId)
-      const languageId = req.params.languageId
-      const data = await this.brandService.upsertTranslation({
-        brandId,
-        languageId,
-        userId,
-        data: req.body,
-      })
-      return res.status(200).json({ statusCode: 200, message: 'Cập nhật bản dịch thành công', data })
-    } catch (err) {
-      next(err)
-    }
-  }
+  
 }

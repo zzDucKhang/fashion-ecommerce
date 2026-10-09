@@ -9,7 +9,7 @@ import {
   getProductQuerySchema,
   createProductBodySchema,
   updateProductBodySchema,
-  upsertProductTranslationSchema,
+ 
 } from './product.schema'
 
 export const productRouter = Router()
@@ -44,13 +44,3 @@ productRouter.delete(
   controller.delete,
 )
 
-productRouter.put(
-  '/:productId/translations/:languageId',
-  requireAuth,
-  requireAdmin,
-  validateRequest({
-    params: productParamsSchema.extend({ languageId: z.string().min(2) }),
-    body: upsertProductTranslationSchema,
-  }),
-  controller.upsertTranslation,
-)

@@ -5,12 +5,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronLeft, Star, Plus, Minus, ShoppingBag, Loader2, Check } from 'lucide-react';
+import { ChevronLeft, Plus, Minus, ShoppingBag, Loader2 } from 'lucide-react';
 import { catalogApi } from '@/api/catalog.api';
 import { useAddToCart } from '@/modules/cart/hooks/use-cart';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils/format-currency';
+import { ProductReviewList } from '@/modules/loyalty-engage';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -71,7 +72,6 @@ export default function ProductDetailPage() {
       </Link>
 
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
-        {/* Hình ảnh */}
         <div className="relative aspect-square overflow-hidden rounded-2xl bg-white border border-[#EAE6DF]">
           <Image
             src={selectedVariant?.imageUrl || product.thumbnailUrl || '/placeholder.png'}
@@ -82,7 +82,6 @@ export default function ProductDetailPage() {
           />
         </div>
 
-        {/* Thông tin sản phẩm */}
         <div className="flex flex-col justify-center rounded-2xl bg-white p-6 sm:p-10 border border-[#EAE6DF] shadow-xs">
           <div className="mb-4">
             <span className="eyebrow block mb-2">{product.brand?.defaultName || 'FASHION STORE'}</span>
@@ -98,33 +97,34 @@ export default function ProductDetailPage() {
           </div>
 
           <p className="py-6 text-xs text-neutral-600 leading-relaxed">
-            {product.translations?.[0]?.shortDesc ||
+            {(product as any)?.translations?.[0]?.shortDesc ||
               'Sản phẩm được gia công từ chất liệu cao cấp mang lại cảm giác thoáng mát và tôn dáng.'}
           </p>
 
-          {/* Chọn biến thể (SKU) */}
           {variants.length > 1 && (
             <div className="space-y-3 mb-6">
-              <span className="text-xs font-semibold text-neutral-800">Biến thể / Phân loại</span>
+              <span className="text-xs font-semibold text-neutral-800">Phân loại sản phẩm</span>
               <div className="flex flex-wrap gap-2">
                 {variants.map((v: any, idx: number) => (
                   <button
                     key={v.id}
                     onClick={() => setSelectedVariantIndex(idx)}
+                    disabled={v.stockQuantity <= 0}
                     className={`rounded-xl border px-3.5 py-2 text-xs font-medium transition ${
                       selectedVariantIndex === idx
                         ? 'border-neutral-900 bg-neutral-900 text-white'
+                        : v.stockQuantity <= 0 
+                        ? 'border-[#EAE6DF] bg-neutral-50 text-neutral-400 cursor-not-allowed opacity-60'
                         : 'border-[#EAE6DF] bg-white text-neutral-700 hover:border-neutral-400'
                     }`}
                   >
-                    {v.sku} ({v.stockQuantity > 0 ? `Còn ${v.stockQuantity}` : 'Hết hàng'})
+                    {v.variantValue || v.sku} 
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Thao tác thêm vào giỏ */}
           <div className="flex items-center gap-4 pt-4 border-t border-[#EAE6DF]">
             <div className="flex items-center rounded-xl border border-[#EAE6DF] bg-white">
               <button
@@ -161,6 +161,10 @@ export default function ProductDetailPage() {
             </Button>
           </div>
         </div>
+      </div>
+
+      <div className="mt-12 sm:mt-16">
+        <ProductReviewList productId={product.id} />
       </div>
     </main>
   );

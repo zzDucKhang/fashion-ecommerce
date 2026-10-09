@@ -9,7 +9,7 @@ import {
   getCategoryParamsSchema,
   createCategoryBodySchema,
   updateCategoryBodySchema,
-  upsertCategoryTranslationSchema,
+
 } from './category.schema'
 
 export const categoryRouter = Router()
@@ -42,13 +42,3 @@ categoryRouter.delete(
   controller.delete,
 )
 
-categoryRouter.put(
-  '/:categoryId/translations/:languageId',
-  requireAuth,
-  requireAdmin,
-  validateRequest({
-    params: getCategoryParamsSchema.extend({ languageId: z.string().min(2) }),
-    body: upsertCategoryTranslationSchema,
-  }),
-  controller.upsertTranslation,
-)

@@ -7,7 +7,7 @@ export const cartInclude = {
       variant: { 
         include: { 
           product: true, 
-          attributeValues: { include: { attribute: true } },
+          
           flashSaleItems: {
             include: { campaign: true },
           },

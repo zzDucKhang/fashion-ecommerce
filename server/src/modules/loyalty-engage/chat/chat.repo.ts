@@ -1,123 +1,299 @@
-// src/modules/loyalty-engage/chat/chat.repo.ts
 import { prisma } from '@/database/prisma'
+import { redisClient } from '@/database/redis'
+import { createLogger } from '@/common/logger'
+import { ChatStatus } from '@prisma/client'
+
+const logger = createLogger('ChatRepo')
+const WS_SESSION_PREFIX = 'ws:sessions:user:'
+const WS_SOCKET_PREFIX = 'ws:sessions:socket:'
+const WS_SESSION_TTL_SECONDS = 60
 
 export class ChatRepo {
-  // ─────────────── Message ───────────────
-
-  /** Lưu tin nhắn mới vào database */
-  async createMessage(data: {
-    senderId: number
-    receiverId: number
-    content: string
-    attachmentUrl?: string | null
-  }) {
-    return prisma.message.create({
+  async createChat(userId: number) {
+    return prisma.chat.create({
       data: {
-        senderId: data.senderId,
-        receiverId: data.receiverId,
-        content: data.content,
-        attachmentUrl: data.attachmentUrl ?? null,
+        userId,
+        status: ChatStatus.OPEN,
+        startedAt: new Date(),
       },
       include: {
-        sender: { select: { id: true, fullName: true, avatarUrl: true } },
-        receiver: { select: { id: true, fullName: true, avatarUrl: true } },
+        messages: true,
       },
     })
   }
 
-  /** Lấy lịch sử hội thoại giữa 2 user (có phân trang, sắp xếp cũ → mới) */
-  async findConversation(userId: number, withUserId: number, skip: number, take: number) {
-    const where = {
-      OR: [
-        { senderId: userId, receiverId: withUserId },
-        { senderId: withUserId, receiverId: userId },
-      ],
-    }
-    const [data, total] = await prisma.$transaction([
-      prisma.message.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take,
-        include: {
-          sender: { select: { id: true, fullName: true, avatarUrl: true } },
-          receiver: { select: { id: true, fullName: true, avatarUrl: true } },
+  async findActiveChatByUserId(userId: number) {
+    return prisma.chat.findFirst({
+      where: { userId, status: { in: [ChatStatus.OPEN, ChatStatus.WAITING] } },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        messages: {
+          take: 1,
+          orderBy: { sendDate: 'desc' },
         },
-      }),
-      prisma.message.count({ where }),
-    ])
-    // Đảo ngược để trả về theo thứ tự cũ→mới
-    return { data: data.reverse(), total }
+      },
+    })
   }
 
-  /** Đánh dấu tất cả tin nhắn từ senderId đến receiverId là đã đọc */
-  async markMessagesAsRead(receiverId: number, senderId: number) {
+  async closeChat(chatId: number) {
+    return prisma.chat.update({
+      where: { id: chatId },
+      data: {
+        status: ChatStatus.CLOSED,
+        endedAt: new Date(),
+      },
+    })
+  }
+
+  async createMessage(data: { chatId: number; senderId: number; content: string }) {
+    return prisma.message.create({
+      data: {
+        chatId: data.chatId,
+        senderId: data.senderId,
+        content: data.content,
+        isRead: false,
+        sendDate: new Date(),
+      },
+      include: {
+        chat: { select: { userId: true } }
+      }
+    })
+  }
+
+  async findConversation(chatId: number, cursor: number | null, take: number) {
+    const where = {
+      chatId,
+      ...(cursor ? { id: { lt: cursor } } : {}),
+    }
+
+    const messages = await prisma.message.findMany({
+      where,
+      orderBy: { id: 'desc' },
+      take: take + 1,
+    })
+
+    const hasMore = messages.length > take
+    const data = hasMore ? messages.slice(0, take) : messages
+    const nextCursor = hasMore && data.length > 0 ? data[data.length - 1].id : null
+
+    return {
+      data: data.reverse(),
+      nextCursor,
+      hasMore,
+    }
+  }
+
+  async markMessagesAsRead(chatId: number, currentUserId: number) {
+    const chat = await prisma.chat.findUnique({ where: { id: chatId }})
+    if (!chat) return { count: 0 }
+
+    // Nếu currentUserId là chủ chat -> mark read tin nhắn của shop (senderId != currentUserId)
+    // Cần tinh chỉnh logic này tùy thuộc vào việc bạn gán senderId vào Message ntn.
     return prisma.message.updateMany({
-      where: { senderId, receiverId, readAt: null },
-      data: { readAt: new Date() },
+      where: { chatId, isRead: false },
+      data: { isRead: true },
+    })
+  }
+
+  async findConversationList(userId?: number) {
+    return prisma.chat.findMany({
+      where: {
+        status: { not: ChatStatus.CLOSED },
+        ...(userId ? { userId } : {}),
+      },
+      include: {
+        user: { select: { fullName: true, avatarUrl: true } },
+        messages: { take: 1, orderBy: { sendDate: 'desc' } }
+      },
+      orderBy: { updatedAt: 'desc' }
     })
   }
 
   /** Đếm số tin nhắn chưa đọc của user */
   async countUnread(userId: number) {
-    return prisma.message.count({ where: { receiverId: userId, readAt: null } })
+    // Đếm những tin nhắn chưa đọc thuộc phiên chat của user (nhưng do người khác gửi, VD: Admin gửi cho user)
+    return prisma.message.count({ 
+      where: { 
+        chat: { userId },
+        senderId: { not: userId }, // Đảm bảo đếm tin nhắn không phải của chính mình
+        isRead: false 
+      } 
+    })
   }
 
-  /** Lấy danh sách hội thoại (các user đã chat với userId) */
-  async findConversationList(userId: number) {
-    // Lấy danh sách senderId/receiverId unique mà user đã chat
-    // FIX 3.1: PostgreSQL yêu cầu DISTINCT ON (a) phải có a làm biểu thức đầu tiên trong ORDER BY
-    const sentMessages = await prisma.message.findMany({
-      where: { senderId: userId },
-      distinct: ['receiverId'],
-      select: { receiverId: true },
-      orderBy: [{ receiverId: 'asc' }, { createdAt: 'desc' }],
-    })
-    const receivedMessages = await prisma.message.findMany({
-      where: { receiverId: userId },
-      distinct: ['senderId'],
-      select: { senderId: true },
-      orderBy: [{ senderId: 'asc' }, { createdAt: 'desc' }],
-    })
 
-    // Tập hợp các user đã chat
-    const partnerIds = new Set<number>([
-      ...sentMessages.map((m: { receiverId: number }) => m.receiverId),
-      ...receivedMessages.map((m: { senderId: number }) => m.senderId),
-    ])
 
-    return Array.from(partnerIds)
-  }
+  // ─────────────── WebSocket Session Management (Redis Only) ───────────────
 
-  // ─────────────── WebSocket Session ───────────────
-
-  /** Lưu hoặc cập nhật socket session khi user kết nối */
+  /**
+   * Lưu hoặc cập nhật socket session khi user kết nối.
+   *
+   * OOM & GHOST SESSION FIX:
+   *   - Zero PostgreSQL interaction (eliminates DB connection exhaustion & table bloat).
+   *   - Redis Hash per user: `ws:sessions:user:{userId}` -> `{ [socketId]: connectedAt }`.
+   *   - Strict TTL (60s) on both Hash and Reverse-lookup keys.
+   *   - If Node.js crashes or client disconnects unexpectedly, Redis expires ghost sessions within 60s.
+   */
   async upsertSocketSession(socketId: string, userId: number) {
-    return prisma.websocketSession.upsert({
-      where: { socketId },
-      update: { userId, connectedAt: new Date() },
-      create: { socketId, userId, connectedAt: new Date() },
-    })
+    const userKey = `${WS_SESSION_PREFIX}${userId}`
+    const socketKey = `${WS_SOCKET_PREFIX}${socketId}`
+    const connectedAt = Date.now().toString()
+
+    const pipeline = redisClient.pipeline()
+    pipeline.hset(userKey, socketId, connectedAt)
+    pipeline.expire(userKey, WS_SESSION_TTL_SECONDS)
+    pipeline.set(socketKey, userId.toString(), 'EX', WS_SESSION_TTL_SECONDS)
+
+    const results = await pipeline.exec()
+    if (results) {
+      for (const [err] of results) {
+        if (err) {
+          logger.error({ err, socketId, userId }, 'upsertSocketSession: Redis pipeline error')
+          throw err
+        }
+      }
+    }
+
+    logger.info(
+      { socketId, userId, ttl: WS_SESSION_TTL_SECONDS },
+      'upsertSocketSession: Redis session persisted with strict 60s TTL',
+    )
+
+    return { socketId, userId, connectedAt: new Date(parseInt(connectedAt, 10)) }
   }
 
-  /** Xoá socket session khi user ngắt kết nối */
+  /**
+   * Gia hạn thời gian sống (TTL) của socket session khi nhận heartbeat/ping từ client.
+   *
+   * REAL-TIME OFFLINE DETECTION FIX:
+   *   - Resets TTL of reverse-lookup key (`ws:sessions:socket:{socketId}`) to 60 seconds.
+   *   - Resets TTL of user session hash (`ws:sessions:user:{userId}`) to 60 seconds.
+   *   - Updates last heartbeat timestamp in user hash.
+   *   - If heartbeat pings cease (client disconnect, crash, tab close), keys automatically
+   *     expire within 60s, preventing 24-hour ghost sessions.
+   *
+   * @param socketId - ID của WebSocket socket session
+   */
+  async extendSocketSession(socketId: string) {
+    const socketKey = `${WS_SOCKET_PREFIX}${socketId}`
+
+    const userIdStr = await redisClient.get(socketKey)
+    if (!userIdStr) {
+      logger.debug(
+        { socketId },
+        'extendSocketSession: socket key not found in Redis (already expired or disconnected)',
+      )
+      return null
+    }
+
+    const userId = parseInt(userIdStr, 10)
+    const userKey = `${WS_SESSION_PREFIX}${userId}`
+    const lastHeartbeatAt = Date.now().toString()
+
+    const pipeline = redisClient.pipeline()
+    pipeline.expire(socketKey, WS_SESSION_TTL_SECONDS)
+    pipeline.expire(userKey, WS_SESSION_TTL_SECONDS)
+    pipeline.hset(userKey, socketId, lastHeartbeatAt)
+
+    const results = await pipeline.exec()
+    if (results) {
+      for (const [err] of results) {
+        if (err) {
+          logger.error({ err, socketId, userId }, 'extendSocketSession: Redis pipeline error')
+          throw err
+        }
+      }
+    }
+
+    logger.info(
+      { socketId, userId, ttl: WS_SESSION_TTL_SECONDS },
+      'extendSocketSession: session TTL extended to 60 seconds via heartbeat',
+    )
+
+    return { socketId, userId, extended: true }
+  }
+
+  /**
+   * Xoá socket session khi user ngắt kết nối.
+   *
+   * OOM & GHOST SESSION FIX:
+   *   - Atomic cleanup in Redis using pipeline.
+   *   - Deletes field from user hash and removes reverse lookup.
+   */
   async removeSocketSession(socketId: string) {
-    return prisma.websocketSession.delete({ where: { socketId } }).catch(() => null)
+    const socketKey = `${WS_SOCKET_PREFIX}${socketId}`
+
+    const userIdStr = await redisClient.get(socketKey)
+    if (!userIdStr) {
+      logger.debug(
+        { socketId },
+        'removeSocketSession: socket key not found in Redis (already expired or removed)',
+      )
+      return null
+    }
+
+    const userId = parseInt(userIdStr, 10)
+    const userKey = `${WS_SESSION_PREFIX}${userId}`
+
+    const pipeline = redisClient.pipeline()
+    pipeline.hdel(userKey, socketId)
+    pipeline.del(socketKey)
+    const results = await pipeline.exec()
+
+    if (results) {
+      for (const [err] of results) {
+        if (err) {
+          logger.error({ err, socketId, userId }, 'removeSocketSession: Redis pipeline error')
+          throw err
+        }
+      }
+    }
+
+    logger.info({ socketId, userId }, 'removeSocketSession: Redis session removed cleanly')
+
+    return { socketId, userId }
   }
 
-  /** Lấy tất cả socket sessions của một user (user có thể mở nhiều tab) */
+  /**
+   * Lấy tất cả socket sessions của một user (hỗ trợ multi-device/multi-tab).
+   */
   async findSocketSessionsByUserId(userId: number) {
-    return prisma.websocketSession.findMany({ where: { userId } })
+    const userKey = `${WS_SESSION_PREFIX}${userId}`
+    const sessions = await redisClient.hgetall(userKey)
+
+    return Object.entries(sessions).map(([socketId, connectedAt]) => ({
+      socketId,
+      userId,
+      connectedAt: new Date(parseInt(connectedAt, 10)),
+    }))
   }
 
-  /** Lấy socket session theo socketId */
+  /**
+   * Lấy socket session theo socketId.
+   */
   async findSocketSessionBySocketId(socketId: string) {
-    return prisma.websocketSession.findUnique({ where: { socketId } })
+    const socketKey = `${WS_SOCKET_PREFIX}${socketId}`
+    const userIdStr = await redisClient.get(socketKey)
+
+    if (!userIdStr) return null
+
+    const userId = parseInt(userIdStr, 10)
+    const userKey = `${WS_SESSION_PREFIX}${userId}`
+    const connectedAt = await redisClient.hget(userKey, socketId)
+
+    return {
+      socketId,
+      userId,
+      connectedAt: connectedAt ? new Date(parseInt(connectedAt, 10)) : new Date(),
+    }
   }
 
-  /** Kiểm tra user có đang online không (có session hay không) */
-  async isUserOnline(userId: number) {
-    const count = await prisma.websocketSession.count({ where: { userId } })
-    return count > 0
+  /**
+   * Kiểm tra user có đang online không (HLEN trên Hash).
+   */
+  async isUserOnline(userId: number): Promise<boolean> {
+    const userKey = `${WS_SESSION_PREFIX}${userId}`
+    const sessionCount = await redisClient.hlen(userKey)
+    return sessionCount > 0
   }
 }

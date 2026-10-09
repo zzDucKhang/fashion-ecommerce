@@ -23,7 +23,7 @@ export default function Home() {
   // 1. Fetch danh mục từ server
   const { data: categoryResponse, isLoading: isLoadingCategories } = useQuery({
     queryKey: ['home-categories'],
-    queryFn: () => catalogApi.getCategories('vi'),
+    queryFn: () => catalogApi.getCategories(),
   });
 
   // 2. Fetch danh sách sản phẩm từ server
@@ -47,7 +47,7 @@ export default function Home() {
 
     return {
       slug: String(p.id),
-      name: p.translations?.[0]?.name || p.defaultName,
+      name: p.defaultName, 
       brand: p.brand?.defaultName || 'Fashion Studio',
       category: p.category?.defaultName || 'Thời trang',
       price: sellingPrice || originalPrice,
@@ -59,7 +59,7 @@ export default function Home() {
       images,
       colors: ['#1D1F20', '#EAE6DF', '#a38a75'],
       sizes: ['S', 'M', 'L', 'XL'],
-      description: p.translations?.[0]?.shortDesc || p.defaultName,
+      description: p.defaultName, // <--- SỬA: Xóa translations, tạm dùng defaultName hoặc field mô tả mới
     };
   });
 
@@ -94,7 +94,7 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {categories.slice(0, 4).map((category, index) => {
-              const name = category.translations?.[0]?.name || category.defaultName;
+              const name = category.defaultName;
               const image = category.iconUrl || CATEGORY_IMAGES[index % CATEGORY_IMAGES.length];
 
               return (

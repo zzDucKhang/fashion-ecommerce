@@ -3,12 +3,18 @@ import { createApp } from './app'
 import { envConfig } from './config/env.config'
 import { prisma } from './database/prisma'
 import { redisClient } from './database/redis'
+import { initWebSocket, closeWebSocket } from './common/websocket'
+import { startVoucherReconciliationCron } from './modules/loyalty-engage/voucher/voucher.worker'
 
 async function bootstrap() {
   const app = createApp()
   const httpServer = createServer(app)
 
-  // Kết nối Socket.io ở đây nếu có (socket.server.ts)
+  // Kết nối Socket.io với Redis Pub/Sub adapter (Multi-Node K8s Scaling)
+  initWebSocket(httpServer)
+
+  // Khởi chạy cronjob đồng bộ hóa voucher định kỳ hàng đêm lúc 2:00 AM
+  startVoucherReconciliationCron()
 
   const server = httpServer.listen(envConfig.PORT, () => {
     console.log(`🚀 Server đang chạy tại: http://localhost:${envConfig.PORT}`)
@@ -17,9 +23,10 @@ async function bootstrap() {
   // Xử lý Graceful Shutdown
   const handleShutdown = async (signal: string) => {
     console.log(`\nNhận tín hiệu ${signal}. Đang đóng server...`)
-    
+
     server.close(async () => {
       console.log('HTTP Server đã đóng.')
+      await closeWebSocket()
       await prisma.$disconnect()
       console.log('Prisma đã ngắt kết nối.')
       redisClient.disconnect()

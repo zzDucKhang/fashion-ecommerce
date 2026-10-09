@@ -18,14 +18,14 @@ export class PaymentRepo {
     data: {
     orderId: number
     amount: number
-    paymentCode: string
   }) {
     return prisma.paymentTransaction.create({
       data: {
         orderId: data.orderId,
         amount: data.amount,
         provider: 'SEPAY',
-        paymentCode: data.paymentCode,
+        status: 'PENDING',
+        
       },
     })
   }
@@ -56,12 +56,24 @@ export class PaymentRepo {
   }
 
   async findByPaymentCode(paymentCode: string) {
-    return prisma.paymentTransaction.findUnique({
+    // Trích xuất số orderId từ nội dung chuyển khoản (VD: "DH15" -> 15)
+    // SePay có thể nhét thêm nội dung rác, nên ta dùng regex lấy số sau chữ DH
+    const match = paymentCode.toUpperCase().match(/DH(\d+)/);
+    if (!match) return null;
+
+    const orderId = parseInt(match[1], 10);
+    if (isNaN(orderId)) return null;
+
+    // Tìm giao dịch thanh toán PENDING đang gắn với Order này
+    return prisma.paymentTransaction.findFirst({
       where: {
-        paymentCode,
+        orderId: orderId,
+        status: 'PENDING',
+        provider: 'SEPAY'
       },
       include: paymentInclude,
-    })
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
 

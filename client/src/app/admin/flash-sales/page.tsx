@@ -82,8 +82,10 @@ export default function AdminFlashSalesPage() {
     }
   };
 
-  useEffect(() => {
-    fetchCampaigns();
+  useEffect(() => { 
+    Promise.resolve().then(() => {
+      fetchCampaigns();
+    });
   }, [page, activeFilter]);
 
   const handleOpenCreate = () => {

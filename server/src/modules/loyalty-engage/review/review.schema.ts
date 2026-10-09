@@ -1,11 +1,5 @@
-// src/modules/loyalty-engage/review/review.schema.ts
 import { z } from 'zod'
 
-// ───────────────────────────────────────────
-// Request Schemas
-// ───────────────────────────────────────────
-
-/** Tạo bài đánh giá mới */
 export const createReviewBodySchema = z.object({
   productId: z.number().int().positive('productId phải là số nguyên dương'),
   orderId: z.number().int().positive('orderId phải là số nguyên dương').optional(),
@@ -27,12 +21,10 @@ export const createReviewBodySchema = z.object({
     .default([]),
 })
 
-/** Admin/Shop trả lời đánh giá */
 export const replyReviewBodySchema = z.object({
   shopReply: z.string().trim().min(1, 'Nội dung phản hồi không được để trống').max(1000),
 })
 
-/** Params review id */
 export const reviewIdParamSchema = z.object({
   id: z
     .string()
@@ -40,7 +32,6 @@ export const reviewIdParamSchema = z.object({
     .transform(Number),
 })
 
-/** Query lấy danh sách review theo productId */
 export const getReviewsQuerySchema = z.object({
   productId: z
     .string()
@@ -63,9 +54,6 @@ export const getReviewsQuerySchema = z.object({
     .pipe(z.number().int().min(1).max(5).optional()),
 })
 
-// ───────────────────────────────────────────
-// Inferred Types
-// ───────────────────────────────────────────
 export type CreateReviewBodyType = z.infer<typeof createReviewBodySchema>
 export type ReplyReviewBodyType = z.infer<typeof replyReviewBodySchema>
 export type ReviewIdParamType = z.infer<typeof reviewIdParamSchema>

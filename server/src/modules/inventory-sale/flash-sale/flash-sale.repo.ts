@@ -177,44 +177,29 @@ export class FlashSaleRepo {
                 })
 
 
-                for (const item of items) {
-                    const soldQuantity =
-                        soldQuantityMap.get(item.variantId) ?? 0
+                await Promise.all(
+                    items.map((item) => {
+                        const soldQuantity = soldQuantityMap.get(item.variantId) ?? 0;
 
-                    await tx.flashSaleItem.upsert({
-                        where: {
-                            campaignId_variantId: {
+                        return tx.flashSaleItem.upsert({
+                            where: {
+                                campaignId_variantId: { campaignId, variantId: item.variantId },
+                            },
+                            update: {
+                                flashSalePrice: item.flashSalePrice,
+                                promoQuantity: item.promoQuantity,
+                                soldQuantity,
+                            },
+                            create: {
                                 campaignId,
                                 variantId: item.variantId,
+                                flashSalePrice: item.flashSalePrice,
+                                promoQuantity: item.promoQuantity,
+                                soldQuantity: 0,
                             },
-                        },
-
-                        update: {
-                            flashSalePrice:
-                                item.flashSalePrice,
-
-                            promoQuantity:
-                                item.promoQuantity,
-
-                            soldQuantity,
-                        },
-
-                        create: {
-                            campaignId,
-
-                            variantId:
-                                item.variantId,
-
-                            flashSalePrice:
-                                item.flashSalePrice,
-
-                            promoQuantity:
-                                item.promoQuantity,
-
-                            soldQuantity: 0,
-                        },
+                        });
                     })
-                }
+                );
             }
 
             return tx.flashSaleCampaign.update({

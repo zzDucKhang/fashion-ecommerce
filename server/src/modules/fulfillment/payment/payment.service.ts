@@ -99,17 +99,26 @@ export class PaymentService {
   async create(orderId: number, userId: number) {
     const order = await this.orderService.findById(userId, orderId)
     if (order.status !== 'PENDING_PAYMENT') throw new AppError('Đơn hàng không còn chờ thanh toán', 409)
-    const paymentCode = `SHOP-${randomBytes(3).toString('hex').toUpperCase()}`
+   
     const amount = Number(order.totalAmount)
-    const payment = await this.paymentRepo.create({ orderId, amount, paymentCode })
+    const payment = await this.paymentRepo.create({ orderId, amount })
+    
+    // Nội dung chuyển khoản chuẩn theo ID đơn hàng
+    const transferContent = `DH${order.id}`
+
     const qrBaseUrl = process.env.SEPAY_QR_BASE_URL ?? 'https://qr.sepay.vn/img'
     const accountNumber = process.env.SEPAY_ACCOUNT_NUMBER
     const bankCode = process.env.SEPAY_BANK_CODE
     if (!accountNumber || !bankCode) throw new AppError('SePay chưa được cấu hình', 500)
+    
     const qrUrl = new URL(qrBaseUrl)
-    qrUrl.searchParams.set('acc', accountNumber); qrUrl.searchParams.set('bank', bankCode)
-    qrUrl.searchParams.set('amount', String(amount)); qrUrl.searchParams.set('des', paymentCode)
-    return { paymentId: String(payment.id), amount, paymentCode, qrUrl: qrUrl.toString() }
+    qrUrl.searchParams.set('acc', accountNumber)
+    qrUrl.searchParams.set('bank', bankCode)
+    qrUrl.searchParams.set('amount', String(amount))
+    qrUrl.searchParams.set('des', transferContent)
+    
+    // Sửa lại return: không trả về paymentCode
+    return { paymentId: String(payment.id), amount, transferContent, qrUrl: qrUrl.toString() }
   }
 
   async findAll(query: GetAllPaymentsQueryType) {

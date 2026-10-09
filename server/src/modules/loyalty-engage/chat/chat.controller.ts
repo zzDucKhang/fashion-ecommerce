@@ -16,11 +16,20 @@ export class ChatController {
     }
   }
 
-  /** GET /chat/messages?withUserId=&page=&limit= – Lịch sử hội thoại */
-  getChatHistory = async (req: Request, res: Response, next: NextFunction) => {
+  getActiveChat = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user!.userId
-      const data = await this.chatService.getChatHistory(userId, req.query as any)
+      const data = await this.chatService.getOrCreateActiveChat(userId)
+      return res.status(200).json({ statusCode: 200, ...data })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  /** GET /chat/messages?chatId=&page=&limit=&cursor= – Lịch sử hội thoại */
+  getChatHistory = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.chatService.getChatHistory(req.query as any)
       return res.status(200).json({ statusCode: 200, ...data })
     } catch (error) {
       next(error)
@@ -64,6 +73,16 @@ export class ChatController {
   upsertSocketSession = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = await this.chatService.upsertSocketSession(req.body)
+      return res.status(200).json({ statusCode: 200, ...data })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  /** POST /chat/sessions/heartbeat – Gia hạn socket session qua heartbeat ping */
+  extendSocketSession = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.chatService.extendSocketSession(req.body.socketId)
       return res.status(200).json({ statusCode: 200, ...data })
     } catch (error) {
       next(error)

@@ -21,14 +21,6 @@ export class BrandRepo {
         where: { deletedAt: null },
         skip,
         take,
-        include: {
-          translations: {
-            where:
-              languageId === ALL_LANGUAGE_CODE
-                ? { deletedAt: null }
-                : { deletedAt: null, languageId },
-          },
-        },
         orderBy: { createdAt: 'desc' },
       }),
     ])
@@ -45,15 +37,7 @@ export class BrandRepo {
   async findById(brandId: number, languageId?: string) {
     return prisma.brand.findUnique({
       where: { id: brandId, deletedAt: null },
-      include: {
-        translations: {
-          where:
-            languageId === ALL_LANGUAGE_CODE
-              ? { deletedAt: null }
-              : { deletedAt: null, languageId },
-          include: { language: true },
-        },
-      },
+     
     })
   }
 
@@ -107,38 +91,5 @@ export class BrandRepo {
         })
   }
 
-  async upsertTranslation({
-    brandId,
-    languageId,
-    userId,
-    data,
-  }: {
-    brandId: number
-    languageId: string
-    userId: number
-    data: UpsertBrandTranslationType
-  }) {
-    const existing = await prisma.brandTranslation.findFirst({
-      where: { brandId, languageId, deletedAt: null },
-    })
-
-    if (existing) {
-      return prisma.brandTranslation.update({
-        where: { id: existing.id },
-        data: {
-          ...data,
-          updatedById: userId,
-        },
-      })
-    }
-
-    return prisma.brandTranslation.create({
-      data: {
-        ...data,
-        brandId,
-        languageId,
-        createdById: userId,
-      },
-    })
-  }
+  
 }

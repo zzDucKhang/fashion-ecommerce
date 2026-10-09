@@ -17,12 +17,14 @@ const envSchema = z.object({
   SEPAY_QR_BASE_URL: z.string().optional(),
   SEPAY_ACCOUNT_NUMBER: z.string().optional(),
   SEPAY_BANK_CODE: z.string().optional(),
+  SEPAY_WEBHOOK_SECRET: z.string().optional(),
   
   S3_ENDPOINT: z.string().optional(),
   S3_REGION: z.string().optional(),
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
   S3_BUCKET_NAME: z.string().optional(),
+  
 
   MAIL_USER: z.string().email(),
   MAIL_PASS: z.string().min(1),

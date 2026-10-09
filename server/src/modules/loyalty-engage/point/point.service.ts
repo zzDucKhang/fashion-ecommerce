@@ -1,115 +1,153 @@
-// src/modules/loyalty-engage/point/point.service.ts
 import { BadRequestError, NotFoundError } from '@/common/errors'
+import { createLogger } from '@/common/logger'
 import { PointRepo } from './point.repo'
 import { EarnPointsBodyType, GetHistoryQueryType, RedeemPointsBodyType } from './point.schema'
+
+const logger = createLogger('PointService')
 
 export class PointService {
   constructor(private pointRepo = new PointRepo()) {}
 
-  /**
-   * Admin cộng điểm cho user khi đơn hàng hoàn thành (DELIVERED).
-   * Điểm được tính tự động: 1% của totalAmount, làm tròn xuống số nguyên.
-   * Admin gọi endpoint này – nhưng userId lấy từ đơn hàng (order.userId), không phải ID của admin.
-   * Sử dụng atomic transaction để tránh race condition.
-   */
-  async earnPoints(_adminId: number, body: EarnPointsBodyType) {
+  async earnPoints(userId: number, body: EarnPointsBodyType) {
+    logger.info({ adminId: userId, orderId: body.orderId }, 'earnPoints: initiated')
+
     const order = await this.pointRepo.findOrderById(body.orderId)
-    if (!order) throw new NotFoundError('Đơn hàng không tồn tại')
+    if (!order) {
+      logger.warn({ orderId: body.orderId }, 'earnPoints: order not found')
+      throw new NotFoundError('Đơn hàng không tồn tại')
+    }
+
     if (order.status !== 'DELIVERED') {
+      logger.warn({ orderId: body.orderId, status: order.status }, 'earnPoints: order not DELIVERED')
       throw new BadRequestError('Chỉ cộng điểm khi đơn hàng đã giao thành công (DELIVERED)')
     }
 
-    // Dùng userId từ đơn hàng, không phải userId của admin gọi API
-    const userId = order.userId
-    const user = await this.pointRepo.findUserById(userId)
-    if (!user) throw new NotFoundError('Người dùng của đơn hàng không tồn tại')
+    const targetUserId = order.userId
 
-    const existing = await this.pointRepo.findEarnTransactionByOrderId(body.orderId)
-    if (existing) throw new BadRequestError('Đơn hàng này đã được cộng điểm trước đó')
-
-    // Tính điểm tự động: 1% tổng giá trị đơn hàng, làm tròn xuống
     const pointChange = Math.floor(Number(order.totalAmount) * 0.01)
     if (pointChange <= 0) {
-      throw new BadRequestError('Giá trị đơn hàng quá nhỏ, không đủ điểu kiện cộng điểm')
+      logger.warn({ orderId: body.orderId, totalAmount: order.totalAmount }, 'earnPoints: calculated point change is 0')
+      throw new BadRequestError('Giá trị đơn hàng quá nhỏ, không đủ điều kiện cộng điểm')
     }
 
-    const newPoints = user.rewardPoints + pointChange
-
-    const transaction = await this.pointRepo.updatePointsAndCreateTransaction(userId, newPoints, {
-      orderId: body.orderId,
+    const result = await this.pointRepo.atomicEarnPoints(
+      targetUserId,
+      body.orderId,
       pointChange,
-      currentPoint: newPoints,
-      transactionType: 'EARN',
-      description: body.description,
-    })
+      body.description || `Cộng điểm từ đơn hàng #${order.id}`,
+    )
+
+    if (!result) {
+      logger.error({ targetUserId, orderId: body.orderId }, 'earnPoints: user not found in locked transaction')
+      throw new NotFoundError('Người dùng không tồn tại')
+    }
+
+    if (result.isIdempotent) {
+      logger.info(
+        { targetUserId, orderId: body.orderId, currentPoint: result.currentPoint },
+        'earnPoints: duplicate request resolved via idempotency check',
+      )
+      return {
+        message: `Đơn hàng #${body.orderId} đã được cộng điểm trước đó (idempotent)`,
+        currentPoint: result.currentPoint,
+        transaction: result.transaction,
+      }
+    }
+
+    logger.info(
+      { targetUserId, orderId: body.orderId, pointChange, newPoints: result.currentPoint },
+      'earnPoints: committed successfully',
+    )
 
     return {
-      message: `Cộng ${pointChange} điểm thành công cho user #${userId}`,
-      currentPoint: newPoints,
-      transaction,
+      message: `Cộng ${pointChange} điểm thành công cho user #${targetUserId}`,
+      currentPoint: result.currentPoint,
+      transaction: result.transaction,
     }
   }
 
-  /**
-   * Trừ điểm khi user dùng điểm để thanh toán.
-   * Sử dụng atomic decrement có điều kiện để ngăn race condition: nếu 2 request
-   * đồng thời cùng đọc số điểm và trừ, chỉ 1 request thành công (do WHERE gte).
-   */
   async redeemPoints(userId: number, body: RedeemPointsBodyType) {
-    const user = await this.pointRepo.findUserById(userId)
-    if (!user) throw new NotFoundError('Người dùng không tồn tại')
-
-    if (user.rewardPoints < body.pointsToRedeem) {
-      throw new BadRequestError(
-        `Số điểm không đủ. Bạn đang có ${user.rewardPoints} điểm, cần ${body.pointsToRedeem} điểm`,
-      )
-    }
+    logger.info({ userId, orderId: body.orderId, pointsToRedeem: body.pointsToRedeem }, 'redeemPoints: initiated')
 
     const order = await this.pointRepo.findOrderById(body.orderId)
-    if (!order) throw new NotFoundError('Đơn hàng không tồn tại')
+    if (!order) {
+      logger.warn({ orderId: body.orderId }, 'redeemPoints: order not found')
+      throw new NotFoundError('Đơn hàng không tồn tại')
+    }
+
     if (order.userId !== userId) {
+      logger.warn(
+        { orderId: body.orderId, orderUserId: order.userId, requestUserId: userId },
+        'redeemPoints: order does not belong to user',
+      )
       throw new BadRequestError('Đơn hàng không thuộc về người dùng này')
     }
 
-    const existing = await this.pointRepo.findRedeemTransactionByOrderId(body.orderId)
-    if (existing) throw new BadRequestError('Điểm đã được áp dụng cho đơn hàng này rồi')
-
-    // Kiểm tra điểm dùng không vượt quá giá trị đơn hàng (1 điểm = 1 VNĐ)
     const orderTotal = Number(order.totalAmount)
-    if (body.pointsToRedeem > orderTotal) {
-      throw new BadRequestError(
-        `Số điểm sử dụng (${body.pointsToRedeem} điểm = ${body.pointsToRedeem} VNĐ) vượt quá giá trị đơn hàng (${orderTotal} VNĐ)`,
-      )
-    }
 
-    // Atomic decrement có điều kiện: chỉ trừ nếu rewardPoints >= pointsToRedeem tại thời điểm UPDATE
-    // Ngăn double-spend khi 2 request cùng lúc (race condition)
-    const updatedResult = await this.pointRepo.atomicDecrementPoints(userId, body.pointsToRedeem)
-    if (!updatedResult) {
-      throw new BadRequestError('Số điểm khả dụng không đủ (có thể đã bị dùng từ một tab khác)')
-    }
-
-    const newPoints = user.rewardPoints - body.pointsToRedeem
-
-    // Tạo bản ghi giao dịch sau khi decrement thành công
-    const transaction = await this.pointRepo.createTransaction({
+    const result = await this.pointRepo.atomicRedeemPoints(
       userId,
-      orderId: body.orderId,
-      pointChange: -body.pointsToRedeem,
-      currentPoint: newPoints,
-      transactionType: 'REDEEM',
-      description: `Dùng ${body.pointsToRedeem} điểm (tương đương ${body.pointsToRedeem} VNĐ) thanh toán đơn hàng #${body.orderId}`,
-    })
+      body.orderId,
+      body.pointsToRedeem,
+      orderTotal,
+      `Dùng ${body.pointsToRedeem} điểm (tương đương ${body.pointsToRedeem} VNĐ) thanh toán đơn hàng #${order.id}`,
+    )
+
+    if ('error' in result) {
+      if (result.error === 'USER_NOT_FOUND') {
+        logger.error({ userId }, 'redeemPoints: user not found')
+        throw new NotFoundError('Người dùng không tồn tại')
+      }
+
+      if (result.error === 'INSUFFICIENT_POINTS') {
+        logger.warn(
+          { userId, currentPoint: result.currentPoint, required: result.required },
+          'redeemPoints: insufficient points balance',
+        )
+        throw new BadRequestError(
+          `Số điểm không đủ. Bạn đang có ${result.currentPoint} điểm, cần ${result.required} điểm`,
+        )
+      }
+
+      if (result.error === 'EXCEEDS_ORDER_TOTAL') {
+        logger.warn(
+          { userId, pointsToRedeem: body.pointsToRedeem, orderTotal: result.orderTotal },
+          'redeemPoints: redemption points exceed order total',
+        )
+        throw new BadRequestError(
+          `Số điểm sử dụng (${body.pointsToRedeem} điểm = ${body.pointsToRedeem} VNĐ) vượt quá giá trị đơn hàng (${result.orderTotal} VNĐ)`,
+        )
+      }
+
+      throw new BadRequestError('Không thể thực hiện trừ điểm')
+    }
+
+    if (result.isIdempotent) {
+      logger.info(
+        { userId, orderId: body.orderId, currentPoint: result.currentPoint },
+        'redeemPoints: duplicate redemption resolved via idempotency check',
+      )
+      return {
+        message: `Điểm đã được áp dụng cho đơn hàng #${body.orderId} trước đó (idempotent)`,
+        discountAmount: result.discountAmount,
+        currentPoint: result.currentPoint,
+        transaction: result.transaction,
+      }
+    }
+
+    logger.info(
+      { userId, orderId: body.orderId, pointsToRedeem: body.pointsToRedeem, newPoints: result.currentPoint },
+      'redeemPoints: committed successfully',
+    )
 
     return {
       message: `Đã dùng ${body.pointsToRedeem} điểm (tương đương ${body.pointsToRedeem} VNĐ)`,
-      discountAmount: body.pointsToRedeem,
-      currentPoint: newPoints,
-      transaction,
+      discountAmount: result.discountAmount,
+      currentPoint: result.currentPoint,
+      transaction: result.transaction,
     }
   }
 
-  /** Lấy lịch sử giao dịch điểm của user (có phân trang) */
   async getHistory(userId: number, query: GetHistoryQueryType) {
     const { page, limit } = query
     const skip = (page - 1) * limit
@@ -127,10 +165,21 @@ export class PointService {
     }
   }
 
-  /** Lấy tổng điểm hiện tại của user */
   async getBalance(userId: number) {
     const user = await this.pointRepo.findUserById(userId)
     if (!user) throw new NotFoundError('Người dùng không tồn tại')
     return { rewardPoints: user.rewardPoints }
+  }
+
+  /**
+   * =========================================================================================
+   * @WARNING CONTRACT RULES: CROSS-MODULE DEFENSIVE INTERFACE FOR CART-ORDER & FULFILLMENT
+   * 
+   * KHI HỦY ĐƠN HOẶC HOÀN TIỀN (RETURN/REFUND):
+   * BẮT BUỘC GỌI HÀM NÀY QUA TRANSACTION: `compensatePointsForCancelledOrder(orderId, tx)`
+   * =========================================================================================
+   */
+  async compensatePointsForCancelledOrder(orderId: number, tx?: any) {
+    return this.pointRepo.compensatePointsForCancelledOrder(orderId, tx)
   }
 }

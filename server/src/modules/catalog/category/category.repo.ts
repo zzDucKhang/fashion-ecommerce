@@ -20,14 +20,7 @@ export class CategoryRepo {
         deletedAt: null,
         parentId: parentCategoryId ?? null,
       },
-      include: {
-        translations: {
-          where:
-            languageId === ALL_LANGUAGE_CODE
-              ? { deletedAt: null }
-              : { deletedAt: null, languageId },
-        },
-      },
+      
       orderBy: { createdAt: 'desc' },
     })
 
@@ -40,14 +33,7 @@ export class CategoryRepo {
   async findById({ id, languageId }: { id: number; languageId?: string }) {
     return prisma.category.findUnique({
       where: { id, deletedAt: null },
-      include: {
-        translations: {
-          where:
-            languageId === ALL_LANGUAGE_CODE
-              ? { deletedAt: null }
-              : { deletedAt: null, languageId },
-        },
-      },
+      
     })
   }
 
@@ -63,9 +49,7 @@ export class CategoryRepo {
         ...data,
         createdById,
       },
-      include: {
-        translations: { where: { deletedAt: null } },
-      },
+      
     })
   }
 
@@ -84,9 +68,7 @@ export class CategoryRepo {
         ...data,
         updatedById,
       },
-      include: {
-        translations: { where: { deletedAt: null } },
-      },
+     
     })
   }
 
@@ -113,38 +95,5 @@ export class CategoryRepo {
         })
   }
 
-  async upsertTranslation({
-    categoryId,
-    languageId,
-    userId,
-    data,
-  }: {
-    categoryId: number
-    languageId: string
-    userId: number
-    data: UpsertCategoryTranslationType
-  }) {
-    const existing = await prisma.categoryTranslation.findFirst({
-      where: { categoryId, languageId, deletedAt: null },
-    })
-
-    if (existing) {
-      return prisma.categoryTranslation.update({
-        where: { id: existing.id },
-        data: {
-          ...data,
-          updatedById: userId,
-        },
-      })
-    }
-
-    return prisma.categoryTranslation.create({
-      data: {
-        ...data,
-        categoryId,
-        languageId,
-        createdById: userId,
-      },
-    })
-  }
+  
 }

@@ -1,4 +1,3 @@
-// src/modules/loyalty-engage/voucher/voucher.routes.ts
 import { Router } from 'express'
 import { requireAuth } from '@/middlewares/guards/auth.guard'
 import { requireAdmin } from '@/middlewares/guards/role.guard'
@@ -15,12 +14,6 @@ import {
 export const voucherRouter = Router()
 const controller = new VoucherController()
 
-// ─── User routes đặt TRƯỚC `/:id` để tránh Express match literal paths thành params ─
-
-/**
- * POST /vouchers/validate – Kiểm tra voucher & tính tiền giảm (User)
- * Đặt TRƯỚC POST /:id để Express không nhầm 'validate' thành một :id param
- */
 voucherRouter.post(
   '/validate',
   requireAuth,
@@ -28,18 +21,13 @@ voucherRouter.post(
   controller.validateVoucher,
 )
 
-/** POST /vouchers/apply – Áp dụng voucher (sau khi đặt hàng) */
 voucherRouter.post(
   '/apply',
   requireAuth,
-  requireAdmin, // Đảm bảo người dùng thông thường không thể tự gọi làm cạn quota voucher
-  // validateRequest({ body: z.object({ code: z.string().trim().min(1, 'Mã voucher là bắt buộc').toUpperCase() }) }),
+  requireAdmin,
   controller.applyVoucher,
 )
 
-// ─── Admin routes (yêu cầu đăng nhập + role ADMIN) ───────────────────────────
-
-/** GET /vouchers – Danh sách tất cả voucher */
 voucherRouter.get(
   '/',
   requireAuth,
@@ -48,7 +36,6 @@ voucherRouter.get(
   controller.listVouchers,
 )
 
-/** POST /vouchers – Tạo voucher mới */
 voucherRouter.post(
   '/',
   requireAuth,
@@ -57,7 +44,6 @@ voucherRouter.post(
   controller.createVoucher,
 )
 
-/** GET /vouchers/:id – Chi tiết voucher */
 voucherRouter.get(
   '/:id',
   requireAuth,
@@ -66,7 +52,6 @@ voucherRouter.get(
   controller.getVoucherById,
 )
 
-/** PATCH /vouchers/:id – Cập nhật voucher */
 voucherRouter.patch(
   '/:id',
   requireAuth,
@@ -75,7 +60,6 @@ voucherRouter.patch(
   controller.updateVoucher,
 )
 
-/** DELETE /vouchers/:id – Xoá mềm voucher */
 voucherRouter.delete(
   '/:id',
   requireAuth,
