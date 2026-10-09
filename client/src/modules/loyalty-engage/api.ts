@@ -1,9 +1,5 @@
-// src/modules/loyalty-engage/api.ts
-import { apiClient } from "@/api/client"
+import { apiClient } from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
-// ==========================================
-// 1. Voucher Types & Interfaces
-// ==========================================
 
 export type DiscountType = "PERCENTAGE" | "FIXED_AMOUNT";
 
@@ -36,10 +32,6 @@ export interface VoucherValidationResponse {
   data: VoucherValidationData;
 }
 
-// ==========================================
-// 2. Point Types & Interfaces
-// ==========================================
-
 export interface PointBalanceData {
   rewardPoints: number;
 }
@@ -61,10 +53,6 @@ export interface RedeemPointsResponse {
   currentPoint: number;
   transaction?: unknown;
 }
-
-// ==========================================
-// 3. Review Types & Interfaces
-// ==========================================
 
 export interface ReviewAuthor {
   id: number;
@@ -125,10 +113,6 @@ export interface CreateReviewResponse {
   data: ProductReviewItem;
 }
 
-// ==========================================
-// 4. Socket Session & Heartbeat Types
-// ==========================================
-
 export interface SocketHeartbeatResponse {
   statusCode: number;
   message: string;
@@ -153,10 +137,6 @@ export interface ChatMessageItem {
   };
   isSelf?: boolean;
 }
-
-// ==========================================
-// 5. API Client Methods
-// ==========================================
 
 export async function validateVoucher(
   code: string,
@@ -211,7 +191,6 @@ export async function createReview(
 export async function sendSocketHeartbeat(
   socketId: string
 ): Promise<SocketHeartbeatResponse> {
-  // Domain chat chưa có trong endpoints.ts nên gọi trực tiếp với prefix chuẩn
   const res = await apiClient.post<SocketHeartbeatResponse>("/loyalty-engage/chat/sessions/heartbeat", {
     socketId,
   });

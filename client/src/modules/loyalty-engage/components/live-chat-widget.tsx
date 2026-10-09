@@ -1,4 +1,3 @@
-// src/modules/loyalty-engage/components/live-chat-widget.tsx
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -27,14 +26,12 @@ export function LiveChatWidget({
   const [inputText, setInputText] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Hook managing socket lifecycle and the strict 30s heartbeat interval
   const { isConnected, messages, sendMessage } = useChatSocket({
     userId,
     serverUrl,
     autoConnect: true,
   });
 
-  // Proper React lifecycle hook for scrolling instead of anti-pattern setTimeout
   useEffect(() => {
     if (isOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -55,19 +52,14 @@ export function LiveChatWidget({
 
   return (
     <div className="fixed bottom-6 right-6 z-50 select-none">
-      {/* ─────────────────────────────────────────────────────────────
-          1. Chat Popover Window
-      ───────────────────────────────────────────────────────────── */}
       {isOpen && (
         <div className="mb-4 w-96 max-w-[calc(100vw-3rem)] h-[520px] max-h-[calc(100vh-7rem)] bg-[#FFFFFF] border border-[#EAE6DF] rounded-2xl shadow-[0_5px_20px_rgba(29,31,32,.08)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
-          {/* Header */}
           <header className="p-4 bg-[#FFFFFF] border-b border-[#EAE6DF] flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-10 h-10 rounded-full bg-[#1D1F20] text-white flex items-center justify-center font-bold text-sm">
                   CS
                 </div>
-                {/* Real-time Connection Indicator */}
                 <span
                   className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
                     isConnected ? "bg-[#84EA53]" : "bg-[#dc2626]"
@@ -114,9 +106,7 @@ export function LiveChatWidget({
             </div>
           </header>
 
-          {/* Messages Viewport */}
           <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#FBF9F4]/40">
-            {/* Initial Welcome Message */}
             <div className="flex items-start gap-2.5">
               <div className="w-7 h-7 rounded-full bg-[#1D1F20] text-white flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
                 CS
@@ -131,7 +121,6 @@ export function LiveChatWidget({
               </div>
             </div>
 
-            {/* Quick Questions Preset Chips */}
             {messages.length === 0 && (
               <div className="space-y-1.5 pt-2 pl-9">
                 <p className="text-[11px] font-bold text-[#74736e] uppercase tracking-wider">
@@ -157,7 +146,6 @@ export function LiveChatWidget({
               </div>
             )}
 
-            {/* Conversation Flow */}
             {messages.map((msg, index) => (
               <div
                 key={msg.id || index}
@@ -198,7 +186,6 @@ export function LiveChatWidget({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Chat Input Field */}
           <footer className="p-3 bg-[#FFFFFF] border-t border-[#EAE6DF]">
             <form onSubmit={handleSend} className="flex items-center gap-2">
               <input
@@ -221,9 +208,6 @@ export function LiveChatWidget({
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          2. Floating Trigger Button
-      ───────────────────────────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
@@ -235,7 +219,6 @@ export function LiveChatWidget({
         ) : (
           <>
             <MessageCircle size={24} />
-            {/* Live Online Dot Badge */}
             <span className="absolute top-0 right-0 flex h-3.5 w-3.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1D1F20] opacity-40" />
               <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-[#1D1F20] border-2 border-white" />

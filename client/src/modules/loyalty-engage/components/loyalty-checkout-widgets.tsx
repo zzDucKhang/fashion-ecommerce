@@ -1,4 +1,3 @@
-// src/modules/loyalty-engage/components/loyalty-checkout-widgets.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -12,10 +11,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { validateVoucher, type VoucherValidationData } from "../api";
-
-// ==========================================
-// 1. VoucherInput Component
-// ==========================================
 
 export interface VoucherInputProps {
   orderTotal: number;
@@ -33,7 +28,6 @@ export function VoucherInput({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [appliedVoucher, setAppliedVoucher] = useState<VoucherValidationData | null>(null);
 
-  // Auto-remove voucher nếu tổng đơn tụt xuống dưới mức tối thiểu (Voucher Smuggling prevention)
   useEffect(() => {
     if (appliedVoucher) {
       const minRequired = Number(appliedVoucher.voucher.minOrderValue);
@@ -100,7 +94,6 @@ export function VoucherInput({
       </div>
 
       {appliedVoucher ? (
-        /* Applied Success State Card */
         <div className="flex items-center justify-between p-4 rounded-xl bg-[#84EA53]/15 border border-[#84EA53]/40 transition">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -127,7 +120,6 @@ export function VoucherInput({
           </button>
         </div>
       ) : (
-        /* Input Form */
         <form onSubmit={handleApply} className="space-y-3">
           <div className="flex items-center gap-2">
             <input
@@ -157,7 +149,6 @@ export function VoucherInput({
             </button>
           </div>
 
-          {/* Error Message */}
           {errorMessage && (
             <div className="flex items-center gap-2 text-xs text-[#dc2626] font-medium pt-1">
               <AlertCircle size={14} className="shrink-0" />
@@ -169,10 +160,6 @@ export function VoucherInput({
     </div>
   );
 }
-
-// ==========================================
-// 2. PointRedeemSlider Component
-// ==========================================
 
 export interface PointRedeemSliderProps {
   maxPoints: number;
@@ -188,16 +175,13 @@ export function PointRedeemSlider({
   const [isEnabled, setIsEnabled] = useState<boolean>(false);
   const [points, setPoints] = useState<number>(0);
 
-  // Maximum redeemable: cannot exceed points balance, nor total order amount
   const usableMaxPoints = Math.max(0, Math.min(maxPoints, Math.floor(orderTotal)));
 
-  // BẮT BUỘC: Kẹp (Clamp) số điểm lại nếu tổng tiền đơn hàng bị sụt giảm (Point Desync prevention)
   useEffect(() => {
     if (isEnabled && points > usableMaxPoints) {
       setPoints(usableMaxPoints);
       onRedeem(usableMaxPoints);
     }
-    // Nếu trong giỏ không còn đồng nào (hoặc voucher giảm sạch tiền), tự tắt nút dùng điểm
     if (usableMaxPoints <= 0 && isEnabled) {
       setIsEnabled(false);
       setPoints(0);
@@ -210,7 +194,6 @@ export function PointRedeemSlider({
     setIsEnabled(nextState);
 
     if (nextState) {
-      // Default to 100% of available usable points upon toggling on
       const initialPoints = usableMaxPoints;
       setPoints(initialPoints);
       onRedeem(initialPoints);
@@ -237,7 +220,6 @@ export function PointRedeemSlider({
 
   return (
     <div className="w-full bg-[#FFFFFF] border border-[#EAE6DF] rounded-2xl p-5 sm:p-6 space-y-5 shadow-sm">
-      {/* Header with Switch */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[#84EA53]/20 border border-[#84EA53]/40 flex items-center justify-center text-[#1D1F20]">
@@ -255,7 +237,6 @@ export function PointRedeemSlider({
           </div>
         </div>
 
-        {/* Custom Toggle Switch */}
         <button
           type="button"
           role="switch"
@@ -273,10 +254,8 @@ export function PointRedeemSlider({
         </button>
       </div>
 
-      {/* Expanded Slider & Calculator Controls */}
       {isEnabled && (
         <div className="space-y-4 pt-2 border-t border-[#EAE6DF] animate-fadeIn">
-          {/* Discount Value Preview Box */}
           <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#FBF9F4] border border-[#EAE6DF]">
             <span className="text-xs font-semibold text-[#74736e]">
               Số tiền giảm giá:
@@ -287,7 +266,6 @@ export function PointRedeemSlider({
             </div>
           </div>
 
-          {/* Interactive Range Slider */}
           <div className="space-y-2">
             <div className="flex justify-between text-xs text-[#74736e] font-medium">
               <span>0 điểm</span>
@@ -307,7 +285,6 @@ export function PointRedeemSlider({
             />
           </div>
 
-          {/* Quick Preset Buttons */}
           <div className="flex items-center gap-2 pt-1">
             {[
               { label: "25%", frac: 0.25 },

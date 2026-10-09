@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowLeft, Check, Lock } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +14,12 @@ import { ShippingForm } from './shipping-form';
 import { PaymentMethodComponent } from './payment-method';
 import { formatCurrency } from '@/lib/utils/format-currency';
 import { toast } from 'sonner';
+import {
+  VoucherInput,
+  PointRedeemSlider,
+  type VoucherValidationData,
+  getPointBalance,
+} from '@/modules/loyalty-engage';
 
 export function CheckoutView() {
   const router = useRouter();
@@ -22,10 +28,23 @@ export function CheckoutView() {
   const { data: cartResponse } = useCart();
   const createOrderMutation = useCreateOrder();
 
-  // Các State xử lý hiển thị mã QR
   const [qrData, setQrData] = useState<{ qrUrl: string; amount: number; transferContent: string } | null>(null);
   const [createdOrderCode, setCreatedOrderCode] = useState<string | null>(null);
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
+
+  const [appliedVoucher, setAppliedVoucher] = useState<VoucherValidationData | null>(null);
+  const [usedPoints, setUsedPoints] = useState<number>(0);
+  const [userPointsBalance, setUserPointsBalance] = useState<number>(0);
+
+  useEffect(() => {
+    getPointBalance()
+      .then((res) => {
+        if (res?.data?.rewardPoints) {
+          setUserPointsBalance(res.data.rewardPoints);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const itemsParam = searchParams.get('items');
   const selectedItemIds = useMemo(() => {
@@ -45,10 +64,15 @@ export function CheckoutView() {
     mode: 'onTouched',
   });
 
-  const totalAmount = checkoutItems.reduce((sum, item) => {
+  const subTotal = checkoutItems.reduce((sum, item) => {
     const price = Number(item.variant.sellingPrice || item.variant.originalPrice || 0);
     return sum + price * item.quantity;
   }, 0);
+
+  const voucherDiscount = appliedVoucher ? appliedVoucher.discountAmount : 0;
+  const remainingAfterVoucher = Math.max(0, subTotal - voucherDiscount);
+  const pointDiscount = Math.min(usedPoints, remainingAfterVoucher);
+  const finalTotal = Math.max(0, subTotal - voucherDiscount - pointDiscount);
 
   const onSubmit = (data: CheckoutFormValues) => {
     createOrderMutation.mutate({
@@ -62,14 +86,13 @@ export function CheckoutView() {
     }, {
       onSuccess: async (res) => {
         const orderData = res.data;
-        // Nếu chọn Thanh toán chuyển khoản / Online (Không phải COD)
         if (data.paymentMethod !== 'COD') {
           setIsCreatingPayment(true);
           try {
             const paymentRes = await orderApi.createPayment(orderData.id);
             setQrData(paymentRes.data);
             setCreatedOrderCode(orderData.orderCode);
-            setStep(3); // Chuyển sang màn hình quét QR
+            setStep(3);
             toast.success('Đặt hàng thành công! Vui lòng quét mã thanh toán.');
           } catch (err) {
             toast.error('Không thể tải mã QR lúc này, bạn có thể thanh toán sau trong chi tiết đơn hàng.');
@@ -85,7 +108,6 @@ export function CheckoutView() {
     });
   };
 
-  // NẾU ĐÃ SANG BƯỚC 3: HIỂN THỊ MÀN HÌNH QUÉT MÃ QR ĐỘC LẬP
   if (step === 3 && qrData) {
     return (
       <main className="mx-auto max-w-[1180px] px-4 py-10 sm:px-8 lg:py-16">
@@ -97,7 +119,6 @@ export function CheckoutView() {
           </p>
           
           <div className="flex justify-center p-4 bg-neutral-50 rounded-2xl border border-[#EAE6DF] max-w-xs mx-auto mb-6 shadow-xs">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qrData.qrUrl} alt="Mã QR Thanh toán" className="w-full h-auto object-contain mix-blend-multiply" />
           </div>
 
@@ -171,10 +192,33 @@ export function CheckoutView() {
             >
               <h2 className="font-display text-3xl text-neutral-900">02 · Phương thức thanh toán</h2>
               {step === 2 && (
-                <PaymentMethodComponent
-                  isSubmitting={createOrderMutation.isPending || isCreatingPayment}
-                  totalAmount={totalAmount}
-                />
+                <div className="mt-6 space-y-6">
+                  <VoucherInput
+                    orderTotal={subTotal}
+                    onValidate={(v) => {
+                      methods.setValue('voucherCode', v.code);
+                      setAppliedVoucher(v);
+                    }}
+                    onRemove={() => {
+                      methods.setValue('voucherCode', undefined);
+                      setAppliedVoucher(null);
+                    }}
+                  />
+                  {userPointsBalance > 0 && (
+                    <PointRedeemSlider
+                      maxPoints={userPointsBalance}
+                      orderTotal={remainingAfterVoucher}
+                      onRedeem={(pts) => {
+                        methods.setValue('pointUsed', pts);
+                        setUsedPoints(pts);
+                      }}
+                    />
+                  )}
+                  <PaymentMethodComponent
+                    isSubmitting={createOrderMutation.isPending || isCreatingPayment}
+                    totalAmount={finalTotal}
+                  />
+                </div>
               )}
             </section>
           </div>
@@ -195,9 +239,29 @@ export function CheckoutView() {
                 </div>
               ))}
             </div>
-            <div className="mt-6 flex justify-between border-t border-white/15 pt-5 text-sm">
-              <span className="text-white/70">Tổng tiền hàng</span>
-              <strong className="text-lg text-[#84EA53]">{formatCurrency(totalAmount)}</strong>
+
+            <div className="mt-6 space-y-2 border-t border-white/15 pt-5 text-xs text-white/70">
+              <div className="flex justify-between">
+                <span>Tạm tính</span>
+                <span className="text-white">{formatCurrency(subTotal)}</span>
+              </div>
+              {voucherDiscount > 0 && (
+                <div className="flex justify-between text-[#84EA53]">
+                  <span>Voucher giảm giá ({appliedVoucher?.code})</span>
+                  <span>-{formatCurrency(voucherDiscount)}</span>
+                </div>
+              )}
+              {pointDiscount > 0 && (
+                <div className="flex justify-between text-[#84EA53]">
+                  <span>Điểm tích lũy</span>
+                  <span>-{formatCurrency(pointDiscount)}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex justify-between border-t border-white/15 pt-4 text-sm">
+              <span className="text-white/70 font-semibold">Tổng thanh toán</span>
+              <strong className="text-lg text-[#84EA53]">{formatCurrency(finalTotal)}</strong>
             </div>
           </aside>
         </form>

@@ -1,4 +1,3 @@
-// src/modules/loyalty-engage/components/review-widget.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -19,10 +18,6 @@ import {
   createReview,
   type ProductReviewItem,
 } from "../api";
-
-// ==========================================
-// 1. Star Rating Component (Strictly tokens)
-// ==========================================
 
 interface StarRatingProps {
   rating: number;
@@ -78,10 +73,6 @@ export function StarRating({
   );
 }
 
-// ==========================================
-// 2. ProductReviewList Component
-// ==========================================
-
 export interface ProductReviewListProps {
   productId: number;
 }
@@ -90,7 +81,6 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
   const [page, setPage] = useState<number>(1);
   const [ratingFilter, setRatingFilter] = useState<number | undefined>(undefined);
 
-  // SWR-based data fetching (No raw useEffect data-fetching)
   const swrKey = `/reviews?productId=${productId}&page=${page}&rating=${ratingFilter ?? ""}`;
   const { data: response, error, isLoading, mutate } = useSWR(
     swrKey,
@@ -107,7 +97,6 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
 
   return (
     <section className="w-full bg-[#FFFFFF] border border-[#EAE6DF] rounded-2xl p-6 sm:p-8 space-y-8">
-      {/* Header & Rating Breakdown Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-[#EAE6DF]">
         <div>
           <h3 className="text-xl sm:text-2xl font-bold text-[#1D1F20] tracking-tight">
@@ -118,7 +107,6 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
           </p>
         </div>
 
-        {/* Rating Score Badge */}
         <div className="flex items-center gap-4 bg-[#FBF9F4] border border-[#EAE6DF] rounded-xl px-5 py-3 self-start sm:self-auto">
           <div className="text-3xl font-extrabold text-[#1D1F20]">
             {ratingStats.averageRating > 0 ? ratingStats.averageRating.toFixed(1) : "5.0"}
@@ -132,7 +120,6 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
         </div>
       </div>
 
-      {/* Filter Tabs by Star Rating */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 text-sm">
         <button
           type="button"
@@ -168,7 +155,6 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
         ))}
       </div>
 
-      {/* Review List State Handling */}
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((skeletonId) => (
@@ -218,11 +204,9 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
               key={review.id}
               className="p-5 sm:p-6 rounded-xl border border-[#EAE6DF] bg-[#FFFFFF] hover:border-[#84EA53] transition-colors space-y-4"
             >
-              {/* Reviewer Header */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
                   {review.user?.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={review.user.avatarUrl}
                       alt={review.user.fullName || "User"}
@@ -257,16 +241,13 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
                 <StarRating rating={review.rating} size={15} />
               </div>
 
-              {/* Review Content */}
               <p className="text-sm text-[#1D1F20] leading-relaxed whitespace-pre-line">
                 {review.content}
               </p>
 
-              {/* Attached Media Photos */}
               {review.medias && review.medias.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {review.medias.map((media, idx) => (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       key={media.id || idx}
                       src={media.url}
@@ -277,7 +258,6 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
                 </div>
               )}
 
-              {/* Official Shop Reply */}
               {review.shopReply && (
                 <div className="mt-3 p-3.5 rounded-xl bg-[#FBF9F4] border-l-2 border-[#84EA53] text-xs space-y-1">
                   <div className="flex items-center gap-1.5 font-semibold text-[#1D1F20]">
@@ -292,7 +272,6 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
             </article>
           ))}
 
-          {/* Pagination Controls */}
           {pagination.totalPages > 1 && (
             <div className="flex items-center justify-between pt-4 border-t border-[#EAE6DF]">
               <button
@@ -325,10 +304,6 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
     </section>
   );
 }
-
-// ==========================================
-// 3. ReviewForm Component
-// ==========================================
 
 export interface ReviewFormProps {
   orderId: number;
@@ -381,7 +356,6 @@ export function ReviewForm({
         content: trimmedContent,
       });
 
-      // Force ProductReviewList to revalidate across all rating filters and pages (Ghost Reviews fix)
       mutate(
         (key: any) =>
           typeof key === "string" &&
@@ -417,7 +391,6 @@ export function ReviewForm({
         </p>
       </div>
 
-      {/* 5-Star Clickable Selector */}
       <div className="space-y-2 bg-[#FBF9F4] border border-[#EAE6DF] rounded-xl p-4">
         <label className="text-xs font-bold text-[#74736e] uppercase tracking-wider block">
           Chất lượng sản phẩm
@@ -435,7 +408,6 @@ export function ReviewForm({
         </div>
       </div>
 
-      {/* Content Textarea */}
       <div className="space-y-2">
         <label
           htmlFor="review-content"
@@ -459,7 +431,6 @@ export function ReviewForm({
         </div>
       </div>
 
-      {/* Error Feedback */}
       {errorMessage && (
         <div className="flex items-center gap-2 p-3.5 rounded-xl bg-[#dc2626]/10 border border-[#dc2626]/20 text-[#dc2626] text-sm">
           <AlertCircle size={16} className="shrink-0" />
@@ -467,7 +438,6 @@ export function ReviewForm({
         </div>
       )}
 
-      {/* Success Feedback */}
       {successMessage && (
         <div className="flex items-center gap-2 p-3.5 rounded-xl bg-[#84EA53]/15 border border-[#84EA53]/30 text-[#16a34a] text-sm font-medium">
           <CheckCircle2 size={16} className="shrink-0" />
@@ -475,7 +445,6 @@ export function ReviewForm({
         </div>
       )}
 
-      {/* Submit Button */}
       <div className="flex justify-end pt-2">
         <button
           type="submit"

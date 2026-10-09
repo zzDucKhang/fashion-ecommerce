@@ -1,4 +1,3 @@
-// src/modules/loyalty-engage/hooks/useChatSocket.ts
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -25,21 +24,8 @@ const DEFAULT_SERVER_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   "http://localhost:3000";
 
-const HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds strict heartbeat interval
+const HEARTBEAT_INTERVAL_MS = 30000;
 
-/**
- * Custom hook quản lý WebSocket kết nối bằng socket.io-client.
- *
- * THUNDERING HERD MITIGATION:
- * - Uses native Full Jitter config:
- *   - reconnectionDelay: 1000ms (base delay)
- *   - reconnectionDelayMax: 5000ms (max backoff delay)
- *   - randomizationFactor: 0.5 (randomizes interval within [0.5 * delay, 1.5 * delay])
- * - Prevents 5,000+ clients from hammering the server at the exact same millisecond upon pod redeploys.
- *
- * REAL-TIME HEARTBEAT:
- * - Sends periodic heartbeats every 30 seconds via sendSocketHeartbeat to refresh Redis TTL.
- */
 export function useChatSocket({
   serverUrl = DEFAULT_SERVER_URL,
   userId,
@@ -50,11 +36,9 @@ export function useChatSocket({
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
 
-  // Only use useEffect for WebSocket connection lifecycle & heartbeat interval
   useEffect(() => {
     if (!autoConnect) return;
 
-    // Initialize socket connection with Jitter algorithms to eliminate Thundering Herd
     const socketInstance: Socket = io(serverUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
@@ -68,13 +52,11 @@ export function useChatSocket({
 
     socketRef.current = socketInstance;
 
-    // Socket Event Listeners
     socketInstance.on("connect", async () => {
       const currentSocketId = socketInstance.id;
       setSocketId(currentSocketId || null);
       setIsConnected(true);
 
-      // Immediate initial heartbeat ping upon connection
       if (currentSocketId) {
         try {
           await sendSocketHeartbeat(currentSocketId);
@@ -95,7 +77,6 @@ export function useChatSocket({
       console.error("[useChatSocket] Connection error:", error.message);
     });
 
-    // Listen for incoming messages from server/admin
     socketInstance.on("message", (incomingMsg: ChatMessageItem) => {
       setMessages((prev) => [
         ...prev,
@@ -116,10 +97,6 @@ export function useChatSocket({
       ]);
     });
 
-    // ─────────────────────────────────────────────────────────────
-    // CRITICAL HEARTBEAT INTERVAL (Every 30 seconds)
-    // Prevents Redis 60s TTL expiry and eliminates ghost sessions
-    // ─────────────────────────────────────────────────────────────
     const heartbeatInterval = setInterval(async () => {
       const activeId = socketRef.current?.id;
       if (activeId && socketRef.current?.connected) {
@@ -131,7 +108,6 @@ export function useChatSocket({
       }
     }, HEARTBEAT_INTERVAL_MS);
 
-    // Teardown cleanup
     return () => {
       clearInterval(heartbeatInterval);
       socketInstance.removeAllListeners();
@@ -142,7 +118,6 @@ export function useChatSocket({
     };
   }, [serverUrl, userId, autoConnect]);
 
-  // Send message method
   const sendMessage = useCallback(
     (content: string, receiverId = 1) => {
       const cleanContent = content.trim();
@@ -156,10 +131,8 @@ export function useChatSocket({
         isSelf: true,
       };
 
-      // Optimistic local UI update
       setMessages((prev) => [...prev, newMsg]);
 
-      // Emit to server
       if (socketRef.current && socketRef.current.connected) {
         socketRef.current.emit("send_message", {
           content: cleanContent,
