@@ -47,7 +47,7 @@ export default function OrdersPage() {
     }),
   });
 
-  const orders = (data?.data ?? []) as Order[];
+  const orders = (data?.data?.data ?? data?.data ?? []) as Order[];
 
   return (
     <div className="bg-white rounded-2xl border border-[#EAE6DF] p-6 sm:p-8 shadow-xs">

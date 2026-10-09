@@ -24,7 +24,7 @@ export const orderApi = {
   },
 
   getOrders: async (query?: OrderQuery) => {
-    const res = await apiClient.get<PaginatedResult<Order>>(
+    const res = await apiClient.get<ApiResponse<PaginatedResult<Order>>>(
       API_ENDPOINTS.CART_ORDER.ORDERS,
       { params: query }
     );

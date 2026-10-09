@@ -130,11 +130,11 @@ export default function AdminOrdersPage() {
 
       <DataTable
         columns={columns}
-        data={(data?.data as any) || []}
+        data={(data?.data?.data as any) || []}
         isLoading={isLoading}
         page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems || 0}
+        totalPages={data?.data?.totalPages || 1}
+        totalItems={data?.data?.totalItems || 0}
         onPageChange={setPage}
         emptyMessage="Không tìm thấy đơn hàng nào phù hợp."
       />
