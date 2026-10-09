@@ -13,11 +13,16 @@ import {
 } from "@/common/errors";
 import { CartRepo } from "../cart/cart.repo";
 import {
+  CalculatedFlashSaleItem,
+  CalculatedOrder,
+  CalculatedOrderItem,
+  CartWithRelations,
   CreateOrderInput,
   ListOrderInput,
   UpdateOrderStatusInput,
 } from "./order.schema";
 import { OrderRepo } from "./order.repo";
+import { logger } from "@/common/logger";
 
 export class OrderService {
   constructor(
@@ -86,232 +91,86 @@ export class OrderService {
   /**
    * Tạo đơn hàng mới (Checkout)
    */
+
   async create(userId: number, input: CreateOrderInput) {
-    return prisma.$transaction(
-      async (tx) => {
-        // =====================================================================
-        // 1. KHÓA GIỎ HÀNG (PESSIMISTIC LOCK) & KIỂM TRA ĐẦU VÀO
-        // =====================================================================
-        const initialCart = await this.cartRepo.findOrCreateOwner(userId, undefined, tx);
+  return prisma.$transaction(
+    async (tx) => {
+      // 1. Get everything needed
+      const cartWithRelation = await this.orderRepo.getOrderCreationData(
+        userId,
+        input,
+        tx,
+      );
 
-        // Chống Double-Submit: Khóa dòng Cart này lại cho đến khi Transaction kết thúc
-        await tx.$queryRaw`SELECT id FROM "Cart" WHERE id = ${initialCart.id} FOR UPDATE`;
-
-        const cart = await this.cartRepo.findByOwner(userId, undefined, tx);
-        if (!cart || !cart.cartItems.length) {
-          throw new BadRequestError("Giỏ hàng của bạn đang trống");
-        }
-
-        const items = cart.cartItems.filter(
-          (item) => !input.cartItemIds || input.cartItemIds.includes(item.id),
-        );
-        if (!items.length) {
-          throw new BadRequestError("Không có sản phẩm nào được chọn để đặt hàng");
-        }
-
-        // =====================================================================
-        // 2. CHUẨN HÓA ĐỊA CHỈ GIAO HÀNG (SNAPSHOT STRING)
-        // =====================================================================
-        const address = input.shippingAddressId
-          ? await this.orderRepo.findShippingAddress(input.shippingAddressId, userId, tx)
-          : input.shippingAddress;
-
-        if (!address) {
-          throw new BadRequestError("Địa chỉ giao hàng không hợp lệ");
-        }
-
-        const receiverName = address.receiverName?.trim();
-        const receiverPhone = ("phoneNumber" in address ? address.phoneNumber : address.receiverPhone)?.trim();
-        const province = address.province?.trim();
-        const district = address.district?.trim();
-        const ward = address.ward?.trim();
-        const detailAddress = address.detailAddress?.trim();
-
-        if (!receiverName || !receiverPhone || !province || !district || !ward || !detailAddress) {
-          throw new BadRequestError("Thông tin địa chỉ giao hàng không hợp lệ");
-        }
-
-        // Tạo chuỗi snapshot lưu thẳng vào Order
-        const shippingAddressSnapshot = `${receiverName} - ${receiverPhone} | ${detailAddress}, ${ward}, ${district}, ${province}`;
-
-        // =====================================================================
-        // 3. TÍNH TỔNG TIỀN, KIỂM TRA TỒN KHO & FLASH SALE (OPTIMIZED)
-        // =====================================================================
-        let subTotal = 0;
-        let totalWeightGram = 0;
-        const now = new Date();
-
-        // [OPTIMIZE 1 - BATCH QUERY O(1)]: Lấy toàn bộ biến thể trong 1 lần query
-        const variantIdsInCart = items.map(item => item.variantId);
-        const variantsData = await this.orderRepo.findVariantsForOrderList(variantIdsInCart, tx);
-        const variantMap = new Map(variantsData.map(v => [v.id, v]));
-
-        // [OPTIMIZE 2 - PARALLEL MUTATION]: Update tồn kho song song
-        const processedItems = await Promise.all(
-          items.map(async (item) => {
-            const variant = variantMap.get(item.variantId);
-
-            const isProductActive =
-              variant &&
-              variant.product &&
-              variant.product.deletedAt === null &&
-              (variant.product.status === ProductStatus.PUBLISHED || (variant.product.status as string) === "ACTIVE");
-
-            if (!variant || !isProductActive) {
-              throw new BadRequestError(
-                `Sản phẩm "${variant?.product?.defaultName ?? "Không xác định"}" hiện không còn mở bán`
-              );
-            }
-
-            // OPTIMISTIC LOCK: Trừ tồn kho an toàn bằng version control (updatedAt)
-            const updatedCount = await this.orderRepo.decrementStockOptimistic(
-              variant.id,
-              item.quantity,
-              variant.updatedAt, 
-              tx,
-            );
-
-            if (!updatedCount) {
-              throw new BadRequestError(
-                `Sản phẩm "${variant.product.defaultName}" vừa có thay đổi hoặc không đủ tồn kho để đặt hàng. Vui lòng thử lại.`
-              );
-            }
-
-            const currentWeight = (variant.weightGram ?? 0) * item.quantity;
-            let unitPrice = Number(variant.sellingPrice);
-            
-            // Xử lý Logic Flash Sale
-            const activeFlashSale = variant.flashSaleItems?.find(
-              (fsi) =>
-                fsi.campaign &&
-                fsi.campaign.isActive &&
-                fsi.campaign.deletedAt === null &&
-                fsi.campaign.startTime <= now &&
-                fsi.campaign.endTime >= now &&
-                (fsi.promoQuantity - fsi.soldQuantity) >= item.quantity 
-            );
-
-            if (activeFlashSale) {
-              unitPrice = Number(activeFlashSale.flashSalePrice);
-              await this.orderRepo.incrementFlashSaleSoldQuantity(activeFlashSale.id, item.quantity, tx);
-            }
-
-            return {
-              calculatedSubTotal: unitPrice * item.quantity,
-              calculatedWeight: currentWeight,
-              orderItemData: {
-                productName: variant.product.defaultName,
-                skuCode: variant.sku,
-                variantValue: variant.variantValue ?? "Tiêu chuẩn",
-                productImageUrl: variant.imageUrl ?? variant.product.thumbnailUrl,
-                unitPrice,
-                quantity: item.quantity,
-                variant: { connect: { id: variant.id } },
-              },
-            };
-          })
-        );
-
-        // Tổng hợp Data sau Promise.all
-        const orderItems: Prisma.OrderItemCreateWithoutOrderInput[] = [];
-        for (const p of processedItems) {
-          subTotal += p.calculatedSubTotal;
-          totalWeightGram += p.calculatedWeight;
-          orderItems.push(p.orderItemData);
-        }
-
-        // =====================================================================
-        // 4. ÁP DỤNG VOUCHER & ĐIỂM THƯỞNG
-        // =====================================================================
-        const shippingFee = this.calculateShippingFee(subTotal, input.shippingMethod, totalWeightGram);
-        let voucherDiscount = 0;
-
-        if (input.voucherCode) {
-          const voucher = await this.orderRepo.findVoucherByCode(input.voucherCode, tx);
-          if (!voucher || !voucher.isActive) throw new BadRequestError("Mã giảm giá không tồn tại hoặc vô hiệu hóa");
-          if (now < voucher.startDate) throw new BadRequestError("Mã giảm giá chưa đến thời gian áp dụng");
-          if (now > voucher.endDate) throw new BadRequestError("Mã giảm giá đã hết hạn sử dụng");
-          if (voucher.totalUsageLimit > 0 && voucher.usedCount >= voucher.totalUsageLimit) throw new BadRequestError("Mã giảm giá đã hết lượt sử dụng");
-
-          const userUsageCount = await this.orderRepo.countUserVoucherOrders(userId, input.voucherCode, tx);
-          if (userUsageCount >= voucher.userUsageLimit) throw new BadRequestError("Bạn đã dùng hết lượt áp dụng");
-          if (subTotal < Number(voucher.minOrderValue)) throw new BadRequestError(`Đơn hàng tối thiểu ${Number(voucher.minOrderValue).toLocaleString("vi-VN")}đ`);
-
-          if (voucher.discountType === "PERCENTAGE") {
-            voucherDiscount = Math.round((subTotal * Number(voucher.discountValue)) / 100);
-            if (voucher.maxDiscountAmt && Number(voucher.maxDiscountAmt) > 0) {
-              voucherDiscount = Math.min(voucherDiscount, Number(voucher.maxDiscountAmt));
-            }
-          } else {
-            voucherDiscount = Number(voucher.discountValue);
-          }
-
-          voucherDiscount = Math.min(voucherDiscount, subTotal);
-          await this.orderRepo.incrementVoucherUsage(input.voucherCode, tx);
-        }
-
-        let pointUsed = 0;
-        let pointDiscount = 0;
-
-        if (input.pointUsed && input.pointUsed > 0) {
-          const userPoints = await this.orderRepo.getUserRewardPoints(userId, tx);
-          if (input.pointUsed > userPoints) throw new BadRequestError(`Bạn chỉ có ${userPoints} điểm`);
-
-          const remainingPayable = Math.max(0, subTotal + shippingFee - voucherDiscount);
-          pointDiscount = Math.min(input.pointUsed, remainingPayable);
-          pointUsed = pointDiscount;
-        }
-
-        const totalAmount = Math.max(0, subTotal + shippingFee - voucherDiscount - pointDiscount);
-        const pointEarned = Math.floor(totalAmount * 0.01);
-
-        // =====================================================================
-        // 5. LƯU DATABASE & DỌN DẸP GIỎ HÀNG
-        // =====================================================================
-        const orderCode = this.generateOrderCode();
-        const customerNote = input.customerNote?.trim() ? input.customerNote.trim() : undefined;
-
-        const order = await this.orderRepo.create(
-          {
-            orderCode,
-            user: { connect: { id: userId } },
-            shippingAddress: shippingAddressSnapshot, 
-            subTotal,
-            shippingFee,
-            shippingMethod: input.shippingMethod || 'STANDARD',
-            shippingDiscount: 0,
-            voucherCode: input.voucherCode,
-            voucherDiscount,
-            pointUsed,
-            pointDiscount,
-            pointEarned,
-            totalAmount,
-            paymentMethod: input.paymentMethod,
-            customerNote: customerNote,
-            orderItems: { create: orderItems },
-          },
-          tx,
-        );
-
-        if (pointUsed > 0) {
-          await this.orderRepo.deductUserPoints(userId, order.id, pointUsed, orderCode, tx);
-        }
-
-        await this.cartRepo.deleteCartItemsByIds(items.map((i) => i.id), tx);
-
-        return order;
-      },
-      {
-        // [OPTIMIZE 3 - THỜI GIAN CHỜ DB]: Giảm Timeout
-        // Trước đây timeout = 150000 (150s) rất nguy hiểm làm treo DB Pool. 
-        // Sau khi loại bỏ lỗi N+1 Query, toàn bộ logic này chạy trong < 50ms. 
-        // Set timeout tối đa 15s là an toàn và lý tưởng cho CSDL.
-        maxWait: 5000, 
-        timeout: 15000, 
-      },
-    );
+      console.log("Cart: ", cartWithRelation)
+  if (!cartWithRelation || cartWithRelation.cartItems.length === 0) {
+    throw new BadRequestError('Cart is empty');
   }
 
+
+      // 2. Calculate everything
+      const calculated = this.calculateOrder(
+        cartWithRelation,
+        input,
+      );
+
+      // 3. ONE DB round trip
+      const counts = await this.orderRepo.processOrderCreation(
+        userId,
+        calculated,
+        tx,
+      );
+
+      // 4. Validate DB results
+
+      // Stock
+      if (counts.stockUpdated !== calculated.items.length) {
+        throw new BadRequestError('Not enough stock');
+      }
+
+      // Flash sale
+      if (
+        counts.flashSaleUpdated !==
+        calculated.flashSaleItems.length
+      ) {
+        throw new BadRequestError(
+          'Flash sale quantity unavailable',
+        );
+      }
+
+      // Voucher
+      if (
+        calculated.voucherCode &&
+        counts.voucherUpdated !== 1
+      ) {
+        throw new BadRequestError('Voucher unavailable');
+      }
+
+      // Points
+      if (
+        calculated.pointUsed > 0 &&
+        counts.pointsUpdated !== 1
+      ) {
+        throw new BadRequestError(
+          'Not enough reward points',
+        );
+      }
+
+      // 5. Create order + items + cleanup cart
+      return this.orderRepo.finalizeOrder(
+        userId,
+        input,
+        calculated,
+        tx,
+      );
+    },
+    {
+      maxWait: 5000,
+      timeout: 15000,
+    },
+  );
+}
+ 
   /**
    * Cập nhật trạng thái đơn hàng (Dành cho Admin)
    */
@@ -441,4 +300,138 @@ export class OrderService {
 
     return this.orderRepo.cancelOrder(order.id, paymentStatus, updatedById, tx);
   }
+
+  private calculateOrder(
+  cart: CartWithRelations,
+  input: CreateOrderInput,
+): CalculatedOrder {
+  const shippingAddress = input.shippingAddressId
+    ? cart.user?.shippingAddresses.find(
+        (address) =>
+          address.id === input.shippingAddressId,
+      )
+    : cart.user?.shippingAddresses.find(
+        (address) => address.isDefault,
+      );
+
+  if (!shippingAddress) {
+    throw new BadRequestError(
+      'Shipping address not found',
+    );
+  }
+
+  const items: CalculatedOrderItem[] = [];
+  const flashSaleItems: CalculatedFlashSaleItem[] = [];
+
+  let subtotal = 0;
+
+  for (const cartItem of cart.cartItems) {
+    const variant = cartItem.variant;
+    const product = variant.product;
+
+    const unitPrice = Number(
+      variant.sellingPrice,
+    );
+
+    items.push({
+      cartItemId: cartItem.id,
+      variantId: variant.id,
+      quantity: cartItem.quantity,
+      updatedAt: variant.updatedAt,
+
+      productName: product.defaultName,
+      skuCode: variant.sku,
+
+      variantValue:
+        variant.variantValue ?? '',
+
+      productImageUrl:
+        variant.imageUrl ??
+        product.thumbnailUrl,
+
+      unitPrice,
+    });
+
+    subtotal +=
+      unitPrice * cartItem.quantity;
+
+    const flashSale =
+      variant.flashSaleItems[0];
+
+    if (flashSale) {
+      flashSaleItems.push({
+        id: flashSale.id,
+        quantity: cartItem.quantity,
+      });
+    }
+  }
+
+  const shippingFee = this.calculateShippingFee(
+    subtotal,
+    input.shippingMethod
+  );
+
+  const shippingDiscount = 0;
+
+  const voucherCode = input.voucherCode;
+
+  // TODO: calculate from Voucher data
+  const voucherDiscount = 0;
+
+  const pointUsed = input.pointUsed ?? 0;
+
+  // TODO: calculate based on your point rule
+  const pointDiscount = pointUsed;
+
+  const totalAmount =
+    subtotal +
+    shippingFee -
+    shippingDiscount -
+    voucherDiscount -
+    pointDiscount;
+
+  const pointEarned = Math.floor(totalAmount / 10000);
+
+  const address = input.shippingAddress;
+
+  if (!address) {
+    throw new BadRequestError(
+      'Shipping address data is required',
+    );
+  }
+
+  const shippingAddressText = [
+  address.receiverName,
+  address.receiverPhone,
+  address.detailAddress,
+  address.ward,
+  address.district,
+  address.province,
+].join(', ');
+
+  return {
+    items,
+    flashSaleItems,
+
+    voucherCode,
+
+    pointUsed,
+    pointDiscount,
+
+    subtotal,
+    shippingFee,
+    shippingDiscount,
+    voucherDiscount,
+
+    totalAmount,
+    pointEarned,
+
+    shippingAddress: shippingAddressText,
+
+    shippingMethod: input.shippingMethod,
+    paymentMethod: input.paymentMethod,
+    customerNote: input.customerNote,
+  };
+}
+ 
 }

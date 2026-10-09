@@ -1,3 +1,4 @@
+import { PaymentMethod, Prisma } from '@prisma/client'
 import { z } from 'zod'
 
 // Schema kiểm tra địa chỉ người nhận
@@ -72,3 +73,85 @@ export const updateOrderStatusSchema = z.object({
 export type CreateOrderInput = z.infer<typeof createOrderSchema>
 export type ListOrderInput = z.infer<typeof listOrderSchema>
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>
+
+export type OrderCreationCounts = {
+  stockUpdated: number;
+  flashSaleUpdated: number;
+  voucherUpdated: number;
+  pointsUpdated: number;
+};
+
+
+export type CalculatedOrderItem = {
+  cartItemId: number;
+  variantId: number;
+  quantity: number;
+  updatedAt: Date;
+
+  productName: string;
+  skuCode: string;
+  variantValue: string;
+  productImageUrl: string | null;
+
+  unitPrice: number;
+};
+
+export type CalculatedFlashSaleItem = {
+  id: number;
+  quantity: number;
+};
+
+
+export type CalculatedOrder = {
+  items: CalculatedOrderItem[];
+
+  flashSaleItems: CalculatedFlashSaleItem[];
+
+  voucherCode?: string;
+
+  pointUsed: number;
+  pointDiscount: number;
+
+  subtotal: number;
+  shippingFee: number;
+  shippingDiscount: number;
+  voucherDiscount: number;
+
+  totalAmount: number;
+  pointEarned: number;
+
+  
+  shippingAddress: string;
+
+  shippingMethod: string;
+  paymentMethod: CreateOrderInput['paymentMethod'];
+  customerNote?: string;
+};
+
+
+
+export type CartWithRelations = Prisma.CartGetPayload<{
+  include: {
+    user: {
+      include: {
+        shippingAddresses: true;
+      };
+    };
+
+    cartItems: {
+      include: {
+        variant: {
+          include: {
+            product: true;
+
+            flashSaleItems: {
+              include: {
+                campaign: true;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+}>;

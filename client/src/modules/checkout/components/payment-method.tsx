@@ -10,8 +10,6 @@ interface PaymentMethodProps {
 
 const PAYMENT_OPTIONS = [
   { id: 'COD', label: 'Thanh toán khi nhận hàng (COD)' },
-  { id: 'VNPAY', label: 'Thanh toán qua VNPAY' },
-  { id: 'MOMO', label: 'Thanh toán qua ví MoMo' },
   { id: 'BANK_TRANSFER', label: 'Chuyển khoản ngân hàng' },
 ];
 
