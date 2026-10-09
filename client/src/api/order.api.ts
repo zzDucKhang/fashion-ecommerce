@@ -24,7 +24,7 @@ export const orderApi = {
   },
 
   getOrders: async (query?: OrderQuery) => {
-    const res = await apiClient.get<PaginatedResult<Order>>(
+    const res = await apiClient.get<ApiResponse<PaginatedResult<Order>>>(
       API_ENDPOINTS.CART_ORDER.ORDERS,
       { params: query }
     );
@@ -58,6 +58,13 @@ export const orderApi = {
     const res = await apiClient.post<ApiResponse<{ qrUrl: string; amount: number; transferContent: string; paymentId: string }>>(
       API_ENDPOINTS.FULFILLMENT.PAYMENTS,
       { orderId }
+    );
+    return res.data;
+  },
+
+  getPaymentDetails: async (orderId: number) => {
+    const res = await apiClient.get<ApiResponse<{ qrUrl: string }>>(
+      `${API_ENDPOINTS.CART_ORDER.ORDERS}/${orderId}/payment-details`
     );
     return res.data;
   },

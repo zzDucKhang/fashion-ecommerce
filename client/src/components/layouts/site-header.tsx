@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Search, ShoppingBag } from 'lucide-react';
+import { Search, ShoppingBag, User } from 'lucide-react';
 import { useCart } from '@/modules/cart/hooks/use-cart'; // 1. Import hook useCart
 
 export function SiteHeader() {
@@ -41,7 +41,13 @@ export function SiteHeader() {
             <Search size={20} />
           </Link>
           <Link
-            href="/cart"
+            href="/orders"
+            className="relative rounded-full p-2.5 hover:bg-white"
+            title="Lịch sử đơn hàng"
+          >
+            <User size={20} />
+          </Link>
+          <Link href="/cart"
             className="relative rounded-full p-2.5 hover:bg-white"
           >
             <ShoppingBag size={20} />

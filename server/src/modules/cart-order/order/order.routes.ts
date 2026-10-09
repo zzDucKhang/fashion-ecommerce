@@ -21,6 +21,7 @@ orderRouter.get('/dashboard-stats', requireAdmin, controller.getDashboardStats)
 orderRouter.get('/', validateRequest({ query: listOrderSchema }), controller.list)
 orderRouter.post('/', validateRequest({ body: createOrderSchema }), controller.create)
 orderRouter.get('/:orderId', validateRequest({ params: orderIdParamSchema }), controller.findById)
+orderRouter.get('/:orderId/payment-details', validateRequest({ params: orderIdParamSchema }), controller.getPaymentDetails)
 orderRouter.post('/:orderId/cancel', validateRequest({ params: orderIdParamSchema }), controller.cancel)
 
 // Chỉ ADMIN mới có quyền đổi trạng thái đơn

@@ -79,6 +79,19 @@ export class OrderController {
     }
   }
 
+  // Lấy thông tin thanh toán (QR code) cho đơn hàng PENDING_PAYMENT
+  getPaymentDetails = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = getRequiredUserId(req)
+      const orderId = parseOrderId(req.params.orderId)
+
+      const data = await this.service.getPaymentDetails(userId, orderId)
+      return res.status(200).json({ statusCode: 200, data })
+    } catch (error) {
+      next(error)
+    }
+  }
+
   // Tạo đơn hàng mới (Checkout)
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {

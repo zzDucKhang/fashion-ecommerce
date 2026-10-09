@@ -25,11 +25,16 @@ const statusMap: Record<string, { label: string; variant: "default" | "secondary
 
 export default function AdminOrdersPage() {
   const [page, setPage] = React.useState(1);
-  const [search, setSearch] = React.useState('');
+  const [status, setStatus] = React.useState<string>('ALL');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-orders', page, search],
-    queryFn: () => orderApi.getOrders({ page, limit: 10, search: search || undefined, all: true }),
+    queryKey: ['admin-orders', page, status],
+    queryFn: () => orderApi.getOrders({ 
+      page, 
+      limit: 10, 
+      all: true,
+      ...(status !== 'ALL' ? { status } : {}) 
+    }),
   });
 
   const columns: Column<Order>[] = [
@@ -42,8 +47,8 @@ export default function AdminOrdersPage() {
       header: 'Thông tin Khách hàng',
       cell: (order) => (
         <div>
-          <p className="font-semibold text-sm text-neutral-900">{order.receiverName}</p>
-          <p className="text-xs text-neutral-500 font-mono mt-0.5">{order.receiverPhone}</p>
+          <p className="font-semibold text-sm text-neutral-900">{order.shippingAddress?.split('|')[0]?.trim() || 'N/A'}</p>
+          <p className="text-xs text-neutral-500 font-mono mt-0.5">{order.shippingAddress?.split('|')[1]?.trim() || ''}</p>
         </div>
       ),
     },
@@ -103,22 +108,33 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-[#EAE6DF] shadow-xs flex justify-between items-center">
-        <SearchInput 
-          value={search} 
-          onChange={(val) => { setSearch(val); setPage(1); }} 
-          placeholder="Tìm theo mã đơn hoặc SĐT khách hàng..." 
-          className="w-full max-w-md"
-        />
+      <div className="bg-white p-4 rounded-2xl border border-[#EAE6DF] shadow-xs flex flex-col sm:flex-row gap-4 justify-between items-center">
+        <div className="flex items-center gap-2 w-full max-w-sm">
+          <label className="text-xs font-semibold text-neutral-500 w-24">Trạng thái:</label>
+          <select 
+            value={status} 
+            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+            className="w-full text-sm rounded-xl border border-[#EAE6DF] px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-black"
+          >
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="PENDING_PAYMENT">Chờ thanh toán</option>
+            <option value="CONFIRMED">Đã xác nhận</option>
+            <option value="PROCESSING">Đang xử lý</option>
+            <option value="SHIPPED">Đang giao</option>
+            <option value="DELIVERED">Đã giao</option>
+            <option value="CANCELLED">Đã hủy</option>
+            <option value="RETURNED">Đã trả hàng</option>
+          </select>
+        </div>
       </div>
 
       <DataTable
         columns={columns}
-        data={(data?.data as any) || []}
+        data={(data?.data?.data as any) || []}
         isLoading={isLoading}
         page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems || 0}
+        totalPages={data?.data?.totalPages || 1}
+        totalItems={data?.data?.totalItems || 0}
         onPageChange={setPage}
         emptyMessage="Không tìm thấy đơn hàng nào phù hợp."
       />

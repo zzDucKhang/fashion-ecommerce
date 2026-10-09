@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { PackageSearch, ArrowUpRight, ShoppingBag } from 'lucide-react';
@@ -7,6 +8,7 @@ import { orderApi } from '@/api/order.api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { Order } from '@/types';
+import { cn } from '@/lib/utils';
 
 const statusMeta: Record<string, { label: string; variant: 'success' | 'lime' | 'secondary' | 'warning' | 'outline' }> = {
   PENDING_PAYMENT: { label: 'Chờ thanh toán', variant: 'warning' },
@@ -18,22 +20,38 @@ const statusMeta: Record<string, { label: string; variant: 'success' | 'lime' | 
   RETURNED: { label: 'Đã trả hàng', variant: 'outline' },
 };
 
+const TABS = [
+  { id: 'ALL', label: 'Tất cả' },
+  { id: 'PENDING_PAYMENT', label: 'Chờ thanh toán' },
+  { id: 'PROCESSING', label: 'Đang xử lý' },
+  { id: 'SHIPPED', label: 'Đang giao' },
+  { id: 'DELIVERED', label: 'Hoàn thành' },
+  { id: 'CANCELLED', label: 'Đã hủy' },
+  { id: 'RETURNED', label: 'Trả hàng' },
+];
+
 function formatCurrency(value: number | string) {
   const numeric = typeof value === 'number' ? value : Number(value || 0);
   return `${numeric.toLocaleString('vi-VN')} ₫`;
 }
 
 export default function OrdersPage() {
+  const [activeTab, setActiveTab] = useState('ALL');
+
   const { data, isLoading } = useQuery({
-    queryKey: ['account-orders'],
-    queryFn: () => orderApi.getOrders({ page: 1, limit: 20 }),
+    queryKey: ['account-orders', activeTab],
+    queryFn: () => orderApi.getOrders({ 
+      page: 1, 
+      limit: 20, 
+      ...(activeTab !== 'ALL' ? { status: activeTab } : {}) 
+    }),
   });
 
-  const orders = (data?.data ?? []) as Order[];
+  const orders = (data?.data?.data ?? data?.data ?? []) as Order[];
 
   return (
     <div className="bg-white rounded-2xl border border-[#EAE6DF] p-6 sm:p-8 shadow-xs">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#EAE6DF]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
         <div>
           <h2 className="text-xl font-semibold text-neutral-900">Đơn mua</h2>
           <p className="text-xs text-neutral-500 mt-1">
@@ -47,8 +65,25 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      <div className="flex overflow-x-auto border-b border-[#EAE6DF] mb-6 scrollbar-hide pb-1">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "whitespace-nowrap px-4 py-3 text-sm font-medium transition-colors border-b-2",
+              activeTab === tab.id
+                ? "border-neutral-900 text-neutral-900"
+                : "border-transparent text-neutral-500 hover:text-neutral-700"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
-        <div className="space-y-4 mt-6">
+        <div className="space-y-4">
           {[1, 2, 3].map((item) => (
             <div key={item} className="h-32 rounded-2xl border border-[#EAE6DF] bg-neutral-50 animate-pulse" />
           ))}

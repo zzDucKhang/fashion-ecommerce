@@ -87,6 +87,35 @@ export class OrderService {
     return order;
   }
 
+  async getPaymentDetails(userId: number, orderId: number) {
+    const order = await this.orderRepo.findById(orderId, userId);
+    if (!order) throw new NotFoundError("Đơn hàng không tồn tại");
+
+    if (order.status !== "PENDING_PAYMENT") {
+      throw new BadRequestError("Đơn hàng không ở trạng thái chờ thanh toán");
+    }
+
+    if (order.paymentMethod === "COD") {
+       throw new BadRequestError("Đơn hàng COD không cần thanh toán trước");
+    }
+
+    // Generate VietQR URL as mock payment QR
+    const bankId = "970415"; // VietinBank mock
+    const accountNo = "113366668888"; // Mock account
+    const accountName = "FASHION ECOMMERCE";
+    const amount = order.totalAmount;
+    const addInfo = encodeURIComponent(`Thanh toan don hang ${order.orderCode}`);
+
+    const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${amount}&addInfo=${addInfo}&accountName=${encodeURIComponent(accountName)}`;
+
+    return {
+      orderCode: order.orderCode,
+      totalAmount: order.totalAmount,
+      paymentMethod: order.paymentMethod,
+      qrUrl
+    };
+  }
+
   /**
    * Tạo đơn hàng mới (Checkout)
    */
@@ -96,22 +125,21 @@ export class OrderService {
         // =====================================================================
         // 1. KHÓA GIỎ HÀNG (PESSIMISTIC LOCK) & KIỂM TRA ĐẦU VÀO
         // =====================================================================
-        const initialCart = await this.cartRepo.findOrCreateOwner(userId, undefined, tx);
-
-        // Chống Double-Submit: Khóa dòng Cart này lại cho đến khi Transaction kết thúc
-        await tx.$queryRaw`SELECT id FROM "Cart" WHERE id = ${initialCart.id} FOR UPDATE`;
-
-        const cart = await this.cartRepo.findByOwner(userId, undefined, tx);
-        if (!cart || !cart.cartItems.length) {
-          throw new BadRequestError("Giỏ hàng của bạn đang trống");
-        }
-
-        const items = cart.cartItems.filter(
-          (item) => !input.cartItemIds || input.cartItemIds.includes(item.id),
-        );
-        if (!items.length) {
-          throw new BadRequestError("Không có sản phẩm nào được chọn để đặt hàng");
-        }
+        let items: any[] = [];
+          if (input.directBuy) {
+            items = [{ id: -1, variantId: input.directBuy.variantId, quantity: input.directBuy.quantity }];
+          } else {
+            const initialCart = await this.cartRepo.findOrCreateOwner(userId, undefined, tx);
+            await tx.$queryRaw`SELECT id FROM "Cart" WHERE id = ${initialCart.id} FOR UPDATE`;
+            const cart = await this.cartRepo.findByOwner(userId, undefined, tx);
+            if (!cart || !cart.cartItems.length) {
+              throw new BadRequestError("Giỏ hàng của bạn đang trống");
+            }
+            items = cart.cartItems.filter((item) => !input.cartItemIds || input.cartItemIds.includes(item.id));
+            if (!items.length) {
+              throw new BadRequestError("Không có sản phẩm nào được chọn để đặt hàng");
+            }
+          }
 
         // =====================================================================
         // 2. CHUẨN HÓA ĐỊA CHỈ GIAO HÀNG (SNAPSHOT STRING)
@@ -296,7 +324,7 @@ export class OrderService {
           await this.orderRepo.deductUserPoints(userId, order.id, pointUsed, orderCode, tx);
         }
 
-        await this.cartRepo.deleteCartItemsByIds(items.map((i) => i.id), tx);
+        if (!input.directBuy) { await this.cartRepo.deleteCartItemsByIds(items.map((i) => i.id), tx); }
 
         return order;
       },
