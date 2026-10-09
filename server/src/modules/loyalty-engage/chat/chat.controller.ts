@@ -26,11 +26,10 @@ export class ChatController {
     }
   }
 
-  /** GET /chat/messages?withUserId=&page=&limit= – Lịch sử hội thoại */
+  /** GET /chat/messages?chatId=&page=&limit=&cursor= – Lịch sử hội thoại */
   getChatHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = req.user!.userId
-      const data = await this.chatService.getChatHistory(userId, req.query as any)
+      const data = await this.chatService.getChatHistory(req.query as any)
       return res.status(200).json({ statusCode: 200, ...data })
     } catch (error) {
       next(error)

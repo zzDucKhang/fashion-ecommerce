@@ -48,12 +48,12 @@ export class ChatService {
     return { data, pagination: { page, limit, nextCursor, hasMore } }
   }
 
-  /** Đánh dấu đã đọc tất cả tin nhắn từ một sender */
+  /** Đánh dấu đã đọc tất cả tin nhắn trong chat */
   async markAsRead(receiverId: number, body: MarkReadBodyType) {
-    const result = await this.chatRepo.markMessagesAsRead(receiverId, body.senderId)
+    const result = await this.chatRepo.markMessagesAsRead(body.chatId, receiverId)
 
     logger.info(
-      { receiverId, senderId: body.senderId, updatedCount: result.count },
+      { receiverId, chatId: body.chatId, updatedCount: result.count },
       'markAsRead: messages marked as read',
     )
 

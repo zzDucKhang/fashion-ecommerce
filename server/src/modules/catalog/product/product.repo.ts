@@ -85,19 +85,10 @@ export class ProductRepo {
               connect: tagIds.map((id) => ({ id })),
             }
           : undefined,
-        translations: translations
-          ? {
-              create: translations.map((t) => ({
-                ...t,
-                createdById,
-              })),
-            }
-          : undefined,
       },
       include: {
         images: true,
         tags: true,
-        
       },
     })
   }
@@ -136,7 +127,6 @@ export class ProductRepo {
       include: {
         images: true,
         tags: true,
-        translations: true,
       },
     })
   }

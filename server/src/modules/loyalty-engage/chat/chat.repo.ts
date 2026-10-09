@@ -16,6 +16,9 @@ export class ChatRepo {
         status: ChatStatus.OPEN,
         startedAt: new Date(),
       },
+      include: {
+        messages: true,
+      },
     })
   }
 
@@ -46,6 +49,7 @@ export class ChatRepo {
     return prisma.message.create({
       data: {
         chatId: data.chatId,
+        senderId: data.senderId,
         content: data.content,
         isRead: false,
         sendDate: new Date(),
@@ -91,9 +95,12 @@ export class ChatRepo {
     })
   }
 
-  async findConversationList() {
+  async findConversationList(userId?: number) {
     return prisma.chat.findMany({
-      where: { status: { not: ChatStatus.CLOSED } },
+      where: {
+        status: { not: ChatStatus.CLOSED },
+        ...(userId ? { userId } : {}),
+      },
       include: {
         user: { select: { fullName: true, avatarUrl: true } },
         messages: { take: 1, orderBy: { sendDate: 'desc' } }

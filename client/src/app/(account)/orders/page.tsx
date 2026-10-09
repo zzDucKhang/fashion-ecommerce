@@ -79,7 +79,7 @@ export default function OrdersPage() {
                       <Badge variant={meta.variant}>{meta.label}</Badge>
                     </div>
                     <p className="mt-1 text-[11px] text-neutral-500">
-                      Đặt ngày {new Date(order.orderDate).toLocaleDateString('vi-VN')}
+                      Đặt ngày {order.orderDate ? new Date(order.orderDate).toLocaleDateString('vi-VN') : '—'}
                     </p>
                   </div>
 

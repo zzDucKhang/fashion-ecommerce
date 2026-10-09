@@ -87,7 +87,7 @@ export default function OrderDetailPage() {
           <div className="rounded-xl border border-[#EAE6DF] bg-neutral-50/30 p-4">
             <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-400">Ngày đặt</p>
             <p className="mt-2 text-sm font-medium text-neutral-900">
-              {new Date(order.orderDate).toLocaleDateString('vi-VN')}
+              {order.orderDate ? new Date(order.orderDate).toLocaleDateString('vi-VN') : '—'}
             </p>
           </div>
           <div className="rounded-xl border border-[#EAE6DF] bg-neutral-50/30 p-4">
@@ -167,7 +167,7 @@ export default function OrderDetailPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span>Giảm giá</span>
-                <span>- {formatCurrency(order.voucherDiscount + order.pointDiscount)}</span>
+                <span>- {formatCurrency(Number(order.voucherDiscount || 0) + Number(order.pointDiscount || 0))}</span>
               </div>
               <div className="mt-3 flex items-center justify-between border-t border-[#EAE6DF] pt-3 text-base font-semibold text-neutral-900">
                 <span>Tổng cộng</span>

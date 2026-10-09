@@ -21,14 +21,6 @@ export class BrandRepo {
         where: { deletedAt: null },
         skip,
         take,
-        include: {
-          translations: {
-            where:
-              languageId === ALL_LANGUAGE_CODE
-                ? { deletedAt: null }
-                : { deletedAt: null, languageId },
-          },
-        },
         orderBy: { createdAt: 'desc' },
       }),
     ])

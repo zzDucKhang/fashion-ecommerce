@@ -3,7 +3,6 @@ import {
   CreateProductBodyType,
   GetProductQueryType,
   UpdateProductBodyType,
-  UpsertProductTranslationType,
 } from './product.schema'
 import { AppError, isNotFoundPrismaError, isUniqueConstraintPrismaError } from '@/common/errors'
 
@@ -64,20 +63,5 @@ export class ProductService {
       }
       throw error
     }
-  }
-
-  async upsertTranslation({
-    productId,
-    languageId,
-    userId,
-    data,
-  }: {
-    productId: number
-    languageId: string
-    userId: number
-    data: UpsertProductTranslationType
-  }) {
-    await this.findById(productId, languageId)
-    return this.productRepo.upsertTranslation({ productId, languageId, userId, data })
   }
 }
