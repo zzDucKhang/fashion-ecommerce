@@ -18,11 +18,15 @@ import {
   UpdateOrderStatusInput,
 } from "./order.schema";
 import { OrderRepo } from "./order.repo";
+import { VoucherService } from "@/modules/loyalty-engage/voucher/voucher.service";
+import { PointService } from "@/modules/loyalty-engage/point/point.service";
 
 export class OrderService {
   constructor(
     private readonly orderRepo = new OrderRepo(),
     private readonly cartRepo = new CartRepo(),
+    private readonly voucherService = new VoucherService(),
+    private readonly pointService = new PointService(),
   ) {}
 
   /**
@@ -227,15 +231,11 @@ export class OrderService {
         let voucherDiscount = 0;
 
         if (input.voucherCode) {
-          const voucher = await this.orderRepo.findVoucherByCode(input.voucherCode, tx);
-          if (!voucher || !voucher.isActive) throw new BadRequestError("Mã giảm giá không tồn tại hoặc vô hiệu hóa");
-          if (now < voucher.startDate) throw new BadRequestError("Mã giảm giá chưa đến thời gian áp dụng");
-          if (now > voucher.endDate) throw new BadRequestError("Mã giảm giá đã hết hạn sử dụng");
-          if (voucher.totalUsageLimit > 0 && voucher.usedCount >= voucher.totalUsageLimit) throw new BadRequestError("Mã giảm giá đã hết lượt sử dụng");
-
-          const userUsageCount = await this.orderRepo.countUserVoucherOrders(userId, input.voucherCode, tx);
-          if (userUsageCount >= voucher.userUsageLimit) throw new BadRequestError("Bạn đã dùng hết lượt áp dụng");
-          if (subTotal < Number(voucher.minOrderValue)) throw new BadRequestError(`Đơn hàng tối thiểu ${Number(voucher.minOrderValue).toLocaleString("vi-VN")}đ`);
+          const voucher = await this.voucherService.applyVoucherSafely(input.voucherCode, userId, tx);
+          if (subTotal < Number(voucher.minOrderValue)) {
+            await this.voucherService.releaseVoucherSafely(input.voucherCode, userId, tx);
+            throw new BadRequestError(`Đơn hàng tối thiểu ${Number(voucher.minOrderValue).toLocaleString("vi-VN")}đ`);
+          }
 
           if (voucher.discountType === "PERCENTAGE") {
             voucherDiscount = Math.round((subTotal * Number(voucher.discountValue)) / 100);
@@ -247,7 +247,6 @@ export class OrderService {
           }
 
           voucherDiscount = Math.min(voucherDiscount, subTotal);
-          await this.orderRepo.incrementVoucherUsage(input.voucherCode, tx);
         }
 
         let pointUsed = 0;
@@ -422,14 +421,12 @@ export class OrderService {
       concurrentTasks.push(this.orderRepo.decrementFlashSaleSoldQuantity(item.variantId, item.quantity, tx));
     }
 
-    // 2. Task: Hoàn lại Điểm thưởng nếu khách đã dùng
-    if (order.pointUsed && order.pointUsed > 0) {
-      concurrentTasks.push(this.orderRepo.refundUserPoints(order.userId, order.id, order.pointUsed, order.orderCode, tx));
-    }
+    // 2. Task: Hoàn lại & bồi hoàn Điểm thưởng qua PointService
+    concurrentTasks.push(this.pointService.compensatePointsForCancelledOrder(order.id, tx));
 
-    // 3. Task: Hoàn lại lượt dùng Voucher
+    // 3. Task: Hoàn lại lượt dùng Voucher an toàn cả Redis và PostgreSQL
     if (order.voucherCode && Number(order.voucherDiscount) > 0) {
-      concurrentTasks.push(this.orderRepo.refundVoucherUsage(order.voucherCode, tx));
+      concurrentTasks.push(this.voucherService.releaseVoucherSafely(order.voucherCode, order.userId, tx));
     }
 
     // Thực thi toàn bộ lệnh Update/Refund song song
