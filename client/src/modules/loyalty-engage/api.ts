@@ -1,5 +1,6 @@
 import { apiClient } from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
+import type { ChatMessage, ChatSession } from "@/types/loyalty-engage";
 
 export type DiscountType = "PERCENTAGE" | "FIXED_AMOUNT";
 
@@ -138,6 +139,27 @@ export interface ChatMessageItem {
   isSelf?: boolean;
 }
 
+export interface ChatHistoryResponse {
+  statusCode: number;
+  data: ChatMessage[];
+  pagination: {
+    page: number;
+    limit: number;
+    nextCursor: number | null;
+    hasMore: boolean;
+  };
+}
+
+export interface ChatSessionResponse {
+  statusCode: number;
+  data: ChatSession;
+}
+
+export interface ChatConversationsResponse {
+  statusCode: number;
+  data: ChatSession[];
+}
+
 export async function validateVoucher(
   code: string,
   orderTotal: number
@@ -196,3 +218,44 @@ export async function sendSocketHeartbeat(
   });
   return res.data;
 }
+
+export const chatApi = {
+  getActiveChat: async (): Promise<ChatSessionResponse> => {
+    const res = await apiClient.get<ChatSessionResponse>(
+      `${API_ENDPOINTS.CHAT.ACTIVE}/active`
+    );
+    return res.data;
+  },
+  getHistory: async (chatId: number, cursor?: number, limit = 100) => {
+    const res = await apiClient.get<ChatHistoryResponse>(API_ENDPOINTS.CHAT.HISTORY, {
+      params: { chatId, limit, cursor },
+    });
+    return res.data;
+  },
+  getConversations: async (): Promise<ChatConversationsResponse> => {
+    const res = await apiClient.get<ChatConversationsResponse>(
+      API_ENDPOINTS.CHAT.CONVERSATIONS
+    );
+    return res.data;
+  },
+  sendMessage: async (chatId: number, content: string): Promise<{ statusCode: number; data: ChatMessage }> => {
+    const res = await apiClient.post<{ statusCode: number; data: ChatMessage }>(
+      API_ENDPOINTS.CHAT.SEND,
+      { chatId, content }
+    );
+    return res.data;
+  },
+  markAsRead: async (chatId: number): Promise<{ statusCode: number; updatedCount: number }> => {
+    const res = await apiClient.post<{ statusCode: number; updatedCount: number }>(
+      API_ENDPOINTS.CHAT.READ,
+      { chatId }
+    );
+    return res.data;
+  },
+  closeConversation: async (chatId: number): Promise<{ statusCode: number }> => {
+    const res = await apiClient.post<{ statusCode: number }>(
+      `${API_ENDPOINTS.CHAT.CONVERSATIONS}/${chatId}/close`
+    );
+    return res.data;
+  }
+};

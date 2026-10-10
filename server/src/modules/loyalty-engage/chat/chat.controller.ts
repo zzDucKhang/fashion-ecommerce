@@ -1,6 +1,7 @@
 // src/modules/loyalty-engage/chat/chat.controller.ts
 import { NextFunction, Request, Response } from 'express'
 import { ChatService } from './chat.service'
+import type { GetChatHistoryQueryType } from './chat.schema'
 
 export class ChatController {
   constructor(private chatService = new ChatService()) {}
@@ -26,10 +27,32 @@ export class ChatController {
     }
   }
 
+  getShopConversationList = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.chatService.getShopConversationList(req.user!.userId)
+      return res.status(200).json({ statusCode: 200, ...data })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  closeConversation = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const chatId = Number(req.params.chatId)
+      const data = await this.chatService.closeConversation(req.user!.userId, chatId)
+      return res.status(200).json({ statusCode: 200, message: 'Đã đóng cuộc trò chuyện', ...data })
+    } catch (error) {
+      next(error)
+    }
+  }
+
   /** GET /chat/messages?chatId=&page=&limit=&cursor= – Lịch sử hội thoại */
   getChatHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = await this.chatService.getChatHistory(req.query as any)
+      const data = await this.chatService.getChatHistory(
+        req.user!.userId,
+        req.query as unknown as GetChatHistoryQueryType,
+      )
       return res.status(200).json({ statusCode: 200, ...data })
     } catch (error) {
       next(error)

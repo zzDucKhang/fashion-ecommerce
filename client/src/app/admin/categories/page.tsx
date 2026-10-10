@@ -23,14 +23,26 @@ export default function AdminCategoriesPage() {
     },
     {
       header: 'Tên danh mục',
-      cell: (cat) => (
-        <div className="flex items-center gap-3">
-          <div className="size-8 rounded-lg bg-neutral-100 flex items-center justify-center text-lg">
-            {cat.iconUrl || '📁'}
+      cell: (cat) => {
+        const iconUrl = cat.iconUrl;
+        const isImageUrl = !!iconUrl && /^https?:\/\//i.test(iconUrl);
+
+        return (
+          <div className="flex items-center gap-3">
+            <div className="size-8 shrink-0 overflow-hidden rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-400">
+              {isImageUrl && iconUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={iconUrl} alt="" loading="lazy" className="size-full object-cover" />
+              ) : iconUrl ? (
+                iconUrl
+              ) : (
+                <Layers className="size-4" />
+              )}
+            </div>
+            <span className="font-semibold text-sm text-neutral-900">{cat.defaultName}</span>
           </div>
-          <span className="font-semibold text-sm text-neutral-900">{cat.defaultName}</span>
-        </div>
-      ),
+        );
+      },
     },
     {
       header: 'Trạng thái hiển thị',
@@ -76,7 +88,7 @@ export default function AdminCategoriesPage() {
 
       <DataTable
         columns={columns}
-        data={(data?.data as any) || []}
+        data={data?.data ?? []}
         isLoading={isLoading}
         emptyMessage="Không có danh mục nào."
       />

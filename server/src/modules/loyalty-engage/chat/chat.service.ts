@@ -1,7 +1,9 @@
 // src/modules/loyalty-engage/chat/chat.service.ts
-import { BadRequestError, NotFoundError } from '@/common/errors'
+import { BadRequestError, ForbiddenError, NotFoundError } from '@/common/errors'
 import { createLogger } from '@/common/logger'
 import { ChatRepo } from './chat.repo'
+import { ChatStatus } from '@prisma/client'
+import { getIO } from '@/common/websocket'
 import {
   GetChatHistoryQueryType,
   MarkReadBodyType,
@@ -23,15 +25,51 @@ export class ChatService {
     return { data: chat }
   }
 
+  private async authorizeChatAccess(userId: number, chatId: number) {
+    const chat = await this.chatRepo.findChatById(chatId)
+    if (!chat) throw new NotFoundError('Cuộc trò chuyện không tồn tại')
+    if (chat.userId === userId) return chat
+
+    const roleCode = await this.chatRepo.findUserRoleCode(userId)
+    if (roleCode !== 'ADMIN' && roleCode !== 'STAFF') {
+      throw new ForbiddenError('Bạn không có quyền truy cập cuộc trò chuyện này')
+    }
+
+    return chat
+  }
+
+  private async authorizeShopStaff(userId: number) {
+    const roleCode = await this.chatRepo.findUserRoleCode(userId)
+    if (roleCode !== 'ADMIN' && roleCode !== 'STAFF') {
+      throw new ForbiddenError('Chỉ nhân viên cửa hàng mới được thực hiện thao tác này')
+    }
+  }
+
   /**
    * Lưu tin nhắn mới vào bảng Message.
    */
   async sendMessage(senderId: number, body: SendMessageBodyType) {
+    const chatAccess = await this.authorizeChatAccess(senderId, body.chatId)
+    if (chatAccess.status === ChatStatus.CLOSED) {
+      throw new BadRequestError('Cuộc trò chuyện đã kết thúc')
+    }
+
     const message = await this.chatRepo.createMessage({
       chatId: body.chatId,
       senderId,
       content: body.content,
     })
+    const eventPayload = {
+      id: message.id,
+      chatId: body.chatId,
+      senderId: message.senderId,
+      content: message.content,
+      isRead: message.isRead,
+      sendDate: message.sendDate,
+      sender: message.sender,
+    }
+    const recipientRoom = senderId === chatAccess.userId ? 'shop' : `user:${chatAccess.userId}`
+    getIO().to(recipientRoom).emit('new_message', eventPayload)
     return { message: 'Tin nhắn đã được gửi', data: message }
   }
 
@@ -42,7 +80,8 @@ export class ChatService {
    *   - O(take) seek time via indexed primary key.
    *   - Eliminates database IO degradation caused by high-offset skips.
    */
-  async getChatHistory(query: GetChatHistoryQueryType) {
+  async getChatHistory(userId: number, query: GetChatHistoryQueryType) {
+    await this.authorizeChatAccess(userId, query.chatId)
     const { chatId, limit, cursor, page } = query
     const { data, nextCursor, hasMore } = await this.chatRepo.findConversation(chatId, cursor ?? null, limit)
     return { data, pagination: { page, limit, nextCursor, hasMore } }
@@ -50,6 +89,7 @@ export class ChatService {
 
   /** Đánh dấu đã đọc tất cả tin nhắn trong chat */
   async markAsRead(receiverId: number, body: MarkReadBodyType) {
+    await this.authorizeChatAccess(receiverId, body.chatId)
     const result = await this.chatRepo.markMessagesAsRead(body.chatId, receiverId)
 
     logger.info(
@@ -78,6 +118,23 @@ export class ChatService {
 
     const partners = await this.chatRepo.findConversationList(userId)
     return { data: partners }
+  }
+
+  async getShopConversationList(userId: number) {
+    await this.authorizeShopStaff(userId)
+    const conversations = await this.chatRepo.findConversationList()
+    return { data: conversations }
+  }
+
+  async closeConversation(userId: number, chatId: number) {
+    await this.authorizeShopStaff(userId)
+    const chat = await this.chatRepo.findChatById(chatId)
+    if (!chat) throw new NotFoundError('Cuộc trò chuyện không tồn tại')
+    if (chat.status === ChatStatus.CLOSED) {
+      throw new BadRequestError('Cuộc trò chuyện đã kết thúc')
+    }
+
+    return { data: await this.chatRepo.closeChat(chatId) }
   }
 
   // ─────────────── WebSocket Session APIs (Redis-backed) ───────────────

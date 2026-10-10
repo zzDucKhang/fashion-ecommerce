@@ -35,6 +35,21 @@ export class ChatRepo {
     })
   }
 
+  async findChatById(chatId: number) {
+    return prisma.chat.findUnique({
+      where: { id: chatId },
+      select: { id: true, userId: true, status: true },
+    })
+  }
+
+  async findUserRoleCode(userId: number) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: { select: { code: true, isActive: true, deletedAt: true } } },
+    })
+    return user?.role?.isActive && !user.role.deletedAt ? user.role.code : null
+  }
+
   async closeChat(chatId: number) {
     return prisma.chat.update({
       where: { id: chatId },
@@ -46,17 +61,27 @@ export class ChatRepo {
   }
 
   async createMessage(data: { chatId: number; senderId: number; content: string }) {
-    return prisma.message.create({
-      data: {
-        chatId: data.chatId,
-        senderId: data.senderId,
-        content: data.content,
-        isRead: false,
-        sendDate: new Date(),
-      },
-      include: {
-        chat: { select: { userId: true } }
-      }
+    return prisma.$transaction(async (tx) => {
+      const message = await tx.message.create({
+        data: {
+          chatId: data.chatId,
+          senderId: data.senderId,
+          content: data.content,
+          isRead: false,
+          sendDate: new Date(),
+        },
+        include: {
+          sender: { select: { id: true, fullName: true, avatarUrl: true } },
+          chat: { select: { userId: true } },
+        },
+      })
+
+      await tx.chat.update({
+        where: { id: data.chatId },
+        data: { updatedAt: new Date() },
+      })
+
+      return message
     })
   }
 
@@ -70,6 +95,9 @@ export class ChatRepo {
       where,
       orderBy: { id: 'desc' },
       take: take + 1,
+      include: {
+        sender: { select: { id: true, fullName: true, avatarUrl: true } },
+      },
     })
 
     const hasMore = messages.length > take
@@ -90,7 +118,7 @@ export class ChatRepo {
     // Nếu currentUserId là chủ chat -> mark read tin nhắn của shop (senderId != currentUserId)
     // Cần tinh chỉnh logic này tùy thuộc vào việc bạn gán senderId vào Message ntn.
     return prisma.message.updateMany({
-      where: { chatId, isRead: false },
+      where: { chatId, isRead: false, senderId: { not: currentUserId } },
       data: { isRead: true },
     })
   }
@@ -102,8 +130,12 @@ export class ChatRepo {
         ...(userId ? { userId } : {}),
       },
       include: {
-        user: { select: { fullName: true, avatarUrl: true } },
-        messages: { take: 1, orderBy: { sendDate: 'desc' } }
+        user: { select: { id: true, fullName: true, avatarUrl: true } },
+        messages: {
+          take: 1,
+          orderBy: { sendDate: 'desc' },
+          include: { sender: { select: { id: true, fullName: true } } },
+        }
       },
       orderBy: { updatedAt: 'desc' }
     })
