@@ -181,7 +181,7 @@ export default function AdminEditProductPage() {
           <Button
             type="submit"
             disabled={updateMutation.isPending}
-            className="rounded-xl bg-[#1D1F20] text-white hover:bg-neutral-800"
+            className="rounded-xl bg-[#1D1F20] !text-white [&_*]:!text-white hover:bg-neutral-800"
           >
             {updateMutation.isPending ? (
               <>

@@ -57,7 +57,7 @@ export function LiveChatWidget({
           <header className="p-4 bg-[#FFFFFF] border-b border-[#EAE6DF] flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-[#1D1F20] text-white flex items-center justify-center font-bold text-sm">
+                <div className="w-10 h-10 rounded-full bg-[#1D1F20] !text-white [&_*]:!text-white flex items-center justify-center font-bold text-sm">
                   CS
                 </div>
                 <span
@@ -108,7 +108,7 @@ export function LiveChatWidget({
 
           <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#FBF9F4]/40">
             <div className="flex items-start gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-[#1D1F20] text-white flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
+              <div className="w-7 h-7 rounded-full bg-[#1D1F20] !text-white [&_*]:!text-white flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
                 CS
               </div>
               <div className="bg-[#FFFFFF] border border-[#EAE6DF] text-[#1D1F20] text-xs leading-relaxed p-3.5 rounded-2xl rounded-tl-sm shadow-xs max-w-[85%] space-y-1">
@@ -154,7 +154,7 @@ export function LiveChatWidget({
                 }`}
               >
                 {!msg.isSelf && (
-                  <div className="w-7 h-7 rounded-full bg-[#1D1F20] text-white flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-full bg-[#1D1F20] !text-white [&_*]:!text-white flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
                     CS
                   </div>
                 )}
@@ -162,7 +162,7 @@ export function LiveChatWidget({
                 <div
                   className={`max-w-[80%] p-3 text-xs leading-relaxed rounded-2xl shadow-2xs ${
                     msg.isSelf
-                      ? "bg-[#1D1F20] text-white rounded-tr-sm"
+                      ? "bg-[#1D1F20] !text-white [&_*]:!text-white rounded-tr-sm"
                       : "bg-[#FFFFFF] border border-[#EAE6DF] text-[#1D1F20] rounded-tl-sm"
                   }`}
                 >

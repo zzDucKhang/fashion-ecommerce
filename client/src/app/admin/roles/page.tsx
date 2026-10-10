@@ -282,7 +282,7 @@ export default function AdminRolesPage() {
 
         <Button
           onClick={openCreateDialog}
-          className="h-10 px-4 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium flex items-center gap-2"
+          className="h-10 px-4 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 !text-white [&_*]:!text-white font-medium flex items-center gap-2"
         >
           <Plus className="size-4" />
           <span>Thêm vai trò mới</span>
@@ -447,7 +447,7 @@ export default function AdminRolesPage() {
               <Button
                 type="submit"
                 disabled={saveRoleMutation.isPending}
-                className="rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium"
+                className="rounded-xl bg-[#1D1F20] hover:bg-neutral-800 !text-white [&_*]:!text-white font-medium"
               >
                 {saveRoleMutation.isPending ? (
                   <>

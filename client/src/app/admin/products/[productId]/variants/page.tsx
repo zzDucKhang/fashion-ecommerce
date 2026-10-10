@@ -145,7 +145,7 @@ export default function AdminProductVariantsPage() {
           <Button
             onClick={() => syncMutation.mutate(variants)}
             disabled={syncMutation.isPending}
-            className="rounded-xl bg-[#1D1F20] text-white hover:bg-neutral-800 text-xs"
+            className="rounded-xl bg-[#1D1F20] !text-white [&_*]:!text-white hover:bg-neutral-800 text-xs"
           >
             {syncMutation.isPending ? (
               <>

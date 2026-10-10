@@ -58,7 +58,7 @@ export default function OrderReturnPage() {
     },
     onSuccess: () => {
       toast.success('Yêu cầu trả hàng đã được gửi thành công');
-      router.push(`/account/orders/${orderId}`);
+      router.push(`/orders/${orderId}`);
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Không thể gửi yêu cầu trả hàng');
@@ -78,7 +78,7 @@ export default function OrderReturnPage() {
     return (
       <div className="bg-white rounded-2xl border border-[#EAE6DF] p-6 sm:p-8 shadow-xs text-center">
         <p className="text-sm text-neutral-600">Không tìm thấy đơn hàng để yêu cầu trả hàng.</p>
-        <Link href="/account/orders" className="mt-4 inline-block">
+        <Link href="/orders" className="mt-4 inline-block">
           <Button variant="outline" className="rounded-xl border-[#EAE6DF]">Quay lại</Button>
         </Link>
       </div>
@@ -88,7 +88,7 @@ export default function OrderReturnPage() {
   return (
     <div className="bg-white rounded-2xl border border-[#EAE6DF] p-6 sm:p-8 shadow-xs">
       <div className="flex items-center gap-3 border-b border-[#EAE6DF] pb-6">
-        <Link href={`/account/orders/${orderId}`} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#EAE6DF] text-neutral-600 hover:bg-neutral-50">
+        <Link href={`/orders/${orderId}`} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#EAE6DF] text-neutral-600 hover:bg-neutral-50">
           <ArrowLeft className="size-4" />
         </Link>
         <div>
@@ -158,13 +158,13 @@ export default function OrderReturnPage() {
         </div>
 
         <div className="flex items-center justify-end gap-3 pt-2">
-          <Link href={`/account/orders/${orderId}`}>
+          <Link href={`/orders/${orderId}`}>
             <Button variant="outline" className="rounded-xl border-[#EAE6DF]">Hủy</Button>
           </Link>
           <Button
             onClick={() => returnMutation.mutate()}
             disabled={returnMutation.isPending || !selectedItem}
-            className="rounded-xl bg-[#1D1F20] text-white"
+            className="rounded-xl bg-[#1D1F20] !text-white [&_*]:!text-white"
           >
             {returnMutation.isPending ? (
               <>

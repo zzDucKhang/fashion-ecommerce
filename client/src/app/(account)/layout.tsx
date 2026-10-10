@@ -3,7 +3,14 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, Shield, MapPin, Package, LogOut, LayoutDashboard } from 'lucide-react';
+import {
+  User,
+  Shield,
+  MapPin,
+  Package,
+  LogOut,
+  LayoutDashboard,
+} from 'lucide-react';
 import { SiteHeader } from '@/components/layouts/site-header';
 import { SiteFooter } from '@/components/layouts/site-footer';
 import { useAuth } from '@/components/providers/auth-provider';
@@ -54,9 +61,14 @@ export default function AccountLayout({
                   <h3 className="text-sm font-semibold text-neutral-900 truncate">
                     {user?.fullName || 'Người dùng'}
                   </h3>
-                  <p className="text-xs text-neutral-500 truncate">{user?.email}</p>
+                  <p className="text-xs text-neutral-500 truncate">
+                    {user?.email}
+                  </p>
                   <div className="mt-1">
-                    <Badge variant={isAdmin ? 'lime' : 'secondary'} className="text-[10px] py-0 px-2">
+                    <Badge
+                      variant={isAdmin ? 'lime' : 'secondary'}
+                      className="text-[10px] py-0 px-2"
+                    >
                       {user?.role?.name || (isAdmin ? 'Admin' : 'Khách hàng')}
                     </Badge>
                   </div>
@@ -75,8 +87,8 @@ export default function AccountLayout({
                       className={cn(
                         'flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition',
                         isActive
-                          ? 'bg-[#1D1F20] text-white shadow-xs'
-                          : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                          ? 'bg-[#1D1F20] !text-white [&_*]:!text-white shadow-xs'
+                          : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100',
                       )}
                     >
                       <Icon className="size-4 shrink-0" />
@@ -111,9 +123,7 @@ export default function AccountLayout({
           </aside>
 
           {/* Content Area */}
-          <section className="lg:col-span-3">
-            {children}
-          </section>
+          <section className="lg:col-span-3">{children}</section>
         </div>
       </main>
 
@@ -121,4 +131,3 @@ export default function AccountLayout({
     </div>
   );
 }
-

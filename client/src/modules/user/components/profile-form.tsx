@@ -167,7 +167,7 @@ export function ProfileForm() {
         <Button
           type="submit"
           disabled={updateProfileMutation.isPending || !isDirty}
-          className="h-11 px-8 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium transition active:scale-[0.99]"
+          className="h-11 px-8 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 !text-white [&_*]:!text-white font-medium transition active:scale-[0.99]"
         >
           {updateProfileMutation.isPending ? (
             <>

@@ -118,7 +118,7 @@ export default function AdminProductsPage() {
           <p className="text-xs text-neutral-500 mt-1">Quản lý mặt hàng, tồn kho và các biến thể phân loại (SKU).</p>
         </div>
         <Link href="/admin/products/new">
-          <Button className="h-10 px-4 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium flex items-center gap-2 shrink-0">
+          <Button className="h-10 px-4 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 !text-white [&_*]:!text-white font-medium flex items-center gap-2 shrink-0">
             <Plus className="size-4" />
             <span>Thêm sản phẩm mới</span>
           </Button>

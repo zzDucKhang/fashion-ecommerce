@@ -90,7 +90,7 @@ export default function AdminInventoryPage() {
             <FileDown className="size-4 mr-2" /> Xuất báo cáo
           </Button>
           <Link href="/admin/inventory/import">
-            <Button className="h-10 px-4 rounded-xl bg-[#1D1F20] text-white">
+            <Button className="h-10 px-4 rounded-xl bg-[#1D1F20] !text-white [&_*]:!text-white">
               Nhập kho
             </Button>
           </Link>

@@ -111,9 +111,9 @@ export default function Home() {
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
-                  <div className="absolute bottom-5 left-5 text-white">
+                  <div className="absolute bottom-5 left-5 !text-white [&_*]:!text-white">
                     <p className="font-display text-2xl sm:text-3xl">{name}</p>
-                    <p className="mt-1 text-xs text-white/70">Khám phá ngay</p>
+                    <p className="mt-1 text-xs !text-white [&_*]:!text-white/70">Khám phá ngay</p>
                   </div>
                 </Link>
               );

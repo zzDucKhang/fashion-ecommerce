@@ -130,7 +130,7 @@ export function FlashSaleCountdown({
         {time.days > 0 && (
           <>
             <div className="flex flex-col items-center">
-              <span className={cn('bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm', sizeClasses.box)}>
+              <span className={cn('bg-zinc-900 !text-white [&_*]:!text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm', sizeClasses.box)}>
                 {pad(time.days)}
               </span>
               {showLabels && <span className={cn('mt-0.5 text-zinc-500', sizeClasses.label)}>ngày</span>}
@@ -140,7 +140,7 @@ export function FlashSaleCountdown({
         )}
 
         <div className="flex flex-col items-center">
-          <span className={cn('bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm', sizeClasses.box)}>
+          <span className={cn('bg-zinc-900 !text-white [&_*]:!text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm', sizeClasses.box)}>
             {pad(time.hours)}
           </span>
           {showLabels && <span className={cn('mt-0.5 text-zinc-500', sizeClasses.label)}>giờ</span>}
@@ -149,7 +149,7 @@ export function FlashSaleCountdown({
         <span className={cn('text-zinc-400', sizeClasses.colon)}>:</span>
 
         <div className="flex flex-col items-center">
-          <span className={cn('bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm', sizeClasses.box)}>
+          <span className={cn('bg-zinc-900 !text-white [&_*]:!text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm', sizeClasses.box)}>
             {pad(time.minutes)}
           </span>
           {showLabels && <span className={cn('mt-0.5 text-zinc-500', sizeClasses.label)}>phút</span>}
@@ -158,7 +158,7 @@ export function FlashSaleCountdown({
         <span className={cn('text-zinc-400', sizeClasses.colon)}>:</span>
 
         <div className="flex flex-col items-center">
-          <span className={cn('bg-red-600 text-white shadow-sm shadow-red-500/20', sizeClasses.box)}>
+          <span className={cn('bg-red-600 !text-white [&_*]:!text-white shadow-sm shadow-red-500/20', sizeClasses.box)}>
             {pad(time.seconds)}
           </span>
           {showLabels && <span className={cn('mt-0.5 text-red-500 font-semibold', sizeClasses.label)}>giây</span>}

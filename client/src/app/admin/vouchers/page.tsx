@@ -129,7 +129,7 @@ export default function AdminVouchersPage() {
           <h1 className="font-display text-3xl sm:text-4xl text-[#1D1F20] tracking-tight">Voucher & Khuyến mãi</h1>
           <p className="text-xs text-neutral-500 mt-1">Cấu hình mã giảm giá theo chiến dịch bán hàng.</p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)} className="h-10 px-4 rounded-xl bg-[#1D1F20] text-white">
+        <Button onClick={() => setIsDialogOpen(true)} className="h-10 px-4 rounded-xl bg-[#1D1F20] !text-white [&_*]:!text-white">
           <Plus className="size-4 mr-2" /> Tạo Voucher mới
         </Button>
       </div>
@@ -189,7 +189,7 @@ export default function AdminVouchersPage() {
 
             <DialogFooter className="mt-6 flex justify-end gap-2 pt-2 border-t border-[#EAE6DF]">
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl border-[#EAE6DF]">Hủy</Button>
-              <Button type="submit" disabled={createMutation.isPending} className="rounded-xl bg-[#1D1F20] text-white">
+              <Button type="submit" disabled={createMutation.isPending} className="rounded-xl bg-[#1D1F20] !text-white [&_*]:!text-white">
                 {createMutation.isPending ? 'Đang lưu...' : 'Tạo Voucher'}
               </Button>
             </DialogFooter>

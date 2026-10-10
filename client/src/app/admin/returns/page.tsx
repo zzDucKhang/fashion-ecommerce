@@ -91,7 +91,7 @@ export default function AdminReturnsPage() {
             <Button
               size="sm"
               onClick={() => updateStatusMutation.mutate({ id: r.id, status: 'APPROVED' })}
-              className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
+              className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 !text-white [&_*]:!text-white rounded-lg"
             >
               Chấp thuận
             </Button>

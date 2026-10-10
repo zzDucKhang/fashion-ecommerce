@@ -69,7 +69,7 @@ export function CheckoutView() {
                 />
                 <button
                   onClick={() => setStep(2)}
-                  className="rounded-xl bg-[#1D1F20] py-3 text-sm font-bold text-white sm:col-span-2"
+                  className="rounded-xl bg-[#1D1F20] py-3 text-sm font-bold !text-white [&_*]:!text-white sm:col-span-2"
                 >
                   Continue to payment
                 </button>
@@ -109,16 +109,16 @@ export function CheckoutView() {
             )}
           </section>
         </div>
-        <aside className="h-fit rounded-2xl bg-[#1D1F20] p-6 text-white lg:sticky lg:top-36">
+        <aside className="h-fit rounded-2xl bg-[#1D1F20] p-6 !text-white [&_*]:!text-white lg:sticky lg:top-36">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Lock size={15} color="#84EA53" /> Secure checkout
           </div>
-          <p className="mt-6 text-xs leading-5 text-white/55">
+          <p className="mt-6 text-xs leading-5 !text-white [&_*]:!text-white/55">
             Your payment details are encrypted and never stored. This is a demo
             checkout with no backend connection.
           </p>
           <div className="mt-8 flex justify-between border-t border-white/15 pt-5 text-sm">
-            <span className="text-white/55">Total</span>
+            <span className="!text-white [&_*]:!text-white/55">Total</span>
             <strong>$260.00</strong>
           </div>
         </aside>

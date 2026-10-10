@@ -129,7 +129,7 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
           }}
           className={`px-4 py-1.5 rounded-full font-medium transition cursor-pointer border ${
             ratingFilter === undefined
-              ? "bg-[#1D1F20] text-white border-[#1D1F20]"
+              ? "bg-[#1D1F20] !text-white [&_*]:!text-white border-[#1D1F20]"
               : "bg-[#FBF9F4] text-[#1D1F20] border-[#EAE6DF] hover:border-[#1D1F20]"
           }`}
         >
@@ -145,7 +145,7 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
             }}
             className={`px-3 py-1.5 rounded-full font-medium flex items-center gap-1 transition cursor-pointer border ${
               ratingFilter === star
-                ? "bg-[#1D1F20] text-white border-[#1D1F20]"
+                ? "bg-[#1D1F20] !text-white [&_*]:!text-white border-[#1D1F20]"
                 : "bg-[#FBF9F4] text-[#1D1F20] border-[#EAE6DF] hover:border-[#1D1F20]"
             }`}
           >
@@ -182,7 +182,7 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
           <button
             type="button"
             onClick={() => mutate()}
-            className="px-4 py-2 text-xs font-semibold bg-[#1D1F20] text-white rounded-xl hover:bg-black transition"
+            className="px-4 py-2 text-xs font-semibold bg-[#1D1F20] !text-white [&_*]:!text-white rounded-xl hover:bg-black transition"
           >
             Thử lại
           </button>

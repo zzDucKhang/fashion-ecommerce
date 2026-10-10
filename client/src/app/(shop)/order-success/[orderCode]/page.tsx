@@ -1,8 +1,14 @@
 import Link from 'next/link';
 import { CheckCircle2, ArrowRight, ShoppingBag } from 'lucide-react';
 
-// Vì sử dụng App Router nên params được truyền tự động vào page component
-export default function OrderSuccessPage({ params }: { params: { orderCode: string } }) {
+interface PageProps {
+  params: Promise<{ orderCode: string }>;
+}
+
+export default async function OrderSuccessPage({ params }: PageProps) {
+  // Await params theo chuẩn Next.js 15
+  const { orderCode } = await params;
+
   return (
     <main className="min-h-[75vh] flex items-center justify-center p-4 bg-[#FBF9F4]">
       <div className="max-w-md w-full bg-white rounded-3xl border border-[#EAE6DF] p-8 sm:p-10 text-center shadow-xs">
@@ -17,14 +23,14 @@ export default function OrderSuccessPage({ params }: { params: { orderCode: stri
         
         <div className="inline-block bg-[#FBF9F4] border border-[#EAE6DF] rounded-xl px-6 py-3 mb-8">
           <span className="font-mono font-bold text-xl tracking-wider text-neutral-900">
-            {params.orderCode}
+            {orderCode || '---'}
           </span>
         </div>
         
         <div className="flex flex-col gap-3">
           <Link 
-            href={`/account/orders`} 
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1D1F20] text-white px-4 py-3.5 text-sm font-semibold hover:bg-neutral-800 transition active:scale-[0.99]"
+            href="/orders" 
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1D1F20] !text-white [&_*]:!text-white px-4 py-3.5 text-sm font-semibold hover:bg-neutral-800 transition active:scale-[0.99]"
           >
             <ShoppingBag size={16} /> Theo dõi đơn hàng
           </Link>

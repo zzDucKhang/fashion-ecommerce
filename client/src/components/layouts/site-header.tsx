@@ -2,19 +2,30 @@
 
 import Link from 'next/link';
 import { Search, ShoppingBag, User } from 'lucide-react';
-import { useCart } from '@/modules/cart/hooks/use-cart'; // 1. Import hook useCart
+import { useSyncExternalStore } from 'react';
+import { useCart } from '@/modules/cart/hooks/use-cart';
+
+// Hàm snapshot kiểm tra môi trường: Server = false, Client = true
+const emptySubscribe = () => () => {};
+function useIsMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,  // Giá trị trên trình duyệt (Client)
+    () => false  // Giá trị render ban đầu trên Server
+  );
+}
 
 export function SiteHeader() {
-  // 2. Lấy dữ liệu giỏ hàng từ server
+  // Lấy trạng thái mount an toàn, không kích hoạt cascading render
+  const isMounted = useIsMounted();
+
   const { data: cartResponse } = useCart();
   const cartItems = cartResponse?.data?.cartItems || [];
 
-  // 3. Tính tổng số lượng sản phẩm (cộng dồn quantity của từng món)[cite: 8, 9]
   const totalQuantity = cartItems.reduce(
     (total, item) => total + (item.quantity || 0),
     0
   );
-  // (Nếu bạn chỉ muốn đếm số loại mặt hàng thay vì cộng dồn số lượng, hãy dùng: const totalQuantity = cartItems.length;)
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#EAE6DF] bg-[#FBF9F4]/95 backdrop-blur">
@@ -47,12 +58,13 @@ export function SiteHeader() {
           >
             <User size={20} />
           </Link>
-          <Link href="/cart"
+          <Link
+            href="/cart"
             className="relative rounded-full p-2.5 hover:bg-white"
           >
             <ShoppingBag size={20} />
-            {/* 4. Chỉ hiển thị badge khi giỏ hàng có sản phẩm */}
-            {totalQuantity > 0 && (
+            {/* Chỉ render badge khi đã hoàn tất mount trên Client */}
+            {isMounted && totalQuantity > 0 && (
               <span className="absolute right-0 top-0 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-[#84EA53] text-[9px] font-bold text-[#1D1F20]">
                 {totalQuantity > 99 ? '99+' : totalQuantity}
               </span>

@@ -105,7 +105,7 @@ export default function AdminDashboardPage() {
             </Button>
           </Link>
           <Link href="/admin/roles">
-            <Button className="rounded-xl bg-[#1D1F20] text-white text-xs h-10">
+            <Button className="rounded-xl bg-[#1D1F20] !text-white [&_*]:!text-white text-xs h-10">
               <Shield className="size-4 mr-2" /> Phân quyền Roles
             </Button>
           </Link>

@@ -28,22 +28,27 @@ export function VoucherInput({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [appliedVoucher, setAppliedVoucher] = useState<VoucherValidationData | null>(null);
 
+  // 1. Tránh gọi setState đồng bộ trong Effect bằng timer bất đồng bộ có cleanup
   useEffect(() => {
     if (appliedVoucher) {
       const minRequired = Number(appliedVoucher.voucher.minOrderValue);
       if (orderTotal < minRequired) {
-        setAppliedVoucher(null);
-        setCode("");
-        setErrorMessage(
-          `Đơn hàng không còn đủ điều kiện tối thiểu (${minRequired.toLocaleString("vi-VN")}₫) để dùng mã này.`
-        );
-        onRemove?.();
+        const timer = setTimeout(() => {
+          setAppliedVoucher(null);
+          setCode("");
+          setErrorMessage(
+            `Đơn hàng không còn đủ điều kiện tối thiểu (${minRequired.toLocaleString("vi-VN")}₫) để dùng mã này.`
+          );
+          onRemove?.();
+        }, 0);
+
+        return () => clearTimeout(timer);
       }
     }
   }, [orderTotal, appliedVoucher, onRemove]);
 
-  const handleApply = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleApply = async (e?: React.FormEvent | React.MouseEvent | React.KeyboardEvent) => {
+    if (e) e.preventDefault();
     const cleanCode = code.trim().toUpperCase();
 
     if (!cleanCode) {
@@ -79,6 +84,14 @@ export function VoucherInput({
     }
   };
 
+  // Hỗ trợ bấm phím Enter khi nhập voucher mà không cần dùng thẻ <form>
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleApply(e);
+    }
+  };
+
   const handleRemoveVoucher = () => {
     setAppliedVoucher(null);
     setCode("");
@@ -101,7 +114,7 @@ export function VoucherInput({
               <span className="font-bold text-sm text-[#1D1F20] tracking-wide">
                 {appliedVoucher.code}
               </span>
-              <span className="text-[11px] font-semibold bg-[#1D1F20] text-white px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-semibold bg-[#1D1F20] !text-white [&_*]:!text-white px-2 py-0.5 rounded-full">
                 Đã áp dụng
               </span>
             </div>
@@ -120,7 +133,8 @@ export function VoucherInput({
           </button>
         </div>
       ) : (
-        <form onSubmit={handleApply} className="space-y-3">
+        // 2. Đổi <form> thành <div> để tránh lỗi form lồng trong form
+        <div className="space-y-3">
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -130,13 +144,15 @@ export function VoucherInput({
                 setCode(e.target.value.toUpperCase());
                 if (errorMessage) setErrorMessage(null);
               }}
+              onKeyDown={handleKeyDown}
               placeholder="Nhập mã voucher (VD: FASHION50)"
               className="flex-1 rounded-xl border border-[#EAE6DF] bg-[#FBF9F4] px-4 py-2.5 text-sm text-[#1D1F20] uppercase placeholder:normal-case placeholder-[#74736e]/60 focus:border-[#84EA53] outline-none transition disabled:opacity-50"
             />
             <button
-              type="submit"
+              type="button"
+              onClick={handleApply}
               disabled={isLoading || !code.trim()}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1D1F20] text-white font-semibold text-sm hover:bg-black active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1D1F20] !text-white [&_*]:!text-white font-semibold text-sm hover:bg-black active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -155,7 +171,7 @@ export function VoucherInput({
               <span>{errorMessage}</span>
             </div>
           )}
-        </form>
+        </div>
       )}
     </div>
   );
@@ -177,15 +193,22 @@ export function PointRedeemSlider({
 
   const usableMaxPoints = Math.max(0, Math.min(maxPoints, Math.floor(orderTotal)));
 
+  // Xử lý setState an toàn không gây cascading render trong effect
   useEffect(() => {
     if (isEnabled && points > usableMaxPoints) {
-      setPoints(usableMaxPoints);
-      onRedeem(usableMaxPoints);
+      const timer = setTimeout(() => {
+        setPoints(usableMaxPoints);
+        onRedeem(usableMaxPoints);
+      }, 0);
+      return () => clearTimeout(timer);
     }
     if (usableMaxPoints <= 0 && isEnabled) {
-      setIsEnabled(false);
-      setPoints(0);
-      onRedeem(0);
+      const timer = setTimeout(() => {
+        setIsEnabled(false);
+        setPoints(0);
+        onRedeem(0);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [usableMaxPoints, isEnabled, points, onRedeem]);
 

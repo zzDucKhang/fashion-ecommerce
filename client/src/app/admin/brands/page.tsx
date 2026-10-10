@@ -64,7 +64,7 @@ export default function AdminBrandsPage() {
           <h1 className="font-display text-3xl sm:text-4xl text-[#1D1F20] tracking-tight">Thương hiệu</h1>
           <p className="text-xs text-neutral-500 mt-1">Quản lý danh sách các thương hiệu sản phẩm đang kinh doanh.</p>
         </div>
-        <Button className="h-10 px-4 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium flex items-center gap-2">
+        <Button className="h-10 px-4 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 !text-white [&_*]:!text-white font-medium flex items-center gap-2">
           <Plus className="size-4" /> Thêm Thương hiệu
         </Button>
       </div>

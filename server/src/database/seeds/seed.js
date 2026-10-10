@@ -50,16 +50,16 @@ async function main() {
   // ==========================================
   const defaultPassword = '123'
   const usersData = [
-    { fullName: 'Nguyễn Quản Trị', email: 'admin@fashion.com', phoneNumber: '0901000001', roleId: 4, status: 'ACTIVE', rewardPoints: 5000 },
-    { fullName: 'Trần Nhân Viên', email: 'staff@fashion.com', phoneNumber: '0901000002', roleId: 5, status: 'ACTIVE', rewardPoints: 200 },
-    { fullName: 'Lê Hoàng Nam', email: 'nam.le@gmail.com', phoneNumber: '0901000003', roleId: 5, status: 'ACTIVE', rewardPoints: 1200 },
-    { fullName: 'Phạm Thị Thảo', email: 'thao.pham@gmail.com', phoneNumber: '0901000004', roleId: 5, status: 'ACTIVE', rewardPoints: 450 },
-    { fullName: 'Vũ Minh Tuấn', email: 'tuan.vu@gmail.com', phoneNumber: '0901000005', roleId: 6, status: 'ACTIVE', rewardPoints: 0 },
-    { fullName: 'Hoàng Mai Anh', email: 'maianh.hoang@gmail.com', phoneNumber: '0901000006', roleId: 6, status: 'ACTIVE', rewardPoints: 3400 },
-    { fullName: 'Đặng Quốc Bảo', email: 'bao.dang@gmail.com', phoneNumber: '0901000007', roleId: 6, status: 'ACTIVE', rewardPoints: 80 },
-    { fullName: 'Bùi Phương Ly', email: 'ly.bui@gmail.com', phoneNumber: '0901000008', roleId: 6, status: 'ACTIVE', rewardPoints: 950 },
-    { fullName: 'Đỗ Tiến Dũng', email: 'dung.do@gmail.com', phoneNumber: '0901000009', roleId: 6, status: 'INACTIVE', rewardPoints: 0 },
-    { fullName: 'Ngô Khánh Linh', email: 'linh.ngo@gmail.com', phoneNumber: '0901000010', roleId: 6, status: 'BLOCKED', rewardPoints: 10 },
+    { fullName: 'Nguyễn Quản Trị', email: 'admin@fashion.com', phoneNumber: '0901000001', roleId: 1, status: 'ACTIVE', rewardPoints: 5000 },
+    { fullName: 'Trần Nhân Viên', email: 'staff@fashion.com', phoneNumber: '0901000002', roleId: 2, status: 'ACTIVE', rewardPoints: 200 },
+    { fullName: 'Lê Hoàng Nam', email: 'nam.le@gmail.com', phoneNumber: '0901000003', roleId: 2, status: 'ACTIVE', rewardPoints: 1200 },
+    { fullName: 'Phạm Thị Thảo', email: 'thao.pham@gmail.com', phoneNumber: '0901000004', roleId: 2, status: 'ACTIVE', rewardPoints: 450 },
+    { fullName: 'Vũ Minh Tuấn', email: 'tuan.vu@gmail.com', phoneNumber: '0901000005', roleId: 3, status: 'ACTIVE', rewardPoints: 0 },
+    { fullName: 'Hoàng Mai Anh', email: 'maianh.hoang@gmail.com', phoneNumber: '0901000003', roleId: 3, status: 'ACTIVE', rewardPoints: 3400 },
+    { fullName: 'Đặng Quốc Bảo', email: 'bao.dang@gmail.com', phoneNumber: '0901000007', roleId: 3, status: 'ACTIVE', rewardPoints: 80 },
+    { fullName: 'Bùi Phương Ly', email: 'ly.bui@gmail.com', phoneNumber: '0901000008', roleId: 3, status: 'ACTIVE', rewardPoints: 950 },
+    { fullName: 'Đỗ Tiến Dũng', email: 'dung.do@gmail.com', phoneNumber: '0901000009', roleId: 3, status: 'INACTIVE', rewardPoints: 0 },
+    { fullName: 'Ngô Khánh Linh', email: 'linh.ngo@gmail.com', phoneNumber: '0901000010', roleId: 3, status: 'BLOCKED', rewardPoints: 10 },
   ];
 
   const users = [];

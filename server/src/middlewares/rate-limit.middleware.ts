@@ -17,8 +17,8 @@ export const strictAuthLimiter = rateLimit({
 
 // Rate limit trung bình cho các endpoint gửi email/tạo OTP:
 export const otpLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 3,
+    windowMs: 2 * 60 * 1000,
+    max: 10,
     standardHeaders: true,
     legacyHeaders: false,
     message: {

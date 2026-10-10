@@ -113,7 +113,7 @@ export default function AdminOrderDetailPage() {
             <Button
               key={transition.target}
               variant={transition.target === 'CANCELLED' ? 'outline' : 'default'}
-              className={transition.target === 'CANCELLED' ? 'text-rose-600 border-rose-200 hover:bg-rose-50' : 'bg-[#1D1F20] text-white hover:bg-neutral-800'}
+              className={transition.target === 'CANCELLED' ? 'text-rose-600 border-rose-200 hover:bg-rose-50' : 'bg-[#1D1F20] !text-white [&_*]:!text-white hover:bg-neutral-800'}
               onClick={() => setConfirmStatus({ target: transition.target, label: transition.label })}
             >
               {transition.actionText}

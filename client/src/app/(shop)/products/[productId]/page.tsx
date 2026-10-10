@@ -117,7 +117,7 @@ export default function ProductDetailPage() {
                     disabled={v.stockQuantity <= 0}
                     className={`rounded-xl border px-3.5 py-2 text-xs font-medium transition ${
                       selectedVariantIndex === idx
-                        ? 'border-neutral-900 bg-neutral-900 text-white'
+                        ? 'border-neutral-900 bg-neutral-900 !text-white [&_*]:!text-white'
                         : v.stockQuantity <= 0 
                         ? 'border-[#EAE6DF] bg-neutral-50 text-neutral-400 cursor-not-allowed opacity-60'
                         : 'border-[#EAE6DF] bg-white text-neutral-700 hover:border-neutral-400'
@@ -168,7 +168,7 @@ export default function ProductDetailPage() {
             <Button
               onClick={handleBuyNow}
               disabled={!selectedVariant || selectedVariant.stockQuantity <= 0}
-              className="flex-1 h-12 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium gap-2"
+              className="flex-1 h-12 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 !text-white [&_*]:!text-white font-medium gap-2"
             >
               Mua ngay ({formatCurrency(currentPrice * quantity)})
             </Button>

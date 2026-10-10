@@ -175,7 +175,7 @@ export function CheckoutView() {
           <button
             type="button"
             onClick={() => router.push(`/order-success/${createdOrderCode}`)}
-            className="w-full max-w-sm mx-auto rounded-xl bg-[#1D1F20] hover:bg-black py-4 text-sm font-bold text-white transition-all shadow-sm active:scale-[0.99] block"
+            className="w-full max-w-sm mx-auto rounded-xl bg-[#1D1F20] hover:bg-black py-4 text-sm font-bold !text-white [&_*]:!text-white transition-all shadow-sm active:scale-[0.99] block"
           >
             Tôi đã thanh toán thành công
           </button>
@@ -262,14 +262,14 @@ export function CheckoutView() {
             </section>
           </div>
 
-          <aside className="h-fit rounded-2xl bg-[#1D1F20] p-6 text-white lg:sticky lg:top-36 shadow-lg">
+          <aside className="h-fit rounded-2xl bg-[#1D1F20] p-6 !text-white [&_*]:!text-white lg:sticky lg:top-36 shadow-lg">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Lock size={15} color="#84EA53" /> Thanh toán an toàn
             </div>
             <div className="mt-6 divide-y divide-white/10">
               {checkoutItems.map((item) => (
                 <div key={item.id} className="py-3 flex justify-between text-xs">
-                  <span className="text-white/70 line-clamp-1 w-2/3">
+                  <span className="!text-white [&_*]:!text-white/70 line-clamp-1 w-2/3">
                     {item.quantity}x {item.variant.product.defaultName}
                   </span>
                   <span className="font-medium">
@@ -279,10 +279,10 @@ export function CheckoutView() {
               ))}
             </div>
 
-            <div className="mt-6 space-y-2 border-t border-white/15 pt-5 text-xs text-white/70">
+            <div className="mt-6 space-y-2 border-t border-white/15 pt-5 text-xs !text-white [&_*]:!text-white/70">
               <div className="flex justify-between">
                 <span>Tạm tính</span>
-                <span className="text-white">{formatCurrency(subTotal)}</span>
+                <span className="!text-white [&_*]:!text-white">{formatCurrency(subTotal)}</span>
               </div>
               {voucherDiscount > 0 && (
                 <div className="flex justify-between text-[#84EA53]">
@@ -299,7 +299,7 @@ export function CheckoutView() {
             </div>
 
             <div className="mt-4 flex justify-between border-t border-white/15 pt-4 text-sm">
-              <span className="text-white/70 font-semibold">Tổng thanh toán</span>
+              <span className="!text-white [&_*]:!text-white/70 font-semibold">Tổng thanh toán</span>
               <strong className="text-lg text-[#84EA53]">{formatCurrency(finalTotal)}</strong>
             </div>
           </aside>

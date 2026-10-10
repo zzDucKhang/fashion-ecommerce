@@ -176,7 +176,7 @@ export function AddressList() {
         </div>
         <Button
           onClick={openCreateDialog}
-          className="h-10 px-4 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium flex items-center gap-2 shrink-0"
+          className="h-10 px-4 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 !text-white [&_*]:!text-white font-medium flex items-center gap-2 shrink-0"
         >
           <Plus className="size-4" />
           <span>Thêm địa chỉ mới</span>
@@ -370,7 +370,7 @@ export function AddressList() {
               <Button
                 type="submit"
                 disabled={saveMutation.isPending}
-                className="rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium"
+                className="rounded-xl bg-[#1D1F20] hover:bg-neutral-800 !text-white [&_*]:!text-white font-medium"
               >
                 {saveMutation.isPending ? (
                   <>

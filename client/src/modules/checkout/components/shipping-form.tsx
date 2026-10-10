@@ -503,11 +503,11 @@ export function ShippingForm({ onNext }: ShippingFormProps) {
         type="button"
         onClick={handleContinue}
         disabled={saveAddressMutation.isPending}
-        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#1D1F20] hover:bg-black py-4 text-sm font-bold text-white transition-all shadow-sm active:scale-[0.99] cursor-pointer"
+        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#1D1F20] hover:bg-black py-4 text-sm font-bold !text-white [&_*]:!text-white transition-all shadow-sm active:scale-[0.99] cursor-pointer"
       >
         {saveAddressMutation.isPending ? (
           <>
-            <Loader2 className="size-4 animate-spin text-white" />
+            <Loader2 className="size-4 animate-spin !text-white [&_*]:!text-white" />
             <span>Đang lưu địa chỉ...</span>
           </>
         ) : (

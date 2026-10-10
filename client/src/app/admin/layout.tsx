@@ -52,7 +52,7 @@ export default function AdminLayout({
           </Button>
           <Button
             onClick={() => router.push('/login')}
-            className="rounded-xl bg-[#1D1F20] text-white"
+            className="rounded-xl bg-[#1D1F20] !text-white [&_*]:!text-white"
           >
             Đăng nhập tài khoản khác
           </Button>

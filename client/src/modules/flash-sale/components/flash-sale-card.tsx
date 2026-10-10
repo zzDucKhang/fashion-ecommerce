@@ -72,7 +72,7 @@ export function FlashSaleCard({ item, className }: FlashSaleCardProps) {
           />
 
           {/* Flash Sale Tag */}
-          <div className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-md shadow-red-600/30">
+          <div className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider !text-white [&_*]:!text-white shadow-md shadow-red-600/30">
             <Flame className="size-3.5 fill-amber-300 text-amber-300 animate-pulse" />
             <span>Flash Sale</span>
           </div>
@@ -87,7 +87,7 @@ export function FlashSaleCard({ item, className }: FlashSaleCardProps) {
           {/* Sold Out Overlay */}
           {isSoldOut && (
             <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/70 backdrop-blur-[2px]">
-              <span className="rounded-full bg-red-600/90 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-white shadow-lg">
+              <span className="rounded-full bg-red-600/90 px-4 py-1.5 text-xs font-bold uppercase tracking-widest !text-white [&_*]:!text-white shadow-lg">
                 Đã hết hàng
               </span>
             </div>
@@ -136,7 +136,7 @@ export function FlashSaleCard({ item, className }: FlashSaleCardProps) {
           variant={added ? 'secondary' : 'default'}
           className={cn(
             'w-full font-bold transition-all shadow-sm',
-            !isSoldOut && !added && 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700'
+            !isSoldOut && !added && 'bg-red-600 !text-white [&_*]:!text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700'
           )}
         >
           {adding ? (

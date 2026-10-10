@@ -295,7 +295,7 @@ export default function AdminFlashSalesPage() {
           </p>
         </div>
 
-        <Button onClick={handleOpenCreate} className="bg-red-600 hover:bg-red-700 text-white font-bold gap-2 shadow-lg shadow-red-600/20">
+        <Button onClick={handleOpenCreate} className="bg-red-600 hover:bg-red-700 !text-white [&_*]:!text-white font-bold gap-2 shadow-lg shadow-red-600/20">
           <Plus className="size-4" />
           Tạo chiến dịch mới
         </Button>
@@ -672,7 +672,7 @@ export default function AdminFlashSalesPage() {
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                  className="bg-red-600 hover:bg-red-700 !text-white [&_*]:!text-white font-bold"
                 >
                   {submitting ? 'Đang lưu...' : editingCampaign ? 'Cập nhật chiến dịch' : 'Tạo mới chiến dịch'}
                 </Button>
@@ -766,7 +766,7 @@ export default function AdminFlashSalesPage() {
               <Button
                 onClick={() => handleDelete(deleteConfirmId)}
                 disabled={submitting}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                className="bg-red-600 hover:bg-red-700 !text-white [&_*]:!text-white font-bold"
               >
                 {submitting ? 'Đang xóa...' : 'Xóa chiến dịch'}
               </Button>

@@ -47,7 +47,7 @@ export function FlashSaleSection() {
         {/* Header Bar */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-red-500/10 pb-6">
           <div className="flex items-center gap-3">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-red-600 text-white shadow-lg shadow-red-600/30">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-red-600 !text-white [&_*]:!text-white shadow-lg shadow-red-600/30">
               <Flame className="size-7 fill-amber-300 text-amber-300 animate-bounce" />
             </div>
             <div>
@@ -73,7 +73,7 @@ export function FlashSaleSection() {
             />
             <Link
               href="/flash-sale"
-              className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-red-600 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-red-600 dark:hover:text-white"
+              className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-xs font-bold !text-white [&_*]:!text-white transition hover:bg-red-600 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-red-600 dark:hover:!text-white [&_*]:!text-white"
             >
               Xem tất cả <ArrowRight className="size-4" />
             </Link>

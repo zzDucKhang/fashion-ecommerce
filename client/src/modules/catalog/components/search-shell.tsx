@@ -17,7 +17,7 @@ export function SearchShell({
       <div className="mb-7 flex items-center justify-between border-b border-[#EAE6DF] py-5">
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 rounded-full border border-[#1D1F20] px-4 py-2 text-sm font-semibold transition hover:bg-[#1D1F20] hover:text-white"
+          className="flex items-center gap-2 rounded-full border border-[#1D1F20] px-4 py-2 text-sm font-semibold transition hover:bg-[#1D1F20] hover:!text-white [&_*]:!text-white"
         >
           <SlidersHorizontal size={16} /> Filters
         </button>

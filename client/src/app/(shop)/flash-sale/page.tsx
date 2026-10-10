@@ -100,7 +100,7 @@ export default function FlashSaleShopPage() {
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20">
       {/* Hero Banner Section */}
-      <section className="relative overflow-hidden bg-zinc-950 text-white py-12 px-4 sm:px-8 lg:px-12">
+      <section className="relative overflow-hidden bg-zinc-950 !text-white [&_*]:!text-white py-12 px-4 sm:px-8 lg:px-12">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(239,68,68,0.25),transparent_60%)]" />
         <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_80%_20%,rgba(245,158,11,0.2),transparent_50%)]" />
 
@@ -111,7 +111,7 @@ export default function FlashSaleShopPage() {
                 <Flame className="size-4 fill-red-500 text-red-500 animate-pulse" />
                 <span>CHƯƠNG TRÌNH KHUYẾN MÃI GIỜ VÀNG</span>
               </div>
-              <h1 className="mt-4 font-display text-4xl font-black tracking-tight sm:text-6xl text-white">
+              <h1 className="mt-4 font-display text-4xl font-black tracking-tight sm:text-6xl !text-white [&_*]:!text-white">
                 FLASH SALE SĂN DEAL KHỦNG
               </h1>
               <p className="mt-3 text-sm sm:text-base text-zinc-300">
@@ -141,7 +141,7 @@ export default function FlashSaleShopPage() {
                 <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
                   Thời gian diễn ra
                 </span>
-                <h3 className="mt-1 text-lg font-bold text-white mb-3">
+                <h3 className="mt-1 text-lg font-bold !text-white [&_*]:!text-white mb-3">
                   {activeCampaign.name}
                 </h3>
                 <FlashSaleCountdown
@@ -167,7 +167,7 @@ export default function FlashSaleShopPage() {
                   key={c.id}
                   onClick={() => setSelectedCampaignId(c.id)}
                   className={`flex shrink-0 items-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold transition-all shadow-xs ${isSelected
-                      ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 scale-105'
+                      ? 'bg-red-600 !text-white [&_*]:!text-white shadow-lg shadow-red-600/30 scale-105'
                       : 'bg-white text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
                     }`}
                 >

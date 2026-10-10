@@ -133,7 +133,7 @@ export function ProductDetail({ product }: { product: Product }) {
                   <button
                     key={item}
                     onClick={() => setSize(item)}
-                    className={`rounded-lg border px-4 py-2.5 text-xs ${size === item ? 'border-[#1D1F20] bg-[#1D1F20] text-white' : 'border-[#EAE6DF]'}`}
+                    className={`rounded-lg border px-4 py-2.5 text-xs ${size === item ? 'border-[#1D1F20] bg-[#1D1F20] !text-white [&_*]:!text-white' : 'border-[#EAE6DF]'}`}
                   >
                     {item}
                   </button>

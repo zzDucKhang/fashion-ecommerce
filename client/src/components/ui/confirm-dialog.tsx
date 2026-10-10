@@ -84,8 +84,8 @@ export function ConfirmDialog({
             disabled={isLoading}
             className={`rounded-xl ${
               variant === 'destructive'
-                ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                : 'bg-[#1D1F20] hover:bg-neutral-800 text-white'
+                ? 'bg-rose-600 hover:bg-rose-700 !text-white [&_*]:!text-white'
+                : 'bg-[#1D1F20] hover:bg-neutral-800 !text-white [&_*]:!text-white'
             }`}
           >
             {isLoading ? 'Đang xử lý...' : confirmText}

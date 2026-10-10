@@ -89,7 +89,7 @@ function ResetPasswordFormContent() {
       <Button
         type="submit"
         disabled={resetPasswordMutation.isPending || !token}
-        className="w-full h-11 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium shadow-sm transition active:scale-[0.99] mt-2"
+        className="w-full h-11 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 !text-white [&_*]:!text-white font-medium shadow-sm transition active:scale-[0.99] mt-2"
       >
         {resetPasswordMutation.isPending ? (
           <>

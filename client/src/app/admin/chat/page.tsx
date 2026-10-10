@@ -39,7 +39,7 @@ export default function AdminChatPage() {
                   <div className="size-10 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-600">
                     <User size={20} />
                   </div>
-                  {session.online && <Circle className="size-3 fill-emerald-500 text-white absolute bottom-0 right-0" />}
+                  {session.online && <Circle className="size-3 fill-emerald-500 !text-white [&_*]:!text-white absolute bottom-0 right-0" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
@@ -49,7 +49,7 @@ export default function AdminChatPage() {
                   <p className="text-xs text-neutral-500 truncate">{session.lastMsg}</p>
                 </div>
                 {session.unread > 0 && (
-                  <div className="size-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                  <div className="size-5 rounded-full bg-rose-500 !text-white [&_*]:!text-white flex items-center justify-center text-[10px] font-bold shrink-0">
                     {session.unread}
                   </div>
                 )}
@@ -99,7 +99,7 @@ export default function AdminChatPage() {
               />
               <button 
                 disabled={!input.trim()}
-                className="h-11 px-5 rounded-xl bg-[#1D1F20] text-white hover:bg-neutral-800 disabled:opacity-50 transition flex items-center gap-2 font-medium"
+                className="h-11 px-5 rounded-xl bg-[#1D1F20] !text-white [&_*]:!text-white hover:bg-neutral-800 disabled:opacity-50 transition flex items-center gap-2 font-medium"
               >
                 Gửi <Send size={16} />
               </button>

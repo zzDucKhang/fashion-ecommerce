@@ -66,7 +66,7 @@ export function CartView() {
         <p className="text-[#74736e] mb-8 text-sm">Hãy chọn các sản phẩm thời trang yêu thích của bạn.</p>
         <Link
           href="/products"
-          className="inline-block rounded-xl bg-[#1D1F20] px-8 py-3.5 text-sm font-bold text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
+          className="inline-block rounded-xl bg-[#1D1F20] px-8 py-3.5 text-sm font-bold !text-white [&_*]:!text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
         >
           Khám phá sản phẩm
         </Link>

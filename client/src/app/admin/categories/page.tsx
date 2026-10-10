@@ -69,7 +69,7 @@ export default function AdminCategoriesPage() {
           <h1 className="font-display text-3xl sm:text-4xl text-[#1D1F20] tracking-tight">Danh mục</h1>
           <p className="text-xs text-neutral-500 mt-1">Cấu trúc phân loại sản phẩm hiển thị trên Website.</p>
         </div>
-        <Button className="h-10 px-4 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 text-white font-medium flex items-center gap-2">
+        <Button className="h-10 px-4 rounded-xl bg-[#1D1F20] hover:bg-neutral-800 !text-white [&_*]:!text-white font-medium flex items-center gap-2">
           <Plus className="size-4" /> Thêm Danh mục
         </Button>
       </div>

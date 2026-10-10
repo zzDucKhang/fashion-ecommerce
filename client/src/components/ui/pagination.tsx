@@ -79,7 +79,7 @@ export function Pagination({
               className={cn(
                 'size-8 p-0 text-xs rounded-lg font-medium',
                 page === p
-                  ? 'bg-[#1D1F20] text-white hover:bg-neutral-800'
+                  ? 'bg-[#1D1F20] !text-white [&_*]:!text-white hover:bg-neutral-800'
                   : 'text-neutral-700 hover:bg-neutral-100 border-[#EAE6DF]'
               )}
             >
