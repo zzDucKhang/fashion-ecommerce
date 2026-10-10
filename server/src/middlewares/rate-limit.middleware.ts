@@ -44,3 +44,18 @@ export const generalAuthLimiter = rateLimit({
     },
 })
 
+/**
+ * Global rate limit for all public/catalog APIs to prevent DDoS/Scraping
+ * 300 requests per 5 minutes per IP
+ */
+export const globalApiLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        statusCode: 429,
+        message: 'Quá nhiều yêu cầu. Vui lòng chậm lại.',
+    },
+})

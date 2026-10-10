@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from 'express'
 import { VoucherService } from './voucher.service'
 
 export class VoucherController {
-  constructor(private voucherService = new VoucherService()) {}
+  constructor(private voucherService = new VoucherService()) { }
 
   listVouchers = async (req: Request, res: Response, next: NextFunction) => {
     try {

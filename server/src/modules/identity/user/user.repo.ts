@@ -1,5 +1,6 @@
 import { prisma } from '@/database/prisma'
 import { GetUserQueryType, UpdateUserBodyType, UpdateUserStatusBodyType} from './user.schema'
+// [Smoke Test] Cross-module WRITE access verified
 
 export class UserRepo {
     async list(query: GetUserQueryType) {

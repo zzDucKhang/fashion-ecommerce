@@ -21,7 +21,7 @@ async function main() {
   await safeDelete('pointTransaction');
   await safeDelete('flashSaleItem');
   await safeDelete('flashSaleCampaign');
-  await safeDelete('inventoryTransaction');
+  await safeDelete('flashSaleCampaign');
   await safeDelete('returnMedia');
   await safeDelete('returnRequest');
   await safeDelete('paymentTransaction');
@@ -48,18 +48,26 @@ async function main() {
   // ==========================================
   // BẢNG 4: USER (10 records)
   // ==========================================
-  const defaultPassword = '123'
+  const defaultPassword = '$2b$10$ZMMPYdVKis.BdKi/HV3ft.00OG7du3x/uFeythS1YZJ5vTmvO5o1K'; // bcrypt hash of "Password123@"
+  const adminRole = await prisma.role.findUnique({ where: { code: 'ADMIN' } });
+  const staffRole = await prisma.role.findUnique({ where: { code: 'STAFF' } });
+  const customerRole = await prisma.role.findUnique({ where: { code: 'CUSTOMER' } });
+
+  const adminId = adminRole ? adminRole.id : 1;
+  const staffId = staffRole ? staffRole.id : 2;
+  const customerId = customerRole ? customerRole.id : 3;
+
   const usersData = [
-    { fullName: 'Nguyễn Quản Trị', email: 'admin@fashion.com', phoneNumber: '0901000001', roleId: 4, status: 'ACTIVE', rewardPoints: 5000 },
-    { fullName: 'Trần Nhân Viên', email: 'staff@fashion.com', phoneNumber: '0901000002', roleId: 5, status: 'ACTIVE', rewardPoints: 200 },
-    { fullName: 'Lê Hoàng Nam', email: 'nam.le@gmail.com', phoneNumber: '0901000003', roleId: 5, status: 'ACTIVE', rewardPoints: 1200 },
-    { fullName: 'Phạm Thị Thảo', email: 'thao.pham@gmail.com', phoneNumber: '0901000004', roleId: 5, status: 'ACTIVE', rewardPoints: 450 },
-    { fullName: 'Vũ Minh Tuấn', email: 'tuan.vu@gmail.com', phoneNumber: '0901000005', roleId: 6, status: 'ACTIVE', rewardPoints: 0 },
-    { fullName: 'Hoàng Mai Anh', email: 'maianh.hoang@gmail.com', phoneNumber: '0901000006', roleId: 6, status: 'ACTIVE', rewardPoints: 3400 },
-    { fullName: 'Đặng Quốc Bảo', email: 'bao.dang@gmail.com', phoneNumber: '0901000007', roleId: 6, status: 'ACTIVE', rewardPoints: 80 },
-    { fullName: 'Bùi Phương Ly', email: 'ly.bui@gmail.com', phoneNumber: '0901000008', roleId: 6, status: 'ACTIVE', rewardPoints: 950 },
-    { fullName: 'Đỗ Tiến Dũng', email: 'dung.do@gmail.com', phoneNumber: '0901000009', roleId: 6, status: 'INACTIVE', rewardPoints: 0 },
-    { fullName: 'Ngô Khánh Linh', email: 'linh.ngo@gmail.com', phoneNumber: '0901000010', roleId: 6, status: 'BLOCKED', rewardPoints: 10 },
+    { fullName: 'Nguyễn Quản Trị', email: 'admin@fashion.com', phoneNumber: '0901000001', roleId: adminId, status: 'ACTIVE', rewardPoints: 5000 },
+    { fullName: 'Trần Nhân Viên', email: 'staff@fashion.com', phoneNumber: '0901000002', roleId: staffId, status: 'ACTIVE', rewardPoints: 200 },
+    { fullName: 'Lê Hoàng Nam', email: 'nam.le@gmail.com', phoneNumber: '0901000003', roleId: staffId, status: 'ACTIVE', rewardPoints: 1200 },
+    { fullName: 'Phạm Thị Thảo', email: 'thao.pham@gmail.com', phoneNumber: '0901000004', roleId: staffId, status: 'ACTIVE', rewardPoints: 450 },
+    { fullName: 'Vũ Minh Tuấn', email: 'tuan.vu@gmail.com', phoneNumber: '0901000005', roleId: customerId, status: 'ACTIVE', rewardPoints: 0 },
+    { fullName: 'Hoàng Mai Anh', email: 'maianh.hoang@gmail.com', phoneNumber: '0901000006', roleId: customerId, status: 'ACTIVE', rewardPoints: 3400 },
+    { fullName: 'Đặng Quốc Bảo', email: 'bao.dang@gmail.com', phoneNumber: '0901000007', roleId: customerId, status: 'ACTIVE', rewardPoints: 80 },
+    { fullName: 'Bùi Phương Ly', email: 'ly.bui@gmail.com', phoneNumber: '0901000008', roleId: customerId, status: 'ACTIVE', rewardPoints: 950 },
+    { fullName: 'Đỗ Tiến Dũng', email: 'dung.do@gmail.com', phoneNumber: '0901000009', roleId: customerId, status: 'INACTIVE', rewardPoints: 0 },
+    { fullName: 'Ngô Khánh Linh', email: 'linh.ngo@gmail.com', phoneNumber: '0901000010', roleId: customerId, status: 'BLOCKED', rewardPoints: 10 },
   ];
 
   const users = [];
@@ -422,21 +430,7 @@ async function main() {
     console.log('✅ Đã tạo 10 ReturnMedias');
   }
 
-  // ==========================================
-  // BẢNG 22: INVENTORY_TRANSACTION (10 records)
-  // ==========================================
-  for (let i = 0; i < 10; i++) {
-    await prisma.inventoryTransaction.create({
-      data: {
-        variantId: variants[i].id,
-        quantityChange: 100,
-        type: 'IMPORT',
-        referenceId: `PO-IMPORT-2026-${i + 1}`,
-        note: 'Nhập lô hàng đầu tháng từ xưởng may Hà Nội',
-      },
-    });
-  }
-  console.log('✅ Đã tạo 10 InventoryTransactions');
+  // InventoryTransaction model was removed
 
   // ==========================================
   // BẢNG 23: FLASH_SALE_CAMPAIGN (10 records)
@@ -515,7 +509,6 @@ async function main() {
         rating: 5,
         content: reviewContents[i],
         shopReply: 'Dạ cảm ơn bạn đã tin yêu và ủng hộ sản phẩm của thương hiệu ạ!',
-        updateCount: 0,
         isHidden: false,
       },
     });
@@ -525,12 +518,11 @@ async function main() {
 
   // ==========================================
   // BẢNG 27: REVIEW_MEDIA (10 records)
-  // ==========================================
   if (prisma.reviewMedia) {
     for (let i = 0; i < 10; i++) {
       await prisma.reviewMedia.create({
         data: {
-          productReviewId: reviews[i].id,
+          reviewId: reviews[i].id,
           mediaUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=400&q=80',
           mediaType: 'IMAGE',
         },
@@ -546,8 +538,8 @@ async function main() {
   for (let i = 0; i < 10; i++) {
     const ch = await prisma.chat.create({
       data: {
-        customerId: users[i].id,
-        status: i % 3 === 0 ? 'OPEN' : 'RESOLVED',
+        userId: users[i].id,
+        status: i % 3 === 0 ? 'OPEN' : 'CLOSED',
       },
     });
     chats.push(ch);
@@ -562,7 +554,6 @@ async function main() {
       data: {
         chatId: chats[i].id,
         senderId: users[i].id,
-        senderRole: 'CUSTOMER',
         content: `Chào shop, mình cao 1m75 nặng 68kg thì mặc size L của sản phẩm ${products[i].defaultName} có vừa không?`,
         isRead: true,
       },

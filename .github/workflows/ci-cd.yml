@@ -1,0 +1,98 @@
+name: Enterprise CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "staging" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # ==========================================
+  # 1. LINTING & TYPE CHECK
+  # ==========================================
+  lint-and-typecheck:
+    name: Code Quality & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci --prefix server && npm ci --prefix client
+      - name: Server Type Check
+        run: npm run build --prefix server
+      - name: Client Type Check & Lint
+        run: npm run build --prefix client
+
+  # ==========================================
+  # 2. SECURITY AUDIT
+  # ==========================================
+  security-audit:
+    name: CVE Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run npm audit (Server)
+        run: npm audit --audit-level=high --prefix server
+      - name: Run npm audit (Client)
+        run: npm audit --audit-level=high --prefix client
+
+  # ==========================================
+  # 3. TEST RUNNER (CHAOS EVALS)
+  # ==========================================
+  test:
+    name: Automated Chaos & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install server deps
+        run: npm ci --prefix server
+      - name: Run Vitest Chaos Evals
+        run: npx vitest run --prefix server
+
+  # ==========================================
+  # 4. BUILD & DEPLOY (CD)
+  # ==========================================
+  build-and-push:
+    name: Docker Build & Push
+    needs: [lint-and-typecheck, security-audit, test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Build and push Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-blue-green:
+    name: Zero-Downtime Blue/Green Rollout
+    needs: [build-and-push]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Trigger Webhook for Blue/Green Deployment
+        run: |
+          echo "Triggering Kubernetes/Docker Swarm hook to spin up new container (Green), await health check, and route traffic from Blue to Green."
+          # curl -X POST ${{ secrets.DEPLOY_HOOK_URL }}

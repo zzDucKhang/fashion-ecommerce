@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import useSWR, { useSWRConfig } from "swr";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Star,
   CheckCircle2,
@@ -82,14 +82,10 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
   const [ratingFilter, setRatingFilter] = useState<number | undefined>(undefined);
 
   const swrKey = `/reviews?productId=${productId}&page=${page}&rating=${ratingFilter ?? ""}`;
-  const { data: response, error, isLoading, mutate } = useSWR(
-    swrKey,
-    () => getReviewsByProduct({ productId, page, limit: 5, rating: ratingFilter }),
-    {
-      revalidateOnFocus: false,
-      keepPreviousData: true,
-    }
-  );
+  const { data: response, error, isLoading, refetch } = useQuery({
+    queryKey: ["reviews", productId, page, ratingFilter],
+    queryFn: ({ signal }) => getReviewsByProduct({ productId, page, limit: 5, rating: ratingFilter, signal }),
+  });
 
   const reviews = response?.data ?? [];
   const ratingStats = response?.ratingStats ?? { averageRating: 0, totalReviews: 0 };
@@ -181,7 +177,7 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
           </p>
           <button
             type="button"
-            onClick={() => mutate()}
+            onClick={() => refetch()}
             className="px-4 py-2 text-xs font-semibold bg-[#1D1F20] text-white rounded-xl hover:bg-black transition"
           >
             Thử lại
@@ -324,7 +320,7 @@ export function ReviewForm({
   productId,
   onReviewSubmitted,
 }: ReviewFormProps) {
-  const { mutate } = useSWRConfig();
+  const queryClient = useQueryClient();
   const [rating, setRating] = useState<number>(5);
   const [content, setContent] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -356,11 +352,9 @@ export function ReviewForm({
         content: trimmedContent,
       });
 
-      mutate(
-        (key: any) =>
-          typeof key === "string" &&
-          key.startsWith(`/reviews?productId=${productId}`)
-      );
+      queryClient.invalidateQueries({
+        queryKey: ["reviews", productId],
+      });
 
       setSuccessMessage("Cảm ơn bạn! Đánh giá của bạn đã được ghi nhận thành công.");
       setContent("");

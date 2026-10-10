@@ -27,7 +27,7 @@ export const VOUCHER_META_KEY_PREFIX = 'voucher:meta:'
 const VOUCHER_META_CACHE_TTL_SECONDS = 30
 
 export class VoucherRepo {
-  constructor(private readonly redis: Redis = redisClient) {}
+  constructor(private readonly redis: Redis = redisClient) { }
 
   async findAll(skip: number, take: number, isActive?: boolean) {
     const where = {
@@ -410,21 +410,21 @@ export class VoucherRepo {
   /**
    * =========================================================================================
    * @WARNING CONTRACT RULES: CROSS-MODULE DEFENSIVE INTERFACE FOR CART-ORDER
-   * 
-   *  ██╗    ██╗ █████╗ ██████╗ ███╗   ██╗██╗███╗   ██╗ ██████╗ 
-   *  ██║    ██║██╔══██╗██╔══██╗████╗  ██║██║████╗  ██║██╔════╝ 
+   *
+   *  ██╗    ██╗ █████╗ ██████╗ ███╗   ██╗██╗███╗   ██╗ ██████╗
+   *  ██║    ██║██╔══██╗██╔══██╗████╗  ██║██║████╗  ██║██╔════╝
    *  ██║ █╗ ██║███████║██████╔╝██╔██╗ ██║██║██╔██╗ ██║██║  ███╗
    *  ██║███╗██║██╔══██║██╔══██╗██║╚██╗██║██║██║╚██╗██║██║   ██║
    *  ╚███╔███╔╝██║  ██║██║  ██║██║ ╚████║██║██║ ╚████║╚██████╔╝
-   *   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝ 
+   *   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝
    * =========================================================================================
    * GỬI TEAM CART-ORDER (CHECKOUT MODULE):
-   * 
+   *
    * TUYỆT ĐỐI KHÔNG GỌI TRỰC TIẾP `increment` VÀO DB (PostgreSQL) KHI CREATE ORDER!
    * Việc tự ý cập nhật DB mà không qua Redis sẽ gây ra lỗi SPLIT-BRAIN cực kỳ nguy hiểm:
    *   - Redis Atomic Counter bị lệch pha hoàn toàn với PostgreSQL.
    *   - Gây lỗi OVERSELL (bán vượt số lượng voucher) trong các đợt Flash Sale / Traffic cao.
-   * 
+   *
    * BẮT BUỘC PHẢI GỌI HÀM NÀY: `applyVoucherSafely(voucherCode, userId, prismaTx)`
    * và truyền Prisma Interactive Transaction Client (`tx`) vào để bảo đảm:
    *   1. Tăng/Trừ Redis Atomic Counter trước (ioredis).
@@ -485,7 +485,7 @@ export class VoucherRepo {
           } catch (lockErr) {
             logger.warn({ code: normalizedCode, userId, lockErr }, 'applyVoucherSafely: seed lock failed, continuing')
           } finally {
-            if (lock) await lock.release().catch(() => {})
+            if (lock) await lock.release().catch(() => { })
           }
         }
       }
@@ -563,23 +563,23 @@ export class VoucherRepo {
   /**
    * =========================================================================================
    * @WARNING CONTRACT RULES: CROSS-MODULE DEFENSIVE INTERFACE FOR ORDER CANCELLATION / ROLLBACK
-   * 
-   *  ██╗    ██╗ █████╗ ██████╗ ███╗   ██╗██╗███╗   ██╗ ██████╗ 
-   *  ██║    ██║██╔══██╗██╔══██╗████╗  ██║██║████╗  ██║██╔════╝ 
+   *
+   *  ██╗    ██╗ █████╗ ██████╗ ███╗   ██╗██╗███╗   ██╗ ██████╗
+   *  ██║    ██║██╔══██╗██╔══██╗████╗  ██║██║████╗  ██║██╔════╝
    *  ██║ █╗ ██║███████║██████╔╝██╔██╗ ██║██║██╔██╗ ██║██║  ███╗
    *  ██║███╗██║██╔══██║██╔══██╗██║╚██╗██║██║██║╚██╗██║██║   ██║
    *  ╚███╔███╔╝██║  ██║██║  ██║██║ ╚████║██║██║ ╚████║╚██████╔╝
-   *   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝ 
+   *   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝
    * =========================================================================================
    * GỬI TEAM CART-ORDER & PAYMENT/CHECKOUT:
-   * 
+   *
    * KHI HỦY ĐƠN HÀNG (CANCEL), HOÀN TIỀN (REFUND), HOẶC CHECKOUT TRANSACTION THẤT BẠI:
    * TUYỆT ĐỐI KHÔNG TỰ Ý SỬA DB HOẶC BỎ QUA REDIS COUNTER!
    * Nếu không gọi qua Voucher Service:
    *   - Bộ đếm Redis (`voucher:used:{code}` và `voucher:users:{code}`) KHÔNG được hoàn lại.
    *   - Khách hàng bị mất vĩnh viễn lượt dùng mã dù đơn hàng đã hủy!
    *   - Hiện tại hàm `orderRepo.refundVoucherUsage()` KHÔNG TỒN TẠI trong Order Module!
-   * 
+   *
    * BẮT BUỘC GỌI HÀM NÀY: `releaseVoucherSafely(voucherCode, userId, prismaTx)`
    * và truyền Prisma Transaction Client (`tx`) vào:
    *   1. Giảm bộ đếm Redis tổng và Redis per-user (`hincrby -1`, `decr`).

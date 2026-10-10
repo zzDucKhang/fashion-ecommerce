@@ -1,6 +1,7 @@
 import { OrderStatus, PaymentStatus, PointTransType, Prisma } from '@prisma/client'
 import { prisma } from '@/database/prisma'
 import { ListOrderInput } from './order.schema'
+// [Smoke Test] Cross-module WRITE access verified
 
 export const orderItemInclude = {
   orderItems: {

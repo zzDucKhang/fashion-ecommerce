@@ -1,6 +1,7 @@
 import { PaymentRepo } from './payment.repo'
 import { GetAllPaymentsQueryType } from './payment.schema'
 import { AppError } from '@/common/errors'
+import { logger } from '@/common/logger'
 import { OrderService } from '@/modules/cart-order/order/order.service'
 import { randomBytes } from 'node:crypto'
 import crypto from 'node:crypto'
@@ -53,7 +54,7 @@ export class PaymentService {
     )
   }
   async handleSePayWebhook(payload: SePayWebhookPayload) {
-    console.log("PAYMENT LOG PAYLOAD:", payload)
+    logger.info({ payload }, 'Received payment log payload')
     if (payload.transferType !== 'in') {
       throw new AppError('Không phải giao dịch tiền vào', 400)
     }

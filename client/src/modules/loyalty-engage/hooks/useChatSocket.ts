@@ -11,7 +11,7 @@ export interface UseChatSocketOptions {
 }
 
 export interface UseChatSocketReturn {
-  socket: Socket | null;
+  socketRef: React.MutableRefObject<Socket | null>;
   socketId: string | null;
   isConnected: boolean;
   messages: ChatMessageItem[];
@@ -60,21 +60,19 @@ export function useChatSocket({
       if (currentSocketId) {
         try {
           await sendSocketHeartbeat(currentSocketId);
-        } catch (err) {
-          console.warn("[useChatSocket] Initial heartbeat error:", err);
+        } catch {
+          // ignore heartbeat error
         }
       }
     });
 
-    socketInstance.on("disconnect", (reason) => {
+    socketInstance.on("disconnect", () => {
       setIsConnected(false);
       setSocketId(null);
-      console.log("[useChatSocket] Socket disconnected:", reason);
     });
 
-    socketInstance.on("connect_error", (error) => {
+    socketInstance.on("connect_error", () => {
       setIsConnected(false);
-      console.error("[useChatSocket] Connection error:", error.message);
     });
 
     socketInstance.on("message", (incomingMsg: ChatMessageItem) => {
@@ -102,8 +100,8 @@ export function useChatSocket({
       if (activeId && socketRef.current?.connected) {
         try {
           await sendSocketHeartbeat(activeId);
-        } catch (err) {
-          console.warn("[useChatSocket] 30s Heartbeat ping failed:", err);
+        } catch {
+          // ignore error
         }
       }
     }, HEARTBEAT_INTERVAL_MS);
@@ -149,7 +147,7 @@ export function useChatSocket({
   }, []);
 
   return {
-    socket: socketRef.current,
+    socketRef,
     socketId,
     isConnected,
     messages,

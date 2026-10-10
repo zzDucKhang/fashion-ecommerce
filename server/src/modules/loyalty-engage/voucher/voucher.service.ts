@@ -11,7 +11,7 @@ import {
 const logger = createLogger('VoucherService')
 
 export class VoucherService {
-  constructor(private voucherRepo = new VoucherRepo()) {}
+  constructor(private voucherRepo = new VoucherRepo()) { }
 
   async listVouchers(query: ListVoucherQueryType) {
     const { page, limit, isActive } = query
@@ -183,7 +183,7 @@ export class VoucherService {
   /**
    * =========================================================================================
    * @WARNING CONTRACT RULES: CROSS-MODULE DEFENSIVE INTERFACE FOR CART-ORDER CHECKOUT
-   * 
+   *
    * GỬI TEAM CART-ORDER:
    * BẮT BUỘC GỌI QUA INTERACTIVE TRANSACTION: `applyVoucherSafely(voucherCode, userId, prismaTx)`
    * ĐỂ BẢO ĐẢM TÍNH TOÀN VẸN ATOMIC TRÊN REDIS VÀ POSTGRESQL, CHỐNG OVERSELL VÀ SPLIT-BRAIN!
@@ -196,7 +196,7 @@ export class VoucherService {
   /**
    * =========================================================================================
    * @WARNING CONTRACT RULES: CROSS-MODULE DEFENSIVE INTERFACE FOR CART-ORDER ROLLBACK/CANCEL
-   * 
+   *
    * GỬI TEAM CART-ORDER & PAYMENT:
    * BẮT BUỘC GỌI QUA TRANSACTION: `releaseVoucherSafely(voucherCode, userId, prismaTx)`
    * ĐỂ HOÀN LẠI ATOMIC COUNTER TRÊN REDIS VÀ POSTGRESQL KHI ĐƠN BỊ HỦY!

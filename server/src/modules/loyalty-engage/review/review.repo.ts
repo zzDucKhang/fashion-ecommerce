@@ -99,18 +99,35 @@ export class ReviewRepo {
   }
 
   async getAverageRating(productId: number) {
-    const result = await prisma.productReview.aggregate({
-      where: { productId, isHidden: false, deletedAt: null },
-      _avg: { rating: true },
-      _count: { rating: true },
+    const cacheKey = `catalog:product:${productId}:rating`
+    try {
+      const cached = await redisClient.get(cacheKey)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        return { averageRating: parsed.averageRating, totalReviews: parsed.totalReviews }
+      }
+    } catch (err) {
+      logger.warn({ productId, err }, 'getAverageRating: Redis cache read error')
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { averageRating: true, reviewCount: true },
     })
 
-    const totalReviews = result._count.rating
-    const rawAvg = result._avg.rating
-    const averageRating =
-      rawAvg !== null && totalReviews > 0
-        ? Math.round(rawAvg * 10) / 10
-        : 0
+    const averageRating = product ? Number(product.averageRating) : 0
+    const totalReviews = product ? product.reviewCount : 0
+
+    try {
+      await redisClient.set(
+        cacheKey,
+        JSON.stringify({ productId, averageRating, totalReviews, updatedAt: new Date().toISOString() }),
+        'EX',
+        86400,
+      )
+    } catch (cacheErr) {
+      logger.warn({ productId, cacheErr }, 'getAverageRating: Redis cache set warning')
+    }
 
     return { averageRating, totalReviews }
   }
@@ -134,29 +151,24 @@ export class ReviewRepo {
   }
 
   async syncProductRatingHook(productId: number, tx?: any) {
-    const client = tx || prisma
-    const result = await client.productReview.aggregate({
-      where: { productId, isHidden: false, deletedAt: null },
-      _avg: { rating: true },
-      _count: { rating: true },
-    })
-
-    const totalReviews = result._count.rating || 0
-    const rawAvg = result._avg.rating
-    const averageRating = rawAvg !== null && totalReviews > 0 ? Math.round(rawAvg * 10) / 10 : 0
-
+    const cacheKey = `catalog:product:${productId}:rating`
     try {
-      const cacheKey = `catalog:product:${productId}:rating`
-      await redisClient.set(
-        cacheKey,
-        JSON.stringify({ productId, averageRating, totalReviews, updatedAt: new Date().toISOString() }),
-        'EX',
-        86400,
-      )
+      await redisClient.del(cacheKey)
+      logger.info({ productId }, 'syncProductRatingHook: evicted rating cache from Redis')
     } catch (cacheErr) {
-      logger.warn({ productId, cacheErr }, 'syncProductRatingHook: Redis cache sync warning')
+      logger.warn({ productId, cacheErr }, 'syncProductRatingHook: Redis cache eviction warning')
     }
 
-    return { productId, averageRating, totalReviews }
+    const client = tx || prisma
+    const product = await client.product.findUnique({
+      where: { id: productId },
+      select: { averageRating: true, reviewCount: true },
+    })
+
+    return {
+      productId,
+      averageRating: product ? Number(product.averageRating) : 0,
+      totalReviews: product ? product.reviewCount : 0,
+    }
   }
 }

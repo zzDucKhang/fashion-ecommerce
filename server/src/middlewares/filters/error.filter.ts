@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { Prisma } from '@prisma/client'
 import { envConfig } from '@/config/env.config'
+import { logger } from '@/common/logger'
 
 export const errorFilter = (
   err: any,
@@ -23,9 +24,16 @@ export const errorFilter = (
     }
   }
 
-  if (envConfig.NODE_ENV === 'development') {
-    console.error('🔥 [ERROR LOG]:', err)
-  }
+  logger.error(
+    {
+      err,
+      statusCode,
+      message,
+      path: req.originalUrl,
+      method: req.method,
+    },
+    '🔥 [ERROR LOG]'
+  )
 
   return res.status(statusCode).json({
     success: false,

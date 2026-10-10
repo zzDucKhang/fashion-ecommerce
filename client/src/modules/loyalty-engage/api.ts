@@ -149,8 +149,8 @@ export async function validateVoucher(
   return res.data;
 }
 
-export async function getPointBalance(): Promise<PointBalanceResponse> {
-  const res = await apiClient.get<PointBalanceResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.POINTS}/balance`);
+export async function getPointBalance(signal?: AbortSignal): Promise<PointBalanceResponse> {
+  const res = await apiClient.get<PointBalanceResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.POINTS}/balance`, { signal });
   return res.data;
 }
 
@@ -170,6 +170,7 @@ export async function getReviewsByProduct(params: {
   page?: number;
   limit?: number;
   rating?: number;
+  signal?: AbortSignal;
 }): Promise<ProductReviewsResponse> {
   const query = new URLSearchParams();
   query.append("productId", params.productId.toString());
@@ -177,7 +178,7 @@ export async function getReviewsByProduct(params: {
   if (params.limit) query.append("limit", params.limit.toString());
   if (params.rating) query.append("rating", params.rating.toString());
 
-  const res = await apiClient.get<ProductReviewsResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.REVIEWS}?${query.toString()}`);
+  const res = await apiClient.get<ProductReviewsResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.REVIEWS}?${query.toString()}`, { signal: params.signal });
   return res.data;
 }
 

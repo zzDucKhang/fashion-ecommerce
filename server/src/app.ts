@@ -2,7 +2,10 @@ import express, { Express } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import pinoHttp from 'pino-http'
+import crypto from 'node:crypto'
 import { errorFilter } from '@/middlewares/filters/error.filter'
+import { envConfig } from '@/config/env.config'
+import { logger } from '@/common/logger'
 
 // Import 6 router tổng của 6 phân hệ
 import { identityRouter } from '@/modules/identity/identity.routes'
@@ -17,7 +20,14 @@ export const createApp = (): Express => {
   const app = express()
 
   app.use(helmet())
-  app.use(cors())
+  app.use(
+    cors({
+      origin: envConfig.CORS_ORIGIN || 'http://localhost:3000',
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
+    })
+  )
 
   // QUAN TRONG QUAN TRONG QUAN TRONG. 
   // SePay webhook khong dung express.json()
@@ -25,12 +35,31 @@ export const createApp = (): Express => {
 
   app.use(express.json({ limit: '10mb' }))
   app.use(express.urlencoded({ extended: true }))
-  app.use(pinoHttp({ autoLogging: false }))
+  app.use(pinoHttp({
+    logger,
+    genReqId: function (req, res) {
+      const existingID = req.id ?? req.headers['x-trace-id']
+      if (existingID) return existingID
+      const id = crypto.randomUUID()
+      res.setHeader('x-trace-id', id)
+      return id
+    },
+    customProps: function (req, res) {
+      return {
+        traceId: req.id,
+      }
+    },
+    autoLogging: false,
+  }))
 
   // Health check
   app.get('/health', (_, res) => {
     res.status(200).json({ status: 'ok', uptime: process.uptime() })
   })
+
+  // Middleware bảo vệ cho AI Agents
+  const { idempotencyMiddleware } = require('@/middlewares/idempotency.middleware')
+  app.use(idempotencyMiddleware())
 
   // Đăng ký 6 Route tổng
   app.use('/api/v1/identity', identityRouter)

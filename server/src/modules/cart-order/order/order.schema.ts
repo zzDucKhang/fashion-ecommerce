@@ -49,6 +49,7 @@ export const createOrderSchema = z
     
     // LƯU Ý: Đã LOẠI BỎ shippingFee khỏi Schema để tránh việc Client tự gửi giá ship lên.
   })
+  .strict()
   .refine((data) => data.shippingAddressId || data.shippingAddress, {
     message: 'Vui lòng chọn địa chỉ có sẵn hoặc nhập địa chỉ giao hàng mới',
     path: ['shippingAddress'], // Chỉ định hiển thị lỗi tại vị trí trường shippingAddress
