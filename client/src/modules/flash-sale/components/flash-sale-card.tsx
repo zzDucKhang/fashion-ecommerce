@@ -10,10 +10,11 @@ import { cartApi } from '@/api/cart.api';
 
 interface FlashSaleCardProps {
   item: FlashSaleItem;
+  imageUrl?: string;
   className?: string;
 }
 
-export function FlashSaleCard({ item, className }: FlashSaleCardProps) {
+export function FlashSaleCard({ item, imageUrl, className }: FlashSaleCardProps) {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
 
@@ -63,13 +64,15 @@ export function FlashSaleCard({ item, className }: FlashSaleCardProps) {
       <div>
         {/* Image & Discount Badge Container */}
         <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-900">
-          <Image
-            src="/images/product-placeholder.jpg"
-            alt={productName}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+          {imageUrl && (
+            <Image
+              src={imageUrl}
+              alt={productName}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          )}
 
           {/* Flash Sale Tag */}
           <div className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider !text-white [&_*]:!text-white shadow-md shadow-red-600/30">

@@ -18,26 +18,33 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    
     const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
-      auth: { token },
-      autoConnect: !!token,
+      autoConnect: false,
     });
 
     const onConnect = () => setIsConnected(true);
     const onDisconnect = () => setIsConnected(false);
+    const syncAuthentication = () => {
+      const token = localStorage.getItem('accessToken');
+      socketInstance.auth = { token };
+      if (token) {
+        if (!socketInstance.connected) socketInstance.connect();
+      } else {
+        socketInstance.disconnect();
+      }
+    };
 
     socketInstance.on('connect', onConnect);
     socketInstance.on('disconnect', onDisconnect);
-
-    // Gán socket qua callback bất đồng bộ để không kích hoạt cascading render warning
-    const timer = setTimeout(() => {
-      setSocket(socketInstance);
-    }, 0);
+    window.addEventListener('storage', syncAuthentication);
+    window.addEventListener('local-storage-change', syncAuthentication);
+    syncAuthentication();
+    const timer = setTimeout(() => setSocket(socketInstance), 0);
 
     return () => {
       clearTimeout(timer);
+      window.removeEventListener('storage', syncAuthentication);
+      window.removeEventListener('local-storage-change', syncAuthentication);
       socketInstance.off('connect', onConnect);
       socketInstance.off('disconnect', onDisconnect);
       socketInstance.disconnect();

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Flame, ShieldCheck, Zap, RefreshCw, ShoppingBag, Clock, Search } from 'lucide-react';
-import { FlashSaleItem } from '@/types/inventory-sale';
+import { catalogApi } from '@/api/catalog.api';
 import { FlashSaleCountdown } from '@/modules/flash-sale/components/countdown';
 import { FlashSaleCard } from '@/modules/flash-sale/components/flash-sale-card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { useFlashSaleStore } from '@/modules/flash-sale/store';
 import { FlashSaleProvider, useFlashSaleContext } from '@/modules/flash-sale/context';
 
 // Sub-component sử dụng Context
-function FlashSaleItemList() {
+function FlashSaleItemList({ imageByVariantId }: { imageByVariantId: Record<number, string> }) {
   const { filteredItems } = useFlashSaleContext();
 
   if (filteredItems.length === 0) {
@@ -32,7 +32,11 @@ function FlashSaleItemList() {
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
       {filteredItems.map((item) => (
-        <FlashSaleCard key={item.id || item.variantId} item={item} />
+        <FlashSaleCard
+          key={item.id || item.variantId}
+          item={item}
+          imageUrl={imageByVariantId[item.variantId]}
+        />
       ))}
     </div>
   );
@@ -79,17 +83,65 @@ export default function FlashSaleShopPage() {
     loading,
     fetchActiveCampaigns,
     setSelectedCampaignId,
-    getActiveCampaign,
   } = useFlashSaleStore();
 
   // 2. LOCAL STATE (useState) cho UI trợ lý đếm ngược / tab local
   const [refreshing, setRefreshing] = useState(false);
+  const [imageByVariantId, setImageByVariantId] = useState<Record<number, string>>({});
 
   useEffect(() => {
     fetchActiveCampaigns();
   }, [fetchActiveCampaigns]);
 
-  const activeCampaign = getActiveCampaign();
+  useEffect(() => {
+    if (activeCampaigns.length === 0) return;
+
+    let cancelled = false;
+
+    async function fetchProductImages() {
+      try {
+        const firstPage = await catalogApi.getProducts({
+          page: 1,
+          limit: 100,
+          status: 'PUBLISHED',
+        });
+        const remainingPages = await Promise.all(
+          Array.from({ length: Math.max(firstPage.totalPages - 1, 0) }, (_, index) =>
+            catalogApi.getProducts({
+              page: index + 2,
+              limit: 100,
+              status: 'PUBLISHED',
+            })
+          )
+        );
+        const products = [firstPage, ...remainingPages].flatMap((page) => page.data);
+        const imageMap: Record<number, string> = {};
+
+        for (const product of products) {
+          const imageUrl = product.images?.[0]?.imageUrl || product.thumbnailUrl;
+          if (!imageUrl) continue;
+
+          for (const variant of product.variants || []) {
+            imageMap[variant.id] = imageUrl;
+          }
+        }
+
+        if (!cancelled) setImageByVariantId(imageMap);
+      } catch (error) {
+        console.error('Failed to fetch Flash Sale product images:', error);
+      }
+    }
+
+    void fetchProductImages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCampaigns]);
+
+  const activeCampaign =
+    activeCampaigns.find((campaign) => campaign.id === selectedCampaignId) ??
+    activeCampaigns[0];
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -190,7 +242,7 @@ export default function FlashSaleShopPage() {
               ))}
             </div>
           ) : (
-            <FlashSaleItemList />
+            <FlashSaleItemList imageByVariantId={imageByVariantId} />
           )}
         </FlashSaleProvider>
       </div>

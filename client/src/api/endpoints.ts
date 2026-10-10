@@ -40,4 +40,12 @@ export const API_ENDPOINTS = {
     POINTS: '/loyalty-engage/points',
     REVIEWS: '/loyalty-engage/reviews',
   },
+  CHAT: {
+    ACTIVE: '/loyalty-engage/chat/messages',
+    HISTORY: '/loyalty-engage/chat/messages',
+    SEND: '/loyalty-engage/chat/messages',
+    READ: '/loyalty-engage/chat/messages/read',
+    UNREAD: '/loyalty-engage/chat/messages/unread',
+    CONVERSATIONS: '/loyalty-engage/chat/conversations',
+  }
 } as const;

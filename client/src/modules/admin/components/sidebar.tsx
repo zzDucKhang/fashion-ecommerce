@@ -81,18 +81,27 @@ const navGroups: NavGroup[] = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const isStaff = user?.role?.code === 'STAFF';
+  const visibleNavGroups = isStaff
+    ? navGroups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => item.href === '/admin/chat'),
+        }))
+        .filter((group) => group.items.length > 0)
+    : navGroups;
 
   return (
     <aside className="w-64 shrink-0 bg-white border-r border-[#EAE6DF] min-h-screen flex flex-col justify-between sticky top-0 h-screen select-none">
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Brand header */}
         <div className="h-16 px-6 flex items-center justify-between border-b border-[#EAE6DF]">
-          <Link href="/admin/dashboard" className="flex items-center gap-2">
+          <Link href={isStaff ? '/admin/chat' : '/admin/dashboard'} className="flex items-center gap-2">
             <span className="font-display text-2xl font-semibold tracking-[-.06em]">
               common<span className="text-[#84EA53]">.</span>
             </span>
             <Badge variant="lime" className="text-[9px] uppercase px-1.5 py-0">
-              Admin
+              {isStaff ? 'CSKH' : 'Admin'}
             </Badge>
           </Link>
           <Link
@@ -107,7 +116,7 @@ export function AdminSidebar() {
 
         {/* Navigation list */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-          {navGroups.map((group) => (
+          {visibleNavGroups.map((group) => (
             <div key={group.title} className="space-y-1">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 px-3 mb-2">
                 {group.title}
@@ -169,4 +178,3 @@ export function AdminSidebar() {
     </aside>
   );
 }
-

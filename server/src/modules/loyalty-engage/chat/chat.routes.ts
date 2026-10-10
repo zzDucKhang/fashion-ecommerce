@@ -24,6 +24,7 @@ const controller = new ChatController()
  * PHẢI đăng ký TRƯỚC /messages để tránh Express match 'unread' như query param
  */
 chatRouter.get('/messages/unread', requireAuth, controller.getUnreadCount)
+chatRouter.get('/messages/active', requireAuth, controller.getActiveChat)
 
 /** GET /chat/messages?withUserId=&page=&limit= – Lịch sử hội thoại */
 chatRouter.get(
@@ -49,8 +50,18 @@ chatRouter.post(
   controller.markAsRead,
 )
 
-/** GET /chat/conversations – Danh sách cuộc trò chuyện */
-chatRouter.get('/conversations', requireAuth, controller.getConversationList)
+/** Shop inbox */
+chatRouter.get('/conversations', requireAuth, controller.getShopConversationList)
+chatRouter.post(
+  '/conversations/:chatId/close',
+  requireAuth,
+  validateRequest({
+    params: z.object({
+      chatId: z.string().regex(/^\d+$/, 'chatId phải là số nguyên').transform(Number),
+    }),
+  }),
+  controller.closeConversation,
+)
 
 // ─── WebSocket Session routes (dùng cho Socket.IO / Gateway / Client heartbeat) ──
 

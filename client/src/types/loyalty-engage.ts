@@ -53,11 +53,13 @@ export interface ProductReview {
 // Khớp chuẩn model Chat & Message trong Prisma
 export interface ChatSession {
   id: number;
-  customerId: number;
-  status: 'OPEN' | 'RESOLVED' | 'CLOSED';
+  userId: number;
+  status: 'OPEN' | 'WAITING' | 'CLOSED';
+  startedAt: string;
+  endedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  customer?: UserProfile;
+  user?: Pick<UserProfile, 'id' | 'fullName' | 'avatarUrl'>;
   messages?: ChatMessage[];
 }
 
@@ -65,9 +67,8 @@ export interface ChatMessage {
   id: number;
   chatId: number;
   senderId: number;
-  senderRole: 'CUSTOMER' | 'STAFF' | 'ADMIN';
   content: string;
   isRead: boolean;
-  createdAt: string;
-  sender?: UserProfile;
+  sendDate: string;
+  sender?: Pick<UserProfile, 'id' | 'fullName' | 'avatarUrl'>;
 }

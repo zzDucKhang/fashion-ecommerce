@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { AdminSidebar } from '@/modules/admin/components/sidebar';
 import { useAuth } from '@/components/providers/auth-provider';
 import { Avatar } from '@/components/ui/avatar';
@@ -16,6 +16,7 @@ export default function AdminLayout({
 }) {
   const { user, isAuthenticated, isAdmin } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -26,6 +27,18 @@ export default function AdminLayout({
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FBF9F4]">
         <div className="animate-pulse text-sm text-neutral-500">Đang khởi tạo quyền quản trị...</div>
+      </div>
+    );
+  }
+
+  const canAccessStaffChat =
+    isAuthenticated && user?.role?.code === 'STAFF' && pathname === '/admin/chat';
+
+  if (canAccessStaffChat) {
+    return (
+      <div className="flex min-h-screen bg-[#FBF9F4]">
+        <AdminSidebar />
+        <main className="min-w-0 flex-1 p-4 sm:p-8">{children}</main>
       </div>
     );
   }
@@ -110,4 +123,3 @@ export default function AdminLayout({
     </div>
   );
 }
-

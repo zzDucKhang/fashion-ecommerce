@@ -3,6 +3,8 @@ import { Server as HttpServer } from 'http'
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { createAdapter } from '@socket.io/redis-adapter'
 import Redis from 'ioredis'
+import jwt, { JwtPayload } from 'jsonwebtoken'
+import { prisma } from '@/database/prisma'
 import { envConfig } from '@/config/env.config'
 import { createLogger } from './logger'
 
@@ -71,39 +73,58 @@ export function initWebSocket(httpServer: HttpServer): SocketIOServer {
     adapter: createAdapter(pubClient, subClient),
   })
 
+  io.use((socket, next) => {
+    const token = socket.handshake.auth.token
+    if (typeof token !== 'string' || !token) {
+      return next(new Error('Authentication required'))
+    }
+
+    try {
+      const payload = jwt.verify(token, envConfig.ACCESS_TOKEN_SECRET) as JwtPayload
+      if (typeof payload.userId !== 'number' || typeof payload.roleId !== 'number') {
+        return next(new Error('Invalid authentication token'))
+      }
+
+      socket.data.userId = payload.userId
+      socket.data.roleId = payload.roleId
+      next()
+    } catch {
+      next(new Error('Invalid authentication token'))
+    }
+  })
+
   // 3. Socket event handlers
   io.on('connection', (socket: Socket) => {
-    const rawUserId = socket.handshake.query.userId
-    const userId = rawUserId ? Number(rawUserId) : undefined
+    const userId = socket.data.userId as number
+    const roleId = socket.data.roleId as number
 
     logger.info({ socketId: socket.id, userId }, 'New WebSocket client connected')
 
-    if (userId && !isNaN(userId)) {
-      const userRoom = `user:${userId}`
-      socket.join(userRoom)
-      logger.debug({ socketId: socket.id, userRoom }, 'Socket joined user room')
-    }
+    const userRoom = `user:${userId}`
+    socket.join(userRoom)
+    logger.debug({ socketId: socket.id, userRoom }, 'Socket joined user room')
 
-    // Handle incoming chat messages
-    socket.on('send_message', (payload: ChatMessagePayload) => {
-      logger.debug({ socketId: socket.id, payload }, 'Received send_message event')
+    socket.on('join_shop', async () => {
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { roleId: true, role: { select: { code: true, isActive: true, deletedAt: true } } },
+        })
+        if (
+          user?.roleId !== roleId ||
+          !user.role.isActive ||
+          user.role.deletedAt ||
+          !['ADMIN', 'STAFF'].includes(user.role.code)
+        ) {
+          socket.emit('chat_error', { message: 'Bạn không có quyền truy cập hộp thư cửa hàng' })
+          return
+        }
 
-      const messageData = {
-        id: Date.now(),
-        content: payload.content,
-        senderId: payload.senderId ?? userId,
-        receiverId: payload.receiverId,
-        createdAt: new Date().toISOString(),
+        socket.join('shop')
+      } catch (err) {
+        logger.error({ err, socketId: socket.id, userId }, 'Failed to authorize shop socket room')
+        socket.emit('chat_error', { message: 'Không thể kết nối hộp thư cửa hàng' })
       }
-
-      // If directed to a specific recipient, deliver to their user room
-      if (payload.receiverId) {
-        io?.to(`user:${payload.receiverId}`).emit('receive_message', messageData)
-        io?.to(`user:${payload.receiverId}`).emit('message', messageData)
-      }
-
-      // Also echo back to the sender
-      socket.emit('receive_message', { ...messageData, isSelf: true })
     })
 
     socket.on('disconnect', (reason) => {

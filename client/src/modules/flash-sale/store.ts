@@ -54,8 +54,9 @@ export const useFlashSaleStore = create<FlashSaleState>((set, get) => ({
     }));
   },
 
-  getActiveCampaign: () => {
+getActiveCampaign: () => {
     const { activeCampaigns, selectedCampaignId } = get();
+    if (activeCampaigns.length === 0) return undefined;
     if (!selectedCampaignId) return activeCampaigns[0];
     return activeCampaigns.find((c) => c.id === selectedCampaignId) || activeCampaigns[0];
   },
