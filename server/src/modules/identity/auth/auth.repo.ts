@@ -1,6 +1,6 @@
 import { prisma } from '@/database/prisma'
 import { RegisterUserBodyType } from './auth.schema'
-import { UserStatus, VerificationCodeType } from '@prisma/client';
+import { UserStatus } from '@prisma/client';
 
 export class AuthRepo {
   async findUserByEmail(email: string) {
@@ -60,27 +60,12 @@ export class AuthRepo {
     })
   }
 
-  async createVerificationCode(data: { email: string; code: string; type: VerificationCodeType; expiresAt: Date }) {
-    return prisma.verificationCode.create({ data })
-  }
+ 
 
-  async findValidVerificationCode(email: string, code: string, type: VerificationCodeType) {
-    return prisma.verificationCode.findFirst({
-      where: { email, code, type, isUsed: false, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: 'desc' },
-    })
-  }
+ 
 
-  async markVerificationCodeUsed(id: number) {
-    return prisma.verificationCode.update({ where: { id }, data: { isUsed: true } })
-  }
 
-  async deactivateAllVerificationCodes(email: string, type: VerificationCodeType) {
-    return prisma.verificationCode.updateMany({
-      where: { email, type, isUsed: false },
-      data: { isUsed: true },
-    })
-  }
+ 
 
   async activateUser(userId: number) {
     return prisma.user.update({ where: { id: userId }, data: { status: 'ACTIVE' } })
@@ -90,14 +75,5 @@ export class AuthRepo {
     return prisma.deviceSession.updateMany({ where: { userId, isActive: true }, data: { isActive: false } })
   }
 
-  async findVerificationCodeById(id: number) {
-    return prisma.verificationCode.findUnique({ where: { id } })
-  }
-
-  async findValidVerificationCodeByEmail(email: string, type: VerificationCodeType) {
-    return prisma.verificationCode.findFirst({
-      where: { email, type, isUsed: false, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: 'desc' },
-    })
-  }
+  
 }
