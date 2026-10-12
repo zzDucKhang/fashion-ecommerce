@@ -8,6 +8,7 @@ import {
   Shield,
   MapPin,
   Package,
+  Coins,
   LogOut,
   LayoutDashboard,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/profile', label: 'Thông tin cá nhân', icon: User },
+  { href: '/points', label: 'Lịch sử tích điểm', icon: Coins },
   { href: '/addresses', label: 'Sổ địa chỉ', icon: MapPin },
   { href: '/security', label: 'Bảo mật & Mật khẩu', icon: Shield },
   { href: '/orders', label: 'Đơn mua', icon: Package },

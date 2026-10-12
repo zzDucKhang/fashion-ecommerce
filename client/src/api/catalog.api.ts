@@ -57,10 +57,44 @@ export const catalogApi = {
     return res.data;
   },
 
-  // Danh mục & Thương hiệu
+  // Danh mục & Thương hiệu & Thẻ (Tags)
   getCategories: async () => {
     const res = await apiClient.get<{ data: Category[]; totalItems: number }>(
       API_ENDPOINTS.CATALOG.CATEGORIES
+    );
+    return res.data;
+  },
+
+  createCategory: async (payload: {
+    defaultName: string;
+    logo?: string | null;
+    parentCategoryId?: number | null;
+  }) => {
+    const res = await apiClient.post<ApiResponse<Category>>(
+      API_ENDPOINTS.CATALOG.CATEGORIES,
+      payload
+    );
+    return res.data;
+  },
+
+  updateCategory: async (
+    categoryId: number,
+    payload: {
+      defaultName?: string;
+      logo?: string | null;
+      parentCategoryId?: number | null;
+    }
+  ) => {
+    const res = await apiClient.put<ApiResponse<Category>>(
+      `${API_ENDPOINTS.CATALOG.CATEGORIES}/${categoryId}`,
+      payload
+    );
+    return res.data;
+  },
+
+  deleteCategory: async (categoryId: number) => {
+    const res = await apiClient.delete<ApiResponse<{ message: string }>>(
+      `${API_ENDPOINTS.CATALOG.CATEGORIES}/${categoryId}`
     );
     return res.data;
   },
@@ -72,8 +106,59 @@ export const catalogApi = {
     return res.data;
   },
 
-  getTags: async () => {
-    const res = await apiClient.get<PaginatedResult<Tag>>(API_ENDPOINTS.CATALOG.TAGS);
+  createBrand: async (payload: { defaultName: string; logo?: string }) => {
+    const res = await apiClient.post<ApiResponse<Brand>>(
+      API_ENDPOINTS.CATALOG.BRANDS,
+      payload
+    );
+    return res.data;
+  },
+
+  updateBrand: async (
+    brandId: number,
+    payload: { defaultName?: string; logo?: string }
+  ) => {
+    const res = await apiClient.put<ApiResponse<Brand>>(
+      `${API_ENDPOINTS.CATALOG.BRANDS}/${brandId}`,
+      payload
+    );
+    return res.data;
+  },
+
+  deleteBrand: async (brandId: number) => {
+    const res = await apiClient.delete<ApiResponse<{ message: string }>>(
+      `${API_ENDPOINTS.CATALOG.BRANDS}/${brandId}`
+    );
+    return res.data;
+  },
+
+  getTags: async (query?: { page?: number; limit?: number; search?: string }) => {
+    const res = await apiClient.get<PaginatedResult<Tag>>(API_ENDPOINTS.CATALOG.TAGS, {
+      params: query,
+    });
+    return res.data;
+  },
+
+  createTag: async (payload: { name: string }) => {
+    const res = await apiClient.post<ApiResponse<Tag>>(
+      API_ENDPOINTS.CATALOG.TAGS,
+      payload
+    );
+    return res.data;
+  },
+
+  updateTag: async (tagId: number, payload: { name: string }) => {
+    const res = await apiClient.put<ApiResponse<Tag>>(
+      `${API_ENDPOINTS.CATALOG.TAGS}/${tagId}`,
+      payload
+    );
+    return res.data;
+  },
+
+  deleteTag: async (tagId: number) => {
+    const res = await apiClient.delete<ApiResponse<{ message: string }>>(
+      `${API_ENDPOINTS.CATALOG.TAGS}/${tagId}`
+    );
     return res.data;
   },
 

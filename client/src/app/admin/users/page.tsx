@@ -19,8 +19,12 @@ import {
   Phone,
   Mail,
   UserCheck,
+  Coins,
+  Laptop,
+  Circle,
 } from 'lucide-react';
 import { adminApi } from '@/modules/admin/api';
+import { chatApi, earnPoints } from '@/modules/loyalty-engage/api';
 import { SearchInput } from '@/components/ui/search-input';
 import { DataTable, type Column } from '@/modules/admin/components/data-table';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +36,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import type { UserProfile, UserStatus } from '@/types';
 
@@ -46,6 +51,10 @@ export default function AdminUsersPage() {
     newStatus: UserStatus;
   } | null>(null);
   const [deleteTargetUser, setDeleteTargetUser] = React.useState<UserProfile | null>(null);
+  const [onlineStatusMap, setOnlineStatusMap] = React.useState<Record<number, boolean>>({});
+  const [selectedUserSessions, setSelectedUserSessions] = React.useState<
+    Array<{ socketId: string; userId: number; connectedAt: string }>
+  >([]);
 
   // Fetch Users
   const { data: usersData, isLoading } = useQuery({
@@ -58,6 +67,48 @@ export default function AdminUsersPage() {
         status: statusFilter || undefined,
       }),
   });
+
+  // Check online status for users on the current page
+  React.useEffect(() => {
+    const list = usersData?.data || [];
+    if (!list.length) return;
+
+    const userIds = list.map((u) => u.id);
+    Promise.all(
+      userIds.map(async (uid) => {
+        try {
+          const res = await chatApi.getUserOnlineStatus(uid);
+          return { userId: uid, isOnline: !!res?.data?.isOnline };
+        } catch {
+          return { userId: uid, isOnline: false };
+        }
+      })
+    ).then((results) => {
+      setOnlineStatusMap((prev) => {
+        const next = { ...prev };
+        results.forEach((r) => {
+          next[r.userId] = r.isOnline;
+        });
+        return next;
+      });
+    });
+  }, [usersData]);
+
+  // When selectedUser changes, fetch their active socket sessions
+  React.useEffect(() => {
+    if (!selectedUser?.id) {
+      setSelectedUserSessions([]);
+      return;
+    }
+    chatApi
+      .getUserSessions(selectedUser.id)
+      .then((res) => {
+        setSelectedUserSessions(res?.data || []);
+      })
+      .catch(() => {
+        setSelectedUserSessions([]);
+      });
+  }, [selectedUser?.id]);
 
   // Mutation update status
   const updateStatusMutation = useMutation({
@@ -107,20 +158,36 @@ export default function AdminUsersPage() {
     },
     {
       header: 'Người dùng',
-      cell: (user) => (
-        <div className="flex items-center gap-3">
-          <Avatar
-            src={user.avatarUrl}
-            alt={user.fullName}
-            size="sm"
-            className="size-8"
-          />
-          <div>
-            <p className="font-semibold text-xs text-neutral-900">{user.fullName}</p>
-            <p className="text-[11px] text-neutral-400">{user.email}</p>
+      cell: (user) => {
+        const isOnline = !!onlineStatusMap[user.id];
+        return (
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <Avatar
+                src={user.avatarUrl}
+                alt={user.fullName}
+                size="sm"
+                className="size-8"
+              />
+              <span
+                className={`absolute bottom-0 right-0 size-2.5 rounded-full ring-2 ring-white ${
+                  isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-300'
+                }`}
+                title={isOnline ? 'Đang online' : 'Ngoại tuyến'}
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <p className="font-semibold text-xs text-neutral-900">{user.fullName}</p>
+                {isOnline && (
+                  <span className="size-1.5 rounded-full bg-emerald-500 shrink-0" />
+                )}
+              </div>
+              <p className="text-[11px] text-neutral-400">{user.email}</p>
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       header: 'Số điện thoại',
@@ -300,6 +367,25 @@ export default function AdminUsersPage() {
               <div className="space-y-3 text-xs">
                 <div className="flex items-center justify-between py-2 border-b border-[#EAE6DF]">
                   <span className="text-neutral-500 flex items-center gap-2">
+                    <Laptop className="size-3.5" /> Trạng thái trực tuyến
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {onlineStatusMap[selectedUser.id] || selectedUserSessions.length > 0 ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                        Đang online ({selectedUserSessions.length} tab/thiết bị)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-neutral-100 text-neutral-500 border border-neutral-200">
+                        <span className="size-2 rounded-full bg-neutral-400" />
+                        Ngoại tuyến
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-[#EAE6DF]">
+                  <span className="text-neutral-500 flex items-center gap-2">
                     <Phone className="size-3.5" /> Số điện thoại
                   </span>
                   <span className="font-medium text-neutral-800">
@@ -326,6 +412,22 @@ export default function AdminUsersPage() {
                       : '—'}
                   </span>
                 </div>
+
+                {selectedUserSessions.length > 0 && (
+                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-100 space-y-1.5">
+                    <span className="font-bold text-[10px] text-neutral-400 uppercase tracking-wider block">
+                      Các phiên Socket đang hoạt động ({selectedUserSessions.length})
+                    </span>
+                    {selectedUserSessions.map((s) => (
+                      <div key={s.socketId} className="flex items-center justify-between text-[11px] font-mono text-neutral-600">
+                        <span className="truncate max-w-[200px]">{s.socketId}</span>
+                        <span className="text-[10px] text-neutral-400">
+                          {new Date(s.connectedAt).toLocaleTimeString('vi-VN')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

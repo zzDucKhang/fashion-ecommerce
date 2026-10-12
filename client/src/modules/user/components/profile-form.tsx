@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -113,7 +114,15 @@ export function ProfileForm() {
               {user?.rewardPoints?.toLocaleString('vi-VN') || 0} điểm
             </p>
           </div>
-          <Badge variant="lime" className="text-[11px]">Hạng Bạc</Badge>
+          <div className="flex flex-col items-end gap-1.5">
+            <Badge variant="lime" className="text-[11px]">Thành viên</Badge>
+            <Link
+              href="/points"
+              className="text-[11px] font-semibold text-neutral-800 hover:text-neutral-950 underline underline-offset-2"
+            >
+              Lịch sử điểm &rarr;
+            </Link>
+          </div>
         </div>
 
         <div className="p-4 rounded-xl border border-[#EAE6DF] bg-neutral-50/40 flex items-center justify-between">

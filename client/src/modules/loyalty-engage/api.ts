@@ -1,6 +1,6 @@
 import { apiClient } from '@/api/client';
 import { API_ENDPOINTS } from '@/api/endpoints';
-import type { ChatMessage, ChatSession } from '@/types/loyalty-engage';
+import type { ChatMessage, ChatSession, ProductReview } from '@/types/loyalty-engage';
 
 export type DiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT';
 
@@ -233,6 +233,73 @@ export async function sendSocketHeartbeat(
   return res.data;
 }
 
+export async function replyReview(
+  reviewId: number,
+  shopReply: string,
+): Promise<{ statusCode: number; data: ProductReview }> {
+  const res = await apiClient.post<{ statusCode: number; data: ProductReview }>(
+    `${API_ENDPOINTS.LOYALTY_ENGAGE.REVIEWS}/${reviewId}/reply`,
+    { shopReply },
+  );
+  return res.data;
+}
+
+export async function hideReview(
+  reviewId: number,
+  isHidden: boolean,
+): Promise<{ statusCode: number; data: ProductReview }> {
+  const res = await apiClient.patch<{ statusCode: number; data: ProductReview }>(
+    `${API_ENDPOINTS.LOYALTY_ENGAGE.REVIEWS}/${reviewId}/hide`,
+    { isHidden },
+  );
+  return res.data;
+}
+
+export async function updateVoucher(
+  voucherId: number,
+  payload: any,
+): Promise<{ statusCode: number; data: any }> {
+  const res = await apiClient.patch<{ statusCode: number; data: any }>(
+    `${API_ENDPOINTS.LOYALTY_ENGAGE.VOUCHERS}/${voucherId}`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function deleteVoucher(
+  voucherId: number,
+): Promise<{ statusCode: number; message: string }> {
+  const res = await apiClient.delete<{ statusCode: number; message: string }>(
+    `${API_ENDPOINTS.LOYALTY_ENGAGE.VOUCHERS}/${voucherId}`,
+  );
+  return res.data;
+}
+
+export async function getPointHistory(params?: {
+  page?: number;
+  limit?: number;
+}): Promise<{
+  data: any[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}> {
+  const res = await apiClient.get<any>(
+    `${API_ENDPOINTS.LOYALTY_ENGAGE.POINTS}/history`,
+    { params },
+  );
+  return res.data;
+}
+
+export async function earnPoints(payload: {
+  orderId: number;
+  description?: string;
+}): Promise<{ message: string; currentPoint: number; transaction: any }> {
+  const res = await apiClient.post<any>(
+    `${API_ENDPOINTS.LOYALTY_ENGAGE.POINTS}/earn`,
+    payload,
+  );
+  return res.data;
+}
+
 export const chatApi = {
   getActiveChat: async (): Promise<ChatSessionResponse> => {
     const res = await apiClient.get<ChatSessionResponse>(
@@ -282,4 +349,26 @@ export const chatApi = {
     );
     return res.data;
   },
+  getUserOnlineStatus: async (
+    userId: number,
+  ): Promise<{ statusCode: number; data: { userId: number; isOnline: boolean } }> => {
+    const res = await apiClient.get<{
+      statusCode: number;
+      data: { userId: number; isOnline: boolean };
+    }>(`/loyalty-engage/chat/sessions/${userId}/online`);
+    return res.data;
+  },
+  getUserSessions: async (
+    userId: number,
+  ): Promise<{
+    statusCode: number;
+    data: Array<{ socketId: string; userId: number; connectedAt: string }>;
+  }> => {
+    const res = await apiClient.get<{
+      statusCode: number;
+      data: Array<{ socketId: string; userId: number; connectedAt: string }>;
+    }>(`/loyalty-engage/chat/sessions/${userId}`);
+    return res.data;
+  },
 };
+
