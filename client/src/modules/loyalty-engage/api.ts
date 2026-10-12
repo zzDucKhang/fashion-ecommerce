@@ -1,8 +1,8 @@
-import { apiClient } from "@/api/client";
-import { API_ENDPOINTS } from "@/api/endpoints";
-import type { ChatMessage, ChatSession } from "@/types/loyalty-engage";
+import { apiClient } from '@/api/client';
+import { API_ENDPOINTS } from '@/api/endpoints';
+import type { ChatMessage, ChatSession } from '@/types/loyalty-engage';
 
-export type DiscountType = "PERCENTAGE" | "FIXED_AMOUNT";
+export type DiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT';
 
 export interface VoucherEntity {
   id: number;
@@ -162,28 +162,36 @@ export interface ChatConversationsResponse {
 
 export async function validateVoucher(
   code: string,
-  orderTotal: number
+  orderTotal: number,
 ): Promise<VoucherValidationResponse> {
-  const res = await apiClient.post<VoucherValidationResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.VOUCHERS}/validate`, {
-    code: code.trim().toUpperCase(),
-    orderTotal,
-  });
+  const res = await apiClient.post<VoucherValidationResponse>(
+    `${API_ENDPOINTS.LOYALTY_ENGAGE.VOUCHERS}/validate`,
+    {
+      code: code.trim().toUpperCase(),
+      orderTotal,
+    },
+  );
   return res.data;
 }
 
 export async function getPointBalance(): Promise<PointBalanceResponse> {
-  const res = await apiClient.get<PointBalanceResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.POINTS}/balance`);
+  const res = await apiClient.get<PointBalanceResponse>(
+    `${API_ENDPOINTS.LOYALTY_ENGAGE.POINTS}/balance`,
+  );
   return res.data;
 }
 
 export async function redeemPoints(
   orderId: number,
-  pointsToRedeem: number
+  pointsToRedeem: number,
 ): Promise<RedeemPointsResponse> {
-  const res = await apiClient.post<RedeemPointsResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.POINTS}/redeem`, {
-    orderId,
-    pointsToRedeem,
-  });
+  const res = await apiClient.post<RedeemPointsResponse>(
+    `${API_ENDPOINTS.LOYALTY_ENGAGE.POINTS}/redeem`,
+    {
+      orderId,
+      pointsToRedeem,
+    },
+  );
   return res.data;
 }
 
@@ -194,68 +202,84 @@ export async function getReviewsByProduct(params: {
   rating?: number;
 }): Promise<ProductReviewsResponse> {
   const query = new URLSearchParams();
-  query.append("productId", params.productId.toString());
-  if (params.page) query.append("page", params.page.toString());
-  if (params.limit) query.append("limit", params.limit.toString());
-  if (params.rating) query.append("rating", params.rating.toString());
+  query.append('productId', params.productId.toString());
+  if (params.page) query.append('page', params.page.toString());
+  if (params.limit) query.append('limit', params.limit.toString());
+  if (params.rating) query.append('rating', params.rating.toString());
 
-  const res = await apiClient.get<ProductReviewsResponse>(`${API_ENDPOINTS.LOYALTY_ENGAGE.REVIEWS}?${query.toString()}`);
+  const res = await apiClient.get<ProductReviewsResponse>(
+    `${API_ENDPOINTS.LOYALTY_ENGAGE.REVIEWS}?${query.toString()}`,
+  );
   return res.data;
 }
 
 export async function createReview(
-  payload: CreateReviewPayload
+  payload: CreateReviewPayload,
 ): Promise<CreateReviewResponse> {
-  const res = await apiClient.post<CreateReviewResponse>(API_ENDPOINTS.LOYALTY_ENGAGE.REVIEWS, payload);
+  const res = await apiClient.post<CreateReviewResponse>(
+    API_ENDPOINTS.LOYALTY_ENGAGE.REVIEWS,
+    payload,
+  );
   return res.data;
 }
 
 export async function sendSocketHeartbeat(
-  socketId: string
+  socketId: string,
 ): Promise<SocketHeartbeatResponse> {
-  const res = await apiClient.post<SocketHeartbeatResponse>("/loyalty-engage/chat/sessions/heartbeat", {
-    socketId,
-  });
+  const res = await apiClient.post<SocketHeartbeatResponse>(
+    API_ENDPOINTS.CHAT.HEARTBEAT,
+    { socketId },
+  );
   return res.data;
 }
 
 export const chatApi = {
   getActiveChat: async (): Promise<ChatSessionResponse> => {
     const res = await apiClient.get<ChatSessionResponse>(
-      `${API_ENDPOINTS.CHAT.ACTIVE}/active`
+      `${API_ENDPOINTS.CHAT.ACTIVE}/active`,
     );
     return res.data;
   },
   getHistory: async (chatId: number, cursor?: number, limit = 100) => {
-    const res = await apiClient.get<ChatHistoryResponse>(API_ENDPOINTS.CHAT.HISTORY, {
-      params: { chatId, limit, cursor },
-    });
+    const res = await apiClient.get<ChatHistoryResponse>(
+      API_ENDPOINTS.CHAT.HISTORY,
+      {
+        params: { chatId, limit, cursor },
+      },
+    );
     return res.data;
   },
   getConversations: async (): Promise<ChatConversationsResponse> => {
     const res = await apiClient.get<ChatConversationsResponse>(
-      API_ENDPOINTS.CHAT.CONVERSATIONS
+      API_ENDPOINTS.CHAT.CONVERSATIONS,
     );
     return res.data;
   },
-  sendMessage: async (chatId: number, content: string): Promise<{ statusCode: number; data: ChatMessage }> => {
+  sendMessage: async (
+    chatId: number,
+    content: string,
+  ): Promise<{ statusCode: number; data: ChatMessage }> => {
     const res = await apiClient.post<{ statusCode: number; data: ChatMessage }>(
       API_ENDPOINTS.CHAT.SEND,
-      { chatId, content }
+      { chatId, content },
     );
     return res.data;
   },
-  markAsRead: async (chatId: number): Promise<{ statusCode: number; updatedCount: number }> => {
-    const res = await apiClient.post<{ statusCode: number; updatedCount: number }>(
-      API_ENDPOINTS.CHAT.READ,
-      { chatId }
-    );
+  markAsRead: async (
+    chatId: number,
+  ): Promise<{ statusCode: number; updatedCount: number }> => {
+    const res = await apiClient.post<{
+      statusCode: number;
+      updatedCount: number;
+    }>(API_ENDPOINTS.CHAT.READ, { chatId });
     return res.data;
   },
-  closeConversation: async (chatId: number): Promise<{ statusCode: number }> => {
+  closeConversation: async (
+    chatId: number,
+  ): Promise<{ statusCode: number }> => {
     const res = await apiClient.post<{ statusCode: number }>(
-      `${API_ENDPOINTS.CHAT.CONVERSATIONS}/${chatId}/close`
+      `${API_ENDPOINTS.CHAT.CONVERSATIONS}/${chatId}/close`,
     );
     return res.data;
-  }
+  },
 };

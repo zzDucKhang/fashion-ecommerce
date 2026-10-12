@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
+      // Thêm cấu hình dưới đây để Next.js cho phép load ảnh từ Supabase Storage
+      { protocol: 'https', hostname: '*.supabase.co', pathname: '/**' }, 
     ],
   },
 };

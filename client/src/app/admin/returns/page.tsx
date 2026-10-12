@@ -3,110 +3,98 @@
 import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { RotateCcw, CheckCircle, XCircle, AlertCircle, Eye } from 'lucide-react';
+import { Star, EyeOff, CheckCircle2, MessageSquare, CornerDownRight } from 'lucide-react';
 import { apiClient } from '@/api/client';
 import { API_ENDPOINTS } from '@/api/endpoints';
 import { DataTable, type Column } from '@/modules/admin/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/utils/format-date';
-import type { ReturnRequest, ReturnStatus } from '@/types';
+import type { ProductReview } from '@/types';
 
-const returnStatusMeta: Record<ReturnStatus, { label: string; variant: 'warning' | 'lime' | 'destructive' | 'success' }> = {
-  PENDING: { label: 'Chờ duyệt', variant: 'warning' },
-  APPROVED: { label: 'Đã chấp thuận', variant: 'lime' },
-  REJECTED: { label: 'Đã từ chối', variant: 'destructive' },
-  COMPLETED: { label: 'Đã hoàn tất', variant: 'success' },
-};
-
-export default function AdminReturnsPage() {
+export default function AdminReviewsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = React.useState(1);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-returns', page],
+    queryKey: ['admin-reviews', page],
     queryFn: async () => {
-      const res = await apiClient.get<any>(API_ENDPOINTS.FULFILLMENT.RETURNS, {
+      const res = await apiClient.get<any>(API_ENDPOINTS.LOYALTY_ENGAGE.REVIEWS, {
         params: { page, limit: 10 },
       });
       return res.data;
     },
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: ReturnStatus }) =>
-      apiClient.patch(`${API_ENDPOINTS.FULFILLMENT.RETURNS}/${id}/status`, { status }),
-    onSuccess: () => {
-      toast.success('Cập nhật trạng thái yêu cầu đổi trả thành công!');
-      queryClient.invalidateQueries({ queryKey: ['admin-returns'] });
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Cập nhật thất bại');
-    },
-  });
+  const reviews: ProductReview[] = (data?.data as any) || [];
 
-  const returns: ReturnRequest[] = (data?.data as any) || [];
-
-  const columns: Column<ReturnRequest>[] = [
+  const columns: Column<ProductReview>[] = [
     {
-      header: 'Mã yêu cầu',
-      className: 'w-24 text-xs font-mono font-bold',
-      cell: (r) => `#RET-${r.id}`,
-    },
-    {
-      header: 'Sản phẩm hoàn trả',
+      header: 'Khách hàng',
       cell: (r) => (
         <div>
-          <p className="font-semibold text-xs text-neutral-900">{r.orderItem?.productName || 'Sản phẩm'}</p>
-          <p className="text-[11px] text-neutral-500">Số lượng: {r.quantity}</p>
+          <p className="font-semibold text-xs text-neutral-900">{r.user?.fullName || 'Khách hàng'}</p>
+          <p className="text-[10px] text-neutral-400">{r.user?.email}</p>
         </div>
       ),
     },
     {
-      header: 'Lý do khiếu nại',
+      header: 'Đánh giá',
       cell: (r) => (
-        <div className="max-w-xs">
-          <p className="text-xs font-medium text-neutral-800">{r.reason}</p>
-          {r.description && <p className="text-[11px] text-neutral-500 line-clamp-1 mt-0.5">{r.description}</p>}
+        <div className="flex items-center gap-1">
+          <Star className="size-3.5 fill-amber-400 text-amber-400" />
+          <span className="font-bold text-xs text-neutral-800">{r.rating}/5</span>
         </div>
       ),
     },
     {
-      header: 'Trạng thái',
-      cell: (r) => {
-        const meta = returnStatusMeta[r.status] || { label: r.status, variant: 'warning' as const };
-        return <Badge variant={meta.variant} className="text-[10px]">{meta.label}</Badge>;
-      },
+      header: 'Nội dung nhận xét',
+      cell: (r) => (
+        <div className="max-w-md">
+          <p className="text-xs text-neutral-700 line-clamp-2">{r.content}</p>
+          {(r as any).medias && (r as any).medias.length > 0 && (
+            <div className="flex gap-1.5 mt-1.5 flex-wrap">
+              {(r as any).medias.map((m: any, idx: number) => {
+                const url = m.mediaUrl || m.url;
+                const isVideo = m.mediaType === 'video' || m.type === 'video' || (typeof url === 'string' && (url.endsWith('.mp4') || url.includes('video')));
+                return isVideo ? (
+                  <video
+                    key={m.id || idx}
+                    src={url}
+                    controls
+                    className="w-14 h-10 object-cover rounded-md border border-neutral-200"
+                  />
+                ) : (
+                  <img
+                    key={m.id || idx}
+                    src={url}
+                    alt="Ảnh đánh giá"
+                    className="w-10 h-10 object-cover rounded-md border border-neutral-200 cursor-pointer hover:opacity-80"
+                    onClick={() => window.open(url, '_blank')}
+                    title="Nhấn để xem ảnh gốc"
+                  />
+                );
+              })}
+            </div>
+          )}
+          {r.shopReply && (
+            <p className="text-[11px] text-emerald-700 flex items-center gap-1 mt-1 font-medium">
+              <CornerDownRight className="size-3" /> {r.shopReply}
+            </p>
+          )}
+        </div>
+      ),
     },
     {
-      header: 'Ngày gửi',
+      header: 'Thời gian',
       cell: (r) => <span className="text-xs text-neutral-400">{formatDate(r.createdAt)}</span>,
     },
     {
-      header: 'Kiểm duyệt',
-      className: 'text-right',
+      header: 'Trạng thái',
       cell: (r) => (
-        r.status === 'PENDING' ? (
-          <div className="flex justify-end gap-1.5">
-            <Button
-              size="sm"
-              onClick={() => updateStatusMutation.mutate({ id: r.id, status: 'APPROVED' })}
-              className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 !text-white [&_*]:!text-white rounded-lg"
-            >
-              Chấp thuận
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => updateStatusMutation.mutate({ id: r.id, status: 'REJECTED' })}
-              className="h-7 px-2.5 text-xs text-rose-600 border-rose-200 hover:bg-rose-50 rounded-lg"
-            >
-              Từ chối
-            </Button>
-          </div>
-        ) : (
-          <span className="text-[11px] text-neutral-400 italic">Đã xử lý</span>
-        )
+        <Badge variant={r.isHidden ? 'secondary' : 'success'} className="text-[10px]">
+          {r.isHidden ? 'Đã ẩn' : 'Hiển thị'}
+        </Badge>
       ),
     },
   ];
@@ -114,20 +102,20 @@ export default function AdminReturnsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <span className="eyebrow block mb-1">VẬN HÀNH</span>
-        <h1 className="font-display text-3xl sm:text-4xl text-[#1D1F20] tracking-tight">Yêu cầu Đổi / Trả hàng</h1>
-        <p className="text-xs text-neutral-500 mt-1">Xử lý các khiếu nại sản phẩm lỗi, hoàn tiền hoặc đổi size cho khách.</p>
+        <span className="eyebrow block mb-1">CSKH & UY TÍN</span>
+        <h1 className="font-display text-3xl sm:text-4xl text-[#1D1F20] tracking-tight">Đánh giá sản phẩm</h1>
+        <p className="text-xs text-neutral-500 mt-1">Quản lý các phản hồi và nhận xét thực tế từ người mua hàng.</p>
       </div>
 
       <DataTable
         columns={columns}
-        data={returns}
+        data={reviews}
         isLoading={isLoading}
         page={page}
         totalPages={data?.totalPages || 1}
         totalItems={data?.totalItems || 0}
         onPageChange={setPage}
-        emptyMessage="Chưa có yêu cầu trả hàng nào."
+        emptyMessage="Chưa có đánh giá nào."
       />
     </div>
   );

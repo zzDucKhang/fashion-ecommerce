@@ -33,16 +33,14 @@ export function initWebSocket(httpServer: HttpServer): SocketIOServer {
 
   logger.info('Initializing WebSocket server with Redis Pub/Sub adapter...')
 
-  // 1. Separate Redis instances for publishing and subscribing
-  pubClient = new Redis(envConfig.REDIS_URL, {
+  const redisOptions = {
     maxRetriesPerRequest: null,
     enableReadyCheck: true,
-  })
+    tls: envConfig.REDIS_URL.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined,
+  }
 
-  subClient = new Redis(envConfig.REDIS_URL, {
-    maxRetriesPerRequest: null,
-    enableReadyCheck: true,
-  })
+  pubClient = new Redis(envConfig.REDIS_URL, redisOptions)
+  subClient = new Redis(envConfig.REDIS_URL, redisOptions)
 
   pubClient.on('connect', () => {
     logger.info('Redis PubClient connected successfully for WebSocket')

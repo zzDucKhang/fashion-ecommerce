@@ -47,5 +47,9 @@ export const API_ENDPOINTS = {
     READ: '/loyalty-engage/chat/messages/read',
     UNREAD: '/loyalty-engage/chat/messages/unread',
     CONVERSATIONS: '/loyalty-engage/chat/conversations',
+    HEARTBEAT: '/loyalty-engage/chat/sessions/heartbeat'
+  },
+  COMMON: {
+    UPLOAD: '/common/upload', // hoặc endpoint thực tế của server bạn
   }
 } as const;
