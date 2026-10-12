@@ -52,6 +52,31 @@ export default function AdminReviewsPage() {
       cell: (r) => (
         <div className="max-w-md">
           <p className="text-xs text-neutral-700 line-clamp-2">{r.content}</p>
+          {(r as any).medias && (r as any).medias.length > 0 && (
+            <div className="flex gap-1.5 mt-1.5 flex-wrap">
+              {(r as any).medias.map((m: any, idx: number) => {
+                const url = m.mediaUrl || m.url;
+                const isVideo = m.mediaType === 'video' || m.type === 'video' || (typeof url === 'string' && (url.endsWith('.mp4') || url.includes('video')));
+                return isVideo ? (
+                  <video
+                    key={m.id || idx}
+                    src={url}
+                    controls
+                    className="w-14 h-10 object-cover rounded-md border border-neutral-200"
+                  />
+                ) : (
+                  <img
+                    key={m.id || idx}
+                    src={url}
+                    alt="Ảnh đánh giá"
+                    className="w-10 h-10 object-cover rounded-md border border-neutral-200 cursor-pointer hover:opacity-80"
+                    onClick={() => window.open(url, '_blank')}
+                    title="Nhấn để xem ảnh gốc"
+                  />
+                );
+              })}
+            </div>
+          )}
           {r.shopReply && (
             <p className="text-[11px] text-emerald-700 flex items-center gap-1 mt-1 font-medium">
               <CornerDownRight className="size-3" /> {r.shopReply}

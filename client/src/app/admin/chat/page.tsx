@@ -1,7 +1,9 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { Circle, Search, Send, User, X } from 'lucide-react';
+import { Circle, Image as ImageIcon, Loader2, Search, Send, User, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { apiClient } from '@/api/client';
 import { useAuth } from '@/components/providers/auth-provider';
 import { useSocket } from '@/components/providers/socket-provider';
 import { chatApi } from '@/modules/loyalty-engage/api';
@@ -24,6 +26,15 @@ function formatTime(value?: string) {
   });
 }
 
+function isImageUrl(text: string) {
+  if (!text) return false;
+  const trimmed = text.trim();
+  return (
+    /^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?.*)?)$/i.test(trimmed) ||
+    (trimmed.startsWith('http') && (trimmed.includes('/uploads/') || trimmed.includes('images.unsplash.com')))
+  );
+}
+
 export default function AdminChatPage() {
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
@@ -35,6 +46,7 @@ export default function AdminChatPage() {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedConversation =
@@ -158,6 +170,51 @@ export default function AdminChatPage() {
     } finally {
       setSending(false);
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || selectedChatId === null || selectedConversation?.status === 'CLOSED') return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Kích thước ảnh tối đa là 10MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result as string;
+        const res = await apiClient.post<any>('/common/upload', {
+          fileName: file.name,
+          fileType: file.type,
+          base64,
+        });
+        const uploaded = res.data?.data;
+        if (uploaded?.url) {
+          const response = await chatApi.sendMessage(selectedChatId, uploaded.url);
+          setMessages((current) => appendMessage(current, response.data));
+          setConversations((current) =>
+            current.map((conversation) =>
+              conversation.id === selectedChatId
+                ? { ...conversation, messages: [response.data] }
+                : conversation
+            )
+          );
+          toast.success('Đã gửi ảnh thành công');
+        }
+      } catch (err: any) {
+        toast.error('Không thể gửi ảnh: ' + (err?.response?.data?.message || err?.message));
+      } finally {
+        setUploadingImage(false);
+      }
+    };
+    reader.onerror = () => {
+      setUploadingImage(false);
+      toast.error('Lỗi đọc ảnh');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleClose = async () => {
@@ -302,7 +359,16 @@ export default function AdminChatPage() {
                               : 'rounded-bl-sm border border-[#EAE6DF] bg-white text-neutral-800'
                             }`}
                         >
-                          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                          {isImageUrl(message.content) ? (
+                            <img
+                              src={message.content.trim()}
+                              alt="Ảnh trong hội thoại"
+                              className="max-h-56 w-auto rounded-xl object-contain cursor-pointer hover:opacity-95"
+                              onClick={() => window.open(message.content.trim(), '_blank')}
+                            />
+                          ) : (
+                            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                          )}
                           <time className={`mt-1 block text-[10px] ${isMe ? 'text-white/60' : 'text-neutral-400'}`}>
                             {formatTime(message.sendDate)}
                           </time>
@@ -314,6 +380,23 @@ export default function AdminChatPage() {
               </div>
 
               <form onSubmit={handleSend} className="flex shrink-0 items-center gap-2 border-t border-[#EAE6DF] bg-white p-4">
+                <label
+                  className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[#EAE6DF] bg-[#FBF9F4] text-neutral-600 transition hover:bg-neutral-200"
+                  title="Gửi ảnh cho khách hàng"
+                >
+                  {uploadingImage ? (
+                    <Loader2 size={18} className="animate-spin text-neutral-700" />
+                  ) : (
+                    <ImageIcon size={18} />
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={uploadingImage || selectedConversation.status === 'CLOSED'}
+                    className="hidden"
+                  />
+                </label>
                 <input
                   type="text"
                   name="message"

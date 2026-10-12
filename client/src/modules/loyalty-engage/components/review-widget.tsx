@@ -247,14 +247,26 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
 
               {review.medias && review.medias.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {review.medias.map((media, idx) => (
-                    <img
-                      key={media.id || idx}
-                      src={media.url}
-                      alt="Ảnh đánh giá"
-                      className="w-20 h-20 object-cover rounded-xl border border-[#EAE6DF] hover:opacity-90 transition cursor-pointer"
-                    />
-                  ))}
+                  {review.medias.map((media, idx) => {
+                    const mediaUrl = (media as any).mediaUrl || media.url;
+                    const isVideo = (media as any).mediaType === 'video' || media.type === 'video' || (typeof mediaUrl === 'string' && (mediaUrl.endsWith('.mp4') || mediaUrl.includes('video')));
+                    return isVideo ? (
+                      <video
+                        key={media.id || idx}
+                        src={mediaUrl}
+                        controls
+                        className="w-32 h-24 object-cover rounded-xl border border-[#EAE6DF]"
+                      />
+                    ) : (
+                      <img
+                        key={media.id || idx}
+                        src={mediaUrl}
+                        alt="Ảnh đánh giá"
+                        className="w-20 h-20 object-cover rounded-xl border border-[#EAE6DF] hover:opacity-90 transition cursor-pointer"
+                        onClick={() => window.open(mediaUrl, '_blank')}
+                      />
+                    );
+                  })}
                 </div>
               )}
 

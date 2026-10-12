@@ -13,11 +13,22 @@ import { fulfillmentRouter } from '@/modules/fulfillment/fulfillment.routes'
 import { loyaltyEngageRouter } from '@/modules/loyalty-engage/loyalty-engage.routes'
 import { sepayWebhookRouter } from '@/modules/fulfillment/payment/payment.routes'
 
+import path from 'path'
+import fs from 'fs'
+import { uploadRouter } from '@/common/routes/upload.routes'
+
 export const createApp = (): Express => {
   const app = express()
 
-  app.use(helmet())
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
   app.use(cors())
+
+  // Phục vụ tệp tĩnh cho hình ảnh và video tải lên
+  const uploadsDir = path.join(process.cwd(), 'uploads')
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true })
+  }
+  app.use('/uploads', express.static(uploadsDir))
 
   // QUAN TRONG QUAN TRONG QUAN TRONG. 
   // SePay webhook khong dung express.json()
@@ -32,7 +43,8 @@ export const createApp = (): Express => {
     res.status(200).json({ status: 'ok', uptime: process.uptime() })
   })
 
-  // Đăng ký 6 Route tổng
+  // Đăng ký 6 Route tổng + Route Upload đa phương tiện
+  app.use('/api/v1/common/upload', uploadRouter)
   app.use('/api/v1/identity', identityRouter)
   app.use('/api/v1/catalog', catalogRouter)
   app.use('/api/v1/cart-order', cartOrderRouter)

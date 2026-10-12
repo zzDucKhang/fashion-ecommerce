@@ -68,6 +68,20 @@ export default function AdminReturnsPage() {
         <div className="max-w-xs">
           <p className="text-xs font-medium text-neutral-800">{r.reason}</p>
           {r.description && <p className="text-[11px] text-neutral-500 line-clamp-1 mt-0.5">{r.description}</p>}
+          {r.medias && r.medias.length > 0 && (
+            <div className="flex gap-1.5 mt-1.5 flex-wrap">
+              {r.medias.map((m, idx) => (
+                <img
+                  key={m.id || idx}
+                  src={m.mediaUrl}
+                  alt="Minh chứng"
+                  className="w-10 h-10 object-cover rounded-md border border-neutral-200 cursor-pointer hover:opacity-80"
+                  onClick={() => window.open(m.mediaUrl, '_blank')}
+                  title="Nhấn để xem ảnh gốc"
+                />
+              ))}
+            </div>
+          )}
         </div>
       ),
     },
