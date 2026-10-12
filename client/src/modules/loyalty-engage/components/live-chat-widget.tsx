@@ -1,231 +1,203 @@
-"use client";
+'use client';
 
-import React, { useState, useRef, useEffect } from "react";
-import {
-  MessageCircle,
-  X,
-  Send,
-  Sparkles,
-  ShieldCheck,
-  Minimize2,
-} from "lucide-react";
-import { useChatSocket } from "../hooks/useChatSocket";
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { MessageCircle, Send, X } from 'lucide-react';
+import { useAuth } from '@/components/providers/auth-provider';
+import { chatApi } from '@/modules/loyalty-engage/api';
+import { useChatSocket } from '@/modules/loyalty-engage/hooks/useChatSocket';
+import { useSocket } from '@/components/providers/socket-provider';
+import type { ChatMessage } from '@/types/loyalty-engage';
 
-export interface LiveChatWidgetProps {
-  userId?: number;
-  userName?: string;
-  serverUrl?: string;
+function appendMessage(messages: ChatMessage[], message: ChatMessage) {
+  if (messages.some((existing) => existing.id === message.id)) return messages;
+  return [...messages, message].sort(
+    (left, right) => new Date(left.sendDate).getTime() - new Date(right.sendDate).getTime()
+  );
 }
 
-export function LiveChatWidget({
-  userId,
-  userName = "Khách hàng",
-  serverUrl,
-}: LiveChatWidgetProps) {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [inputText, setInputText] = useState<string>("");
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  const { isConnected, messages, sendMessage } = useChatSocket({
-    userId,
-    serverUrl,
-    autoConnect: true,
-  });
+export function LiveChatWidget() {
+  const { user, isAuthenticated } = useAuth();
+  const { isConnected } = useSocket();
+  const [isOpen, setIsOpen] = useState(false);
+  const [chatId, setChatId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const loadPromiseRef = useRef<Promise<{ chatId: number; messages: ChatMessage[] }> | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!isOpen || !isAuthenticated || chatId !== null) return;
+
+    let cancelled = false;
+    if (!loadPromiseRef.current) {
+      setLoading(true);
+      setError(null);
+      loadPromiseRef.current = (async () => {
+        const activeResponse = await chatApi.getActiveChat();
+        const activeChat = activeResponse.data;
+        const historyResponse = await chatApi.getHistory(activeChat.id);
+        return { chatId: activeChat.id, messages: historyResponse.data };
+      })();
     }
+
+    const loadPromise = loadPromiseRef.current;
+    void loadPromise
+      .then(({ chatId: loadedChatId, messages: loadedMessages }) => {
+        if (cancelled) return;
+        setChatId(loadedChatId);
+        setMessages(loadedMessages);
+        void chatApi.markAsRead(loadedChatId).catch((cause: unknown) => {
+          console.error('Không thể đánh dấu tin nhắn đã đọc:', cause);
+        });
+      })
+      .catch((cause: unknown) => {
+        console.error('Không thể tải cuộc trò chuyện:', cause);
+        if (!cancelled) setError('Không thể tải cuộc trò chuyện. Vui lòng thử lại.');
+      })
+      .finally(() => {
+        if (loadPromiseRef.current === loadPromise) loadPromiseRef.current = null;
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, isAuthenticated, chatId]);
+
+  const handleNewMessage = useCallback((message: ChatMessage) => {
+    setMessages((current) => appendMessage(current, message));
+    if (isOpen && message.senderId !== user?.id) {
+      void chatApi.markAsRead(message.chatId).catch((cause: unknown) => {
+        console.error('Không thể đánh dấu tin nhắn đã đọc:', cause);
+      });
+    }
+  }, [isOpen, user?.id]);
+
+  useChatSocket(chatId, handleNewMessage);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isOpen]);
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim()) return;
+  const handleSend = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const content = input.trim();
+    if (!content || chatId === null || sending) return;
 
-    sendMessage(inputText.trim());
-    setInputText("");
+    setSending(true);
+    setError(null);
+    try {
+      const response = await chatApi.sendMessage(chatId, content);
+      setMessages((current) => appendMessage(current, response.data));
+      setInput('');
+    } catch (cause) {
+      console.error('Không thể gửi tin nhắn:', cause);
+      setError('Gửi tin nhắn thất bại. Vui lòng thử lại.');
+    } finally {
+      setSending(false);
+    }
   };
 
-  const handleQuickQuestion = (question: string) => {
-    sendMessage(question);
-  };
+  if (!isAuthenticated || user?.role?.code === 'ADMIN' || user?.role?.code === 'STAFF') return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 select-none">
-      {isOpen && (
-        <div className="mb-4 w-96 max-w-[calc(100vw-3rem)] h-[520px] max-h-[calc(100vh-7rem)] bg-[#FFFFFF] border border-[#EAE6DF] rounded-2xl shadow-[0_5px_20px_rgba(29,31,32,.08)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <header className="p-4 bg-[#FFFFFF] border-b border-[#EAE6DF] flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-[#1D1F20] !text-white [&_*]:!text-white flex items-center justify-center font-bold text-sm">
-                  CS
-                </div>
-                <span
-                  className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
-                    isConnected ? "bg-[#84EA53]" : "bg-[#dc2626]"
-                  }`}
-                  title={isConnected ? "Đã kết nối" : "Mất kết nối"}
-                />
-              </div>
-
-              <div>
-                <h4 className="text-sm font-bold text-[#1D1F20] flex items-center gap-1.5">
-                  Chăm sóc khách hàng
-                  <ShieldCheck size={14} className="text-[#84EA53]" />
-                </h4>
-                <p className="text-xs text-[#74736e]">
-                  {isConnected ? (
-                    <span className="flex items-center gap-1 text-[#16a34a] font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#84EA53] animate-pulse" />
-                      Trực tuyến (Phản hồi tức thì)
-                    </span>
-                  ) : (
-                    "Đang kết nối lại..."
-                  )}
-                </p>
-              </div>
+    <div className="fixed bottom-4 right-4 z-50">
+      {!isOpen ? (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          aria-label="Mở chat với cửa hàng"
+          className="flex size-14 items-center justify-center rounded-full bg-[#1D1F20] text-white shadow-xl transition hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#84EA53]"
+        >
+          <MessageCircle size={24} />
+        </button>
+      ) : (
+        <section
+          aria-label="Chat hỗ trợ khách hàng"
+          className="flex h-[min(520px,calc(100dvh-2rem))] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-[#EAE6DF] bg-white shadow-2xl"
+        >
+          <header className="flex items-center justify-between bg-[#1D1F20] px-4 py-3 text-white">
+            <div>
+              <h2 className="text-sm font-semibold">Trò chuyện với cửa hàng</h2>
+              <p className="mt-0.5 text-[11px] text-white/70">
+                {isConnected ? 'Đang kết nối' : 'Đang kết nối lại...'}
+              </p>
             </div>
-
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-xl text-[#74736e] hover:bg-[#FBF9F4] hover:text-[#1D1F20] transition cursor-pointer"
-                aria-label="Thu nhỏ chat"
-              >
-                <Minimize2 size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-xl text-[#74736e] hover:bg-[#FBF9F4] hover:text-[#1D1F20] transition cursor-pointer"
-                aria-label="Đóng chat"
-              >
-                <X size={18} />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              aria-label="Đóng chat"
+              className="rounded-lg p-1 text-white/70 transition hover:bg-white/10 hover:text-white"
+            >
+              <X size={20} />
+            </button>
           </header>
 
-          <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#FBF9F4]/40">
-            <div className="flex items-start gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-[#1D1F20] !text-white [&_*]:!text-white flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
-                CS
-              </div>
-              <div className="bg-[#FFFFFF] border border-[#EAE6DF] text-[#1D1F20] text-xs leading-relaxed p-3.5 rounded-2xl rounded-tl-sm shadow-xs max-w-[85%] space-y-1">
-                <p className="font-semibold text-xs text-[#1D1F20]">
-                  Xin chào {userName}! 👋
-                </p>
-                <p className="text-[#74736e]">
-                  Cảm ơn bạn đã ghé thăm. Chúng tôi có thể hỗ trợ gì cho bạn hôm nay?
-                </p>
-              </div>
-            </div>
-
-            {messages.length === 0 && (
-              <div className="space-y-1.5 pt-2 pl-9">
-                <p className="text-[11px] font-bold text-[#74736e] uppercase tracking-wider">
-                  Câu hỏi phổ biến
-                </p>
-                <div className="flex flex-col gap-1.5">
-                  {[
-                    "Tư vấn bảng size chuẩn?",
-                    "Kiểm tra tình trạng đơn hàng?",
-                    "Mã giảm giá hôm nay có gì?",
-                  ].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => handleQuickQuestion(preset)}
-                      className="text-left text-xs bg-[#FFFFFF] border border-[#EAE6DF] hover:border-[#84EA53] text-[#1D1F20] px-3 py-2 rounded-xl transition cursor-pointer flex items-center justify-between group shadow-2xs"
-                    >
-                      <span>{preset}</span>
-                      <Sparkles size={12} className="text-[#84EA53] opacity-0 group-hover:opacity-100 transition" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {messages.map((msg, index) => (
-              <div
-                key={msg.id || index}
-                className={`flex items-start gap-2 ${
-                  msg.isSelf ? "justify-end" : "justify-start"
-                }`}
-              >
-                {!msg.isSelf && (
-                  <div className="w-7 h-7 rounded-full bg-[#1D1F20] !text-white [&_*]:!text-white flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
-                    CS
-                  </div>
-                )}
-
-                <div
-                  className={`max-w-[80%] p-3 text-xs leading-relaxed rounded-2xl shadow-2xs ${
-                    msg.isSelf
-                      ? "bg-[#1D1F20] !text-white [&_*]:!text-white rounded-tr-sm"
-                      : "bg-[#FFFFFF] border border-[#EAE6DF] text-[#1D1F20] rounded-tl-sm"
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                  {msg.createdAt && (
-                    <span
-                      className={`text-[9px] mt-1 block ${
-                        msg.isSelf ? "text-[#EAE6DF]/70 text-right" : "text-[#74736e]"
+          <div className="flex-1 space-y-3 overflow-y-auto bg-[#FBF9F4] p-4">
+            {loading ? (
+              <p className="pt-12 text-center text-xs text-neutral-500">Đang tải tin nhắn...</p>
+            ) : messages.length === 0 ? (
+              <p className="pt-12 text-center text-xs text-neutral-500">
+                Xin chào {user?.fullName}. Hãy gửi câu hỏi cho shop nhé!
+              </p>
+            ) : (
+              messages.map((message) => {
+                const isMe = message.senderId === user?.id;
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                        isMe
+                          ? 'rounded-br-sm bg-[#1D1F20] text-white'
+                          : 'rounded-bl-sm border border-[#EAE6DF] bg-white text-neutral-800'
                       }`}
                     >
-                      {new Date(msg.createdAt).toLocaleTimeString("vi-VN", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-
+                      <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                      <time className={`mt-1 block text-[10px] ${isMe ? 'text-white/60' : 'text-neutral-400'}`}>
+                        {new Date(message.sendDate).toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </time>
+                    </div>
+                  </div>
+                );
+              })
+            )}
             <div ref={messagesEndRef} />
           </div>
 
-          <footer className="p-3 bg-[#FFFFFF] border-t border-[#EAE6DF]">
-            <form onSubmit={handleSend} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="Nhập tin nhắn..."
-                className="flex-1 bg-[#FBF9F4] border border-[#EAE6DF] rounded-xl px-3.5 py-2.5 text-xs text-[#1D1F20] placeholder-[#74736e]/60 focus:border-[#84EA53] outline-none transition"
-              />
-              <button
-                type="submit"
-                disabled={!inputText.trim()}
-                className="p-2.5 rounded-xl bg-[#84EA53] text-[#1D1F20] hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shrink-0"
-                aria-label="Gửi tin nhắn"
-              >
-                <Send size={15} />
-              </button>
-            </form>
-          </footer>
-        </div>
-      )}
+          {error && <p role="alert" className="px-3 pt-2 text-xs text-red-600">{error}</p>}
 
-      <button
-        type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="group relative flex items-center justify-center w-14 h-14 rounded-full bg-[#84EA53] text-[#1D1F20] shadow-[0_5px_20px_rgba(29,31,32,.08)] hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
-        aria-label={isOpen ? "Đóng hộp thoại chat" : "Mở hộp thoại chat"}
-      >
-        {isOpen ? (
-          <X size={24} className="transition-transform group-hover:rotate-90 duration-200" />
-        ) : (
-          <>
-            <MessageCircle size={24} />
-            <span className="absolute top-0 right-0 flex h-3.5 w-3.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1D1F20] opacity-40" />
-              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-[#1D1F20] border-2 border-white" />
-            </span>
-          </>
-        )}
-      </button>
+          <form onSubmit={handleSend} className="flex items-center gap-2 border-t border-[#EAE6DF] p-3">
+            <input
+              type="text"
+              name="message"
+              aria-label="Nội dung tin nhắn"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Nhập nội dung tin nhắn..."
+              maxLength={5000}
+              disabled={loading || sending || chatId === null}
+              className="h-10 min-w-0 flex-1 rounded-xl border border-[#EAE6DF] bg-[#FBF9F4] px-3 text-sm outline-none transition focus:border-neutral-900 disabled:opacity-60"
+            />
+            <button
+              type="submit"
+              aria-label="Gửi tin nhắn"
+              disabled={!input.trim() || loading || sending || chatId === null}
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#1D1F20] text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Send size={16} />
+            </button>
+          </form>
+        </section>
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { RegisterForm } from '@/modules/auth/components/register-form';
 
@@ -24,7 +25,9 @@ export default function RegisterPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-[#EAE6DF] p-6 sm:p-8 shadow-xs">
-          <RegisterForm />
+          <Suspense fallback={<div className="h-48 animate-pulse rounded-xl bg-neutral-50" />}>
+            <RegisterForm />
+          </Suspense>
         </div>
 
         <div className="text-center mt-6">

@@ -95,8 +95,8 @@ export default function OrderDetailPage() {
       if (res?.data?.qrUrl) {
         setQrModalData({
           qrUrl: res.data.qrUrl,
-          amount: res.data.amount ?? order?.totalAmount,
-          transferContent: res.data.transferContent ?? order?.orderCode,
+          amount: res.data.amount ?? (res.data.totalAmount != null ? Number(res.data.totalAmount) : (order?.totalAmount != null ? Number(order.totalAmount) : undefined)),
+          transferContent: res.data.transferContent ?? res.data.orderCode ?? order?.orderCode,
         });
       } else {
         toast.error('Chưa có thông tin thanh toán cho đơn hàng này');
@@ -189,7 +189,7 @@ export default function OrderDetailPage() {
               <span className="uppercase tracking-wider">Thanh toán</span>
             </div>
             <p className="mt-2 text-sm font-semibold text-neutral-900">
-              {order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+              {order.paymentStatus === 'SUCCESS' ? 'Đã thanh toán' : 'Chưa thanh toán'}
             </p>
           </div>
         </div>

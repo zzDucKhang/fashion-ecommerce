@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { AuthRepo } from './auth.repo';
 import { AppError } from '@/common/errors';
+import { envConfig } from '@/config/env.config';
 import { sendVerificationEmail } from '@/common/service/mail';
 import { redisClient } from '@/database/redis';
 import {
@@ -102,20 +103,22 @@ export class AuthService {
   private generateTokens(user: any) {
     const payload = {
       sub: user.id,
+      userId: user.id,
+      roleId: user.roleId ?? user.role?.id ?? 3,
       email: user.email,
       role: user.role?.code || 'CUSTOMER',
     };
 
     const accessToken = jwt.sign(
       payload,
-      process.env.JWT_ACCESS_SECRET || 'access_secret_key',
-      { expiresIn: '1h' }
+      envConfig.ACCESS_TOKEN_SECRET,
+      { expiresIn: envConfig.ACCESS_TOKEN_EXPIRES_IN as any }
     );
 
     const refreshToken = jwt.sign(
       payload,
-      process.env.JWT_REFRESH_SECRET || 'refresh_secret_key',
-      { expiresIn: '7d' }
+      envConfig.REFRESH_TOKEN_SECRET,
+      { expiresIn: envConfig.REFRESH_TOKEN_EXPIRES_IN as any }
     );
 
     return { accessToken, refreshToken };
@@ -155,7 +158,12 @@ export class AuthService {
       });
 
       const code = await this.createVerificationCode(email, 'REGISTER');
-      await sendVerificationEmail(email, code);
+      try {
+        await sendVerificationEmail(email, code);
+      } catch (mailError: any) {
+        console.warn(`[MAIL_WARNING] Không thể gửi email tới ${email}:`, mailError?.message || mailError);
+        console.info(`[DEV_OTP] Mã OTP đăng ký cho ${email} là: ${code}`);
+      }
 
       return {
         user: this.sanitizeUser(updatedUser),
@@ -176,7 +184,12 @@ export class AuthService {
       });
 
       const code = await this.createVerificationCode(email, 'REGISTER');
-      await sendVerificationEmail(email, code);
+      try {
+        await sendVerificationEmail(email, code);
+      } catch (mailError: any) {
+        console.warn(`[MAIL_WARNING] Không thể gửi email tới ${email}:`, mailError?.message || mailError);
+        console.info(`[DEV_OTP] Mã OTP đăng ký cho ${email} là: ${code}`);
+      }
 
       return {
         user: this.sanitizeUser(user),
@@ -266,23 +279,23 @@ export class AuthService {
     try {
       decoded = jwt.verify(
         token,
-        process.env.JWT_REFRESH_SECRET || 'refresh_secret_key'
+        envConfig.REFRESH_TOKEN_SECRET
       );
     } catch {
       throw new AppError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', 401);
     }
 
-    const user = await this.authRepo.findUserByEmail(decoded.email);
+    const email = decoded.email;
+    const user = await this.authRepo.findUserByEmail(email);
     if (!user || user.status !== 'ACTIVE') {
       throw new AppError('Tài khoản không hợp lệ hoặc đã bị khóa', 403);
     }
 
     const tokens = this.generateTokens(user);
-    
-    // (Optional: Nếu bạn có quản lý device session, có thể cập nhật refresh token mới và lưu lại ip ở đây)
-    
+
     return {
       accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
   }
 
@@ -302,7 +315,12 @@ export class AuthService {
     }
 
     const code = await this.createVerificationCode(email, 'FORGOT_PASSWORD');
-    await sendVerificationEmail(email, code);
+    try {
+      await sendVerificationEmail(email, code);
+    } catch (mailError: any) {
+      console.warn(`[MAIL_WARNING] Không thể gửi email tới ${email}:`, mailError?.message || mailError);
+      console.info(`[DEV_OTP] Mã OTP đặt lại mật khẩu cho ${email} là: ${code}`);
+    }
 
     return {
       message: 'Mã xác thực đặt lại mật khẩu đã được gửi tới email của bạn',

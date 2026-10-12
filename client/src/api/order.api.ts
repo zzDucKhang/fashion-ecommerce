@@ -63,7 +63,7 @@ export const orderApi = {
   },
 
   getPaymentDetails: async (orderId: number) => {
-    const res = await apiClient.get<ApiResponse<{ qrUrl: string }>>(
+    const res = await apiClient.get<ApiResponse<{ qrUrl: string; amount?: number; transferContent?: string; orderCode?: string; totalAmount?: number; paymentMethod?: string }>>(
       `${API_ENDPOINTS.CART_ORDER.ORDERS}/${orderId}/payment-details`
     );
     return res.data;

@@ -28,6 +28,8 @@ export interface OrderItem {
   productImageUrl?: string | null;
   unitPrice: number | string;
   quantity: number;
+  productId?: number | null;
+  productSlug?: string | null;
 }
 
 export interface Order {

@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-
+const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
 
@@ -48,7 +48,7 @@ async function main() {
   // ==========================================
   // BẢNG 4: USER (10 records)
   // ==========================================
-  const defaultPassword = '123'
+  const defaultPassword = bcrypt.hashSync('Password123@', 10);
   const usersData = [
     { fullName: 'Nguyễn Quản Trị', email: 'admin@fashion.com', phoneNumber: '0901000001', roleId: 1, status: 'ACTIVE', rewardPoints: 5000 },
     { fullName: 'Trần Nhân Viên', email: 'staff@fashion.com', phoneNumber: '0901000002', roleId: 2, status: 'ACTIVE', rewardPoints: 200 },
@@ -425,18 +425,20 @@ async function main() {
   // ==========================================
   // BẢNG 22: INVENTORY_TRANSACTION (10 records)
   // ==========================================
-  for (let i = 0; i < 10; i++) {
-    await prisma.inventoryTransaction.create({
-      data: {
-        variantId: variants[i].id,
-        quantityChange: 100,
-        type: 'IMPORT',
-        referenceId: `PO-IMPORT-2026-${i + 1}`,
-        note: 'Nhập lô hàng đầu tháng từ xưởng may Hà Nội',
-      },
-    });
+  if (prisma.inventoryTransaction) {
+    for (let i = 0; i < 10; i++) {
+      await prisma.inventoryTransaction.create({
+        data: {
+          variantId: variants[i].id,
+          quantityChange: 100,
+          type: 'IMPORT',
+          referenceId: `PO-IMPORT-2026-${i + 1}`,
+          note: 'Nhập lô hàng đầu tháng từ xưởng may Hà Nội',
+        },
+      });
+    }
+    console.log('✅ Đã tạo 10 InventoryTransactions');
   }
-  console.log('✅ Đã tạo 10 InventoryTransactions');
 
   // ==========================================
   // BẢNG 23: FLASH_SALE_CAMPAIGN (10 records)
@@ -515,7 +517,6 @@ async function main() {
         rating: 5,
         content: reviewContents[i],
         shopReply: 'Dạ cảm ơn bạn đã tin yêu và ủng hộ sản phẩm của thương hiệu ạ!',
-        updateCount: 0,
         isHidden: false,
       },
     });
@@ -530,7 +531,7 @@ async function main() {
     for (let i = 0; i < 10; i++) {
       await prisma.reviewMedia.create({
         data: {
-          productReviewId: reviews[i].id,
+          reviewId: reviews[i].id,
           mediaUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=400&q=80',
           mediaType: 'IMAGE',
         },
@@ -546,8 +547,8 @@ async function main() {
   for (let i = 0; i < 10; i++) {
     const ch = await prisma.chat.create({
       data: {
-        customerId: users[i].id,
-        status: i % 3 === 0 ? 'OPEN' : 'RESOLVED',
+        userId: users[i].id,
+        status: i % 3 === 0 ? 'OPEN' : 'CLOSED',
       },
     });
     chats.push(ch);
@@ -562,7 +563,6 @@ async function main() {
       data: {
         chatId: chats[i].id,
         senderId: users[i].id,
-        senderRole: 'CUSTOMER',
         content: `Chào shop, mình cao 1m75 nặng 68kg thì mặc size L của sản phẩm ${products[i].defaultName} có vừa không?`,
         isRead: true,
       },
