@@ -123,7 +123,7 @@ export default function AdminEditProductPage() {
           if (typeof t === 'number') return t;
           return t?.id ?? t?.tag?.id ?? t?.tagId ?? null;
         })
-        .filter((id): id is number => typeof id === 'number' && !isNaN(id));
+        .filter((id: any) => typeof id === 'number' && !isNaN(id));
     } else if (Array.isArray(product.tagIds)) {
       resolvedTagIds = product.tagIds.map(Number).filter((id: number) => !isNaN(id));
     }

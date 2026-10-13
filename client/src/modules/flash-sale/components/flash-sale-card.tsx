@@ -30,7 +30,7 @@ export function FlashSaleCard({ item, imageUrl, className }: FlashSaleCardProps)
   const resolvedImage = imageUrl || item.variant?.imageUrl || item.variant?.product?.thumbnailUrl || 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=800&q=80';
   
   // Khởi tạo link URL chi tiết sản phẩm
-  const productId = item.variant?.productId || item.variant?.product?.id || '';
+  const productId = item.variant?.productId || '';
   const productHref = `/products/${productId}?variantId=${item.variantId}`;
 
   const flashPrice = Number(item.flashSalePrice);
