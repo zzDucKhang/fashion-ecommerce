@@ -44,12 +44,15 @@ export class CategoryRepo {
     createdById: number
     data: CreateCategoryBodyType
   }) {
+    const { logo, parentCategoryId, ...rest } = data; // Tách các trường khác tên ra
+    
     return prisma.category.create({
       data: {
-        ...data,
+        ...rest,
+        iconUrl: logo, // Mapping logo -> iconUrl
+        parentId: parentCategoryId, // Mapping parentCategoryId -> parentId
         createdById,
       },
-      
     })
   }
 
@@ -62,13 +65,17 @@ export class CategoryRepo {
     updatedById: number
     data: UpdateCategoryBodyType
   }) {
+    const { logo, parentCategoryId, ...rest } = data;
+
     return prisma.category.update({
       where: { id, deletedAt: null },
       data: {
-        ...data,
+        ...rest,
+        // Dùng trick này để tránh đè dữ liệu null nếu client không gửi lên trường này (undefined)
+        ...(logo !== undefined && { iconUrl: logo }),
+        ...(parentCategoryId !== undefined && { parentId: parentCategoryId }),
         updatedById,
       },
-     
     })
   }
 

@@ -12,6 +12,7 @@ import { inventorySaleRouter } from '@/modules/inventory-sale/inventory-sale.rou
 import { fulfillmentRouter } from '@/modules/fulfillment/fulfillment.routes'
 import { loyaltyEngageRouter } from '@/modules/loyalty-engage/loyalty-engage.routes'
 import { sepayWebhookRouter } from '@/modules/fulfillment/payment/payment.routes'
+import { uploadRouter } from './modules/upload/upload.routes'
 
 export const createApp = (): Express => {
   const app = express()
@@ -39,6 +40,7 @@ export const createApp = (): Express => {
   app.use('/api/v1/inventory-sale', inventorySaleRouter)
   app.use('/api/v1/fulfillment', fulfillmentRouter)
   app.use('/api/v1/loyalty-engage', loyaltyEngageRouter)
+  app.use('/api/v1/common/upload', uploadRouter)
 
   // Global Error Handler
   app.use(errorFilter)

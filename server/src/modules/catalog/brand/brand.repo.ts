@@ -42,9 +42,12 @@ export class BrandRepo {
   }
 
   async create({ createdById, data }: { createdById: number; data: CreateBrandBodyType }) {
+    const { logo, ...rest } = data;
+    
     return prisma.brand.create({
       data: {
-        ...data,
+        ...rest,
+        logoUrl: logo, // Mapping logo -> logoUrl
         createdById,
       },
     })
@@ -59,10 +62,13 @@ export class BrandRepo {
     id: number
     data: UpdateBrandBodyType
   }) {
+    const { logo, ...rest } = data;
+
     return prisma.brand.update({
       where: { id, deletedAt: null },
       data: {
-        ...data,
+        ...rest,
+        ...(logo !== undefined && { logoUrl: logo }),
         updatedById: updateById,
       },
     })

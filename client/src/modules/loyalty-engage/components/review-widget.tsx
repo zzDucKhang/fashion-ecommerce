@@ -12,6 +12,7 @@ import {
   MessageSquare,
   CornerDownRight,
   ShieldCheck,
+  X
 } from "lucide-react";
 import {
   getReviewsByProduct,
@@ -80,6 +81,7 @@ export interface ProductReviewListProps {
 export function ProductReviewList({ productId }: ProductReviewListProps) {
   const [page, setPage] = useState<number>(1);
   const [ratingFilter, setRatingFilter] = useState<number | undefined>(undefined);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const swrKey = `/reviews?productId=${productId}&page=${page}&rating=${ratingFilter ?? ""}`;
   const { data: response, error, isLoading, mutate } = useSWR(
@@ -247,14 +249,18 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
 
               {review.medias && review.medias.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {review.medias.map((media, idx) => (
-                    <img
-                      key={media.id || idx}
-                      src={media.url}
-                      alt="Ảnh đánh giá"
-                      className="w-20 h-20 object-cover rounded-xl border border-[#EAE6DF] hover:opacity-90 transition cursor-pointer"
-                    />
-                  ))}
+                  {review.medias.map((media: any, idx: number) => {
+                    const src = media.mediaUrl || media.url;
+                    return (
+                      <img
+                        key={media.id || idx}
+                        src={src}
+                        alt="Ảnh đánh giá"
+                        className="w-20 h-20 object-cover rounded-xl border border-[#EAE6DF] hover:opacity-90 hover:scale-105 transition-all cursor-pointer shadow-xs"
+                        onClick={() => src && setPreviewImage(src)} // <-- Bấm để mở modal
+                      />
+                    );
+                  })}
                 </div>
               )}
 
@@ -301,7 +307,38 @@ export function ProductReviewList({ productId }: ProductReviewListProps) {
           )}
         </div>
       )}
+    {/* Khung Modal xem ảnh phóng to với hiệu ứng làm mờ nền */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200"
+          onClick={() => setPreviewImage(null)}
+        >
+          {/* Nút đóng góc trên bên phải */}
+          <button
+            type="button"
+            onClick={() => setPreviewImage(null)}
+            className="absolute top-5 right-5 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+            aria-label="Đóng xem ảnh"
+          >
+            <X size={24} />
+          </button>
+
+          {/* Vùng hiển thị ảnh (ngăn nổi bọt click để không bị tự đóng khi bấm vào ảnh) */}
+          <div
+            className="relative max-w-4xl max-h-[85vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={previewImage}
+              alt="Ảnh đánh giá phóng to"
+              className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-2xl shadow-2xl border border-white/15 animate-in zoom-in-95 duration-200"
+            />
+          </div>
+        </div>
+      )}
     </section>
+
+    
   );
 }
 

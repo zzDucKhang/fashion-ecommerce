@@ -98,7 +98,7 @@ export class StorageService {
     // Với Public Bucket của Supabase, link truy cập trực tiếp có dạng:
     // https://<project-ref>.supabase.co/storage/v1/object/public/<bucket-name>/<fileKey>
     const baseUrl = (envConfig.S3_ENDPOINT || '').replace('/s3', '').replace(/\/$/, '');
-    const publicUrl = `${baseUrl}/object/public/${this.bucketName}/${fileKey}`;
+    const publicUrl = `https://kqerbvhdttbncfydmuii.supabase.co/storage/v1/object/public/${this.bucketName}/${fileKey}`
 
     return {
       url: publicUrl,

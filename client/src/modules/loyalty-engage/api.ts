@@ -372,3 +372,10 @@ export const chatApi = {
   },
 };
 
+export async function getAvailableVouchers(): Promise<{ data: VoucherEntity[] }> {
+  const res = await apiClient.get<{ data: VoucherEntity[] }>(
+    `${API_ENDPOINTS.LOYALTY_ENGAGE.VOUCHERS}?isActive=true&limit=50`
+  );
+  return res.data;
+}
+

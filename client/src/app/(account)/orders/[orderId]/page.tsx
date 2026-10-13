@@ -207,11 +207,18 @@ export default function OrderDetailPage() {
 
           <div className="mt-4 divide-y divide-[#EAE6DF]">
             {order.orderItems?.map((item: any) => {
-              const productHref = item.productSlug
-                ? `/products/${item.productSlug}`
-                : item.productId
-                ? `/products/${item.productId}`
-                : '#';
+              // 1. Lấy đúng productId từ item hoặc từ quan hệ variant -> product
+              const resolvedProductId =
+                item.productId ??
+                item.variant?.productId ??
+                item.variant?.product?.id;
+
+              // 2. Tạo đường link:
+              // - Nếu muốn xem trang chi tiết sản phẩm trên giao diện web (Client):
+              const productHref = resolvedProductId ? `/products/${resolvedProductId}` : '#';
+
+              // - HOẶC nếu bạn muốn mở API JSON server (http://localhost:3000/api/v1/catalog/products/:id):
+              // const productHref = resolvedProductId ? `http://localhost:3000/api/v1/catalog/products/${resolvedProductId}` : '#';
 
               return (
                 <div
@@ -219,8 +226,17 @@ export default function OrderDetailPage() {
                   className="py-4.5 first:pt-2 last:pb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="size-12 rounded-xl bg-neutral-100 border border-[#EAE6DF] flex items-center justify-center shrink-0">
-                      <PackageCheck className="size-5 text-neutral-400" />
+                    {/* Hiển thị ảnh thực tế của sản phẩm thay vì icon trống */}
+                    <div className="size-12 rounded-xl bg-neutral-100 border border-[#EAE6DF] flex items-center justify-center shrink-0 overflow-hidden">
+                      {item.productImageUrl || item.variant?.imageUrl || item.variant?.product?.thumbnailUrl ? (
+                        <img
+                          src={item.productImageUrl || item.variant?.imageUrl || item.variant?.product?.thumbnailUrl}
+                          alt={item.productName}
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        <PackageCheck className="size-5 text-neutral-400" />
+                      )}
                     </div>
 
                     <div className="min-w-0">
@@ -250,7 +266,7 @@ export default function OrderDetailPage() {
 
                     {order.status === 'DELIVERED' && (
                       <Link
-                        href={`/orders/${order.id}/review/${item.variantId ?? item.id}`}
+                        href={`/orders/${order.id}/review/${resolvedProductId ?? item.variantId ?? item.id}`}
                         className="mt-1"
                       >
                         <Button variant="outline" size="sm" className="rounded-xl border-[#EAE6DF] text-xs h-8">

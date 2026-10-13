@@ -31,7 +31,6 @@ voucherRouter.post(
 voucherRouter.get(
   '/',
   requireAuth,
-  requireAdmin,
   validateRequest({ query: listVoucherQuerySchema }),
   controller.listVouchers,
 )
@@ -47,7 +46,6 @@ voucherRouter.post(
 voucherRouter.get(
   '/:id',
   requireAuth,
-  requireAdmin,
   validateRequest({ params: voucherIdParamSchema }),
   controller.getVoucherById,
 )
