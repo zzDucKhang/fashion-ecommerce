@@ -154,7 +154,14 @@ export default function AdminVouchersPage() {
     );
   };
 
-  const vouchers: Voucher[] = (data?.data as any) || [];
+  const vouchers: Voucher[] = Array.isArray(data?.data?.data)
+    ? data.data.data
+    : Array.isArray(data?.data)
+    ? data.data
+    : [];
+
+  const totalPages = data?.data?.totalPages ?? data?.totalPages ?? 1;
+  const totalItems = data?.data?.totalItems ?? data?.totalItems ?? 0;
 
   const columns: Column<Voucher>[] = [
     {
@@ -290,8 +297,8 @@ export default function AdminVouchersPage() {
         data={vouchers}
         isLoading={isLoading}
         page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems || 0}
+        totalPages={totalPages}
+        totalItems={totalItems}
         onPageChange={setPage}
         emptyMessage="Chưa có mã giảm giá nào."
       />
