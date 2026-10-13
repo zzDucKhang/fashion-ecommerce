@@ -23,8 +23,8 @@ logs/
 npm-debug.log*
 
 # Uploaded Files & Static Storage
-upload/
-uploads/
+/upload/
+/uploads/
 temp/
 tmp/
 
