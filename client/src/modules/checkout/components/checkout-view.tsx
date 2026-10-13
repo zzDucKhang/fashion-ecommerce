@@ -94,7 +94,19 @@ export function CheckoutView() {
   });
 
   const subTotal = checkoutItems.reduce((sum, item) => {
-    const price = Number(item.variant.sellingPrice || item.variant.originalPrice || 0);
+    const activeFlashSale = item.variant.flashSaleItems?.find((fsi: any) => {
+      if (!fsi.campaign || !fsi.campaign.isActive) return false;
+      const now = new Date().getTime();
+      const start = new Date(fsi.campaign.startTime).getTime();
+      const end = new Date(fsi.campaign.endTime).getTime();
+      const remainingQty = fsi.promoQuantity - (fsi.soldQuantity || 0);
+      return now >= start && now <= end && remainingQty >= item.quantity;
+    });
+
+    const price = activeFlashSale
+      ? Number(activeFlashSale.flashSalePrice)
+      : Number(item.variant.sellingPrice || item.variant.originalPrice || 0);
+      
     return sum + price * item.quantity;
   }, 0);
 
@@ -267,16 +279,30 @@ export function CheckoutView() {
               <Lock size={15} color="#84EA53" /> Thanh toán an toàn
             </div>
             <div className="mt-6 divide-y divide-white/10">
-              {checkoutItems.map((item) => (
-                <div key={item.id} className="py-3 flex justify-between text-xs">
-                  <span className="!text-white [&_*]:!text-white/70 line-clamp-1 w-2/3">
-                    {item.quantity}x {item.variant.product.defaultName}
-                  </span>
-                  <span className="font-medium">
-                    {formatCurrency(Number(item.variant.sellingPrice || 0) * item.quantity)}
-                  </span>
-                </div>
-              ))}
+              {checkoutItems.map((item) => {
+                // Tính lại giá cho từng Item hiển thị
+                const activeFlashSale = item.variant.flashSaleItems?.find((fsi: any) => {
+                  if (!fsi.campaign || !fsi.campaign.isActive) return false;
+                  const now = new Date().getTime();
+                  const start = new Date(fsi.campaign.startTime).getTime();
+                  const end = new Date(fsi.campaign.endTime).getTime();
+                  const remainingQty = fsi.promoQuantity - (fsi.soldQuantity || 0);
+                  return now >= start && now <= end && remainingQty >= item.quantity;
+                });
+                const currentPrice = activeFlashSale ? Number(activeFlashSale.flashSalePrice) : Number(item.variant.sellingPrice || item.variant.originalPrice || 0);
+
+                return (
+                  <div key={item.id} className="py-3 flex justify-between text-xs">
+                    <span className="!text-white [&_*]:!text-white/70 line-clamp-1 w-2/3">
+                      {item.quantity}x {item.variant.product.defaultName}
+                    </span>
+                    <span className="font-medium">
+                      {/* Hiển thị giá nhân với số lượng */}
+                      {formatCurrency(currentPrice * item.quantity)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="mt-6 space-y-2 border-t border-white/15 pt-5 text-xs !text-white [&_*]:!text-white/70">

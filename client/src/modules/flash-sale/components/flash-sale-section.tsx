@@ -30,8 +30,8 @@ export function FlashSaleSection() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-8 lg:px-12">
-        <div className="h-48 animate-pulse rounded-2xl bg-zinc-100 dark:bg-zinc-800" />
+      <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-8 lg:px-12">
+        <div className="h-48 animate-pulse rounded-3xl bg-neutral-100" />
       </div>
     );
   }
@@ -42,30 +42,31 @@ export function FlashSaleSection() {
   const items = currentCampaign.items || [];
 
   return (
-    <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-8 lg:px-12">
-      <div className="overflow-hidden rounded-3xl border border-red-500/20 bg-gradient-to-b from-red-950/10 via-background to-background p-6 shadow-xl dark:from-red-950/30 sm:p-8">
+    <section className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-8 lg:px-12">
+      <div className="overflow-hidden rounded-3xl border border-red-100 bg-gradient-to-b from-red-50 to-white p-6 shadow-sm sm:p-8">
+        
         {/* Header Bar */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-red-500/10 pb-6">
-          <div className="flex items-center gap-3">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-red-600 !text-white [&_*]:!text-white shadow-lg shadow-red-600/30">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between border-b border-red-100 pb-6">
+          <div className="flex items-center gap-4">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-red-600 text-white shadow-lg shadow-red-600/30">
               <Flame className="size-7 fill-amber-300 text-amber-300 animate-bounce" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-widest text-red-600 dark:text-red-400">
+                <span className="text-xs font-black uppercase tracking-widest text-red-600">
                   Ưu đãi giới hạn
                 </span>
-                <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-950 dark:text-red-300">
+                <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
                   <Sparkles className="size-3" /> HOT SALE
                 </span>
               </div>
-              <h2 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-3xl">
+              <h2 className="text-2xl font-black tracking-tight text-neutral-900 sm:text-3xl mt-1">
                 {currentCampaign.name}
               </h2>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-5 sm:justify-end">
             <FlashSaleCountdown
               targetTime={currentCampaign.endTime}
               startTime={currentCampaign.startTime}
@@ -73,7 +74,7 @@ export function FlashSaleSection() {
             />
             <Link
               href="/flash-sale"
-              className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-xs font-bold !text-white [&_*]:!text-white transition hover:bg-red-600 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-red-600 dark:hover:!text-white [&_*]:!text-white"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#1D1F20] !text-white [&_*]:!text-white px-5 py-2.5 text-xs font-bold transition-colors hover:bg-red-600 shadow-sm"
             >
               Xem tất cả <ArrowRight className="size-4" />
             </Link>

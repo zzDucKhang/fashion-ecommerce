@@ -12,6 +12,7 @@ export class ProductRepo {
   async list(query: GetProductQueryType, languageId: string) {
     const skip = (query.page - 1) * query.limit
     const take = query.limit
+    const now = new Date() // Thêm thời gian hiện tại
 
     const where: any = { deletedAt: null }
     if (query.status) where.status = query.status
@@ -34,33 +35,45 @@ export class ProductRepo {
           images: { orderBy: { displayOrder: 'asc' } },
           variants: {
             where: { deletedAt: null },
-            select: { id: true, sku: true, originalPrice: true, sellingPrice: true, stockQuantity: true },
+            // THAY ĐỔI: Dùng include thay vì select để nhúng FlashSale
+            include: {
+              flashSaleItems: {
+                where: {
+                  campaign: { isActive: true, deletedAt: null, startTime: { lte: now }, endTime: { gte: now } }
+                },
+                include: { campaign: true }
+              }
+            }
           },
-         
         },
         orderBy: { createdAt: 'desc' },
       }),
     ])
 
     return {
-      data,
-      totalItems,
-      page: query.page,
-      limit: query.limit,
-      totalPages: Math.ceil(totalItems / query.limit),
+      data, totalItems, page: query.page, limit: query.limit, totalPages: Math.ceil(totalItems / query.limit),
     }
   }
 
   async findById(productId: number, languageId?: string) {
+    const now = new Date() // Thêm thời gian hiện tại
     return prisma.product.findFirst({
       where: { id: productId, deletedAt: null },
       include: {
-        category: true,
-        brand: true,
-        tags: true,
+        category: true, brand: true, tags: true,
         images: { orderBy: { displayOrder: 'asc' } },
-        variants: { where: { deletedAt: null } },
-       
+        variants: { 
+          where: { deletedAt: null },
+          // THAY ĐỔI: Nhúng FlashSale vào chi tiết sản phẩm
+          include: {
+            flashSaleItems: {
+              where: {
+                campaign: { isActive: true, deletedAt: null, startTime: { lte: now }, endTime: { gte: now } }
+              },
+              include: { campaign: true }
+            }
+          }
+        },
       },
     })
   }

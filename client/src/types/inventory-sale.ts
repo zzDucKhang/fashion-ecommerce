@@ -1,12 +1,16 @@
 import { BasePaginationQuery } from './common';
 
 export interface FlashSaleItemVariant {
+  id: number; 
+  productId: number; 
   sku: string;
   stockQuantity: number;
   originalPrice: number | string;
   sellingPrice: number | string;
+  imageUrl?: string | null; 
   product?: {
     defaultName: string;
+    thumbnailUrl?: string | null; 
   };
 }
 

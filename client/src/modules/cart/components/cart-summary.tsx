@@ -11,7 +11,19 @@ export function CartSummary({ items, selectedItemIds }: CartSummaryProps) {
   // Chỉ tính tiền các sản phẩm được chọn
   const selectedItems = items.filter((item) => selectedItemIds.includes(item.id));
   const subtotal = selectedItems.reduce((sum, item) => {
-    const price = Number(item.variant.sellingPrice || item.variant.originalPrice || 0);
+    const activeFlashSale = item.variant.flashSaleItems?.find((fsi: any) => {
+      if (!fsi.campaign || !fsi.campaign.isActive) return false;
+      const now = new Date().getTime();
+      const start = new Date(fsi.campaign.startTime).getTime();
+      const end = new Date(fsi.campaign.endTime).getTime();
+      const remainingQty = fsi.promoQuantity - (fsi.soldQuantity || 0);
+      return now >= start && now <= end && remainingQty >= item.quantity;
+    });
+
+    const price = activeFlashSale
+      ? Number(activeFlashSale.flashSalePrice)
+      : Number(item.variant.sellingPrice || item.variant.originalPrice || 0);
+      
     return sum + price * item.quantity;
   }, 0);
 

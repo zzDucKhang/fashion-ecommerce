@@ -90,7 +90,7 @@ export function FlashSaleCountdown({
 
   if (time.isEnded) {
     return (
-      <div className={cn('inline-flex items-center gap-1.5 font-semibold text-muted-foreground', className)}>
+      <div className={cn('inline-flex items-center gap-1.5 font-semibold text-neutral-500', className)}>
         <Clock className="size-4" />
         <span>Chiến dịch đã kết thúc</span>
       </div>
@@ -99,29 +99,30 @@ export function FlashSaleCountdown({
 
   const pad = (n: number) => n.toString().padStart(2, '0');
 
+  // Đã thêm min-w để các ô số không bị bóp méo, căn giữa số bên trong
   const sizeClasses = {
     sm: {
-      box: 'px-1.5 py-0.5 text-xs font-mono font-bold rounded',
-      colon: 'text-xs font-bold mx-0.5',
-      label: 'text-[9px] uppercase tracking-wider',
+      box: 'min-w-[28px] px-1.5 py-1 text-xs font-mono font-bold rounded flex items-center justify-center',
+      colon: 'text-xs font-bold mx-1 text-neutral-400',
+      label: 'text-[9px] uppercase tracking-wider text-neutral-500 mt-1',
     },
     md: {
-      box: 'px-2.5 py-1 text-sm font-mono font-extrabold rounded-md',
-      colon: 'text-sm font-bold mx-1',
-      label: 'text-[10px] uppercase tracking-wider',
+      box: 'min-w-[36px] px-2 py-1.5 text-sm font-mono font-extrabold rounded-md flex items-center justify-center',
+      colon: 'text-sm font-bold mx-1 text-neutral-400',
+      label: 'text-[10px] uppercase tracking-wider text-neutral-500 mt-1',
     },
     lg: {
-      box: 'px-3.5 py-1.5 text-lg font-mono font-black rounded-lg',
-      colon: 'text-base font-bold mx-1.5',
-      label: 'text-xs uppercase tracking-wider',
+      box: 'min-w-[44px] px-2.5 py-2 text-lg font-mono font-black rounded-lg flex items-center justify-center',
+      colon: 'text-base font-bold mx-1.5 text-neutral-400',
+      label: 'text-xs uppercase tracking-wider text-neutral-500 mt-1',
     },
   }[size];
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
-      <div className="flex items-center text-red-500 font-bold animate-pulse">
+    <div className={cn('flex items-center gap-2 sm:gap-3', className)}>
+      <div className="flex items-center text-red-600 font-bold animate-pulse">
         <Flame className={cn(size === 'lg' ? 'size-5' : size === 'sm' ? 'size-3.5' : 'size-4')} />
-        <span className="text-xs uppercase ml-1 tracking-wider">
+        <span className="text-xs uppercase ml-1 tracking-wider whitespace-nowrap">
           {time.isUpcoming ? 'Bắt đầu sau' : 'Kết thúc sau'}
         </span>
       </div>
@@ -130,38 +131,38 @@ export function FlashSaleCountdown({
         {time.days > 0 && (
           <>
             <div className="flex flex-col items-center">
-              <span className={cn('bg-zinc-900 !text-white [&_*]:!text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm', sizeClasses.box)}>
+              <span className={cn('bg-[#1D1F20] text-white shadow-sm', sizeClasses.box)}>
                 {pad(time.days)}
               </span>
-              {showLabels && <span className={cn('mt-0.5 text-zinc-500', sizeClasses.label)}>ngày</span>}
+              {showLabels && <span className={sizeClasses.label}>ngày</span>}
             </div>
-            <span className={cn('text-zinc-400', sizeClasses.colon)}>:</span>
+            <span className={sizeClasses.colon}>:</span>
           </>
         )}
 
         <div className="flex flex-col items-center">
-          <span className={cn('bg-zinc-900 !text-white [&_*]:!text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm', sizeClasses.box)}>
+          <span className={cn('bg-[#1D1F20] text-white shadow-sm', sizeClasses.box)}>
             {pad(time.hours)}
           </span>
-          {showLabels && <span className={cn('mt-0.5 text-zinc-500', sizeClasses.label)}>giờ</span>}
+          {showLabels && <span className={sizeClasses.label}>giờ</span>}
         </div>
 
-        <span className={cn('text-zinc-400', sizeClasses.colon)}>:</span>
+        <span className={sizeClasses.colon}>:</span>
 
         <div className="flex flex-col items-center">
-          <span className={cn('bg-zinc-900 !text-white [&_*]:!text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm', sizeClasses.box)}>
+          <span className={cn('bg-[#1D1F20] text-white shadow-sm', sizeClasses.box)}>
             {pad(time.minutes)}
           </span>
-          {showLabels && <span className={cn('mt-0.5 text-zinc-500', sizeClasses.label)}>phút</span>}
+          {showLabels && <span className={sizeClasses.label}>phút</span>}
         </div>
 
-        <span className={cn('text-zinc-400', sizeClasses.colon)}>:</span>
+        <span className={sizeClasses.colon}>:</span>
 
         <div className="flex flex-col items-center">
-          <span className={cn('bg-red-600 !text-white [&_*]:!text-white shadow-sm shadow-red-500/20', sizeClasses.box)}>
+          <span className={cn('bg-red-600 text-white shadow-sm shadow-red-500/20', sizeClasses.box)}>
             {pad(time.seconds)}
           </span>
-          {showLabels && <span className={cn('mt-0.5 text-red-500 font-semibold', sizeClasses.label)}>giây</span>}
+          {showLabels && <span className={cn(sizeClasses.label, '!text-red-600 font-semibold')}>giây</span>}
         </div>
       </div>
     </div>

@@ -25,8 +25,21 @@ export function CartItemComponent({ item, isSelected = false, onToggleSelect }: 
     removeMutation.mutate(item.id);
   };
 
-  const price = Number(item.variant.sellingPrice || item.variant.originalPrice || 0);
-  const totalItemPrice = price * item.quantity;
+  const activeFlashSale = item.variant.flashSaleItems?.find((fsi: any) => {
+    if (!fsi.campaign || !fsi.campaign.isActive) return false;
+    const now = new Date().getTime();
+    const start = new Date(fsi.campaign.startTime).getTime();
+    const end = new Date(fsi.campaign.endTime).getTime();
+    const remainingQty = fsi.promoQuantity - (fsi.soldQuantity || 0);
+    return now >= start && now <= end && remainingQty >= item.quantity;
+  });
+
+  const currentPrice = activeFlashSale
+    ? Number(activeFlashSale.flashSalePrice)
+    : Number(item.variant.sellingPrice || item.variant.originalPrice || 0);
+    
+  const originalPrice = Number(item.variant.sellingPrice || item.variant.originalPrice || 0);
+  const totalItemPrice = currentPrice * item.quantity;
   const imageUrl = item.variant.imageUrl || item.variant.product.thumbnailUrl || '/placeholder.png';
   const variantDisplay = item.variant.variantValue || 'Phân loại mặc định';
 
@@ -54,10 +67,18 @@ export function CartItemComponent({ item, isSelected = false, onToggleSelect }: 
       <div className="flex min-w-0 flex-1 flex-col justify-between self-stretch">
         <div className="flex justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold line-clamp-2 text-neutral-900">
+            <p className="text-sm font-semibold line-clamp-2 text-neutral-900 flex items-center gap-2">
               {item.variant.product.defaultName}
+              {activeFlashSale && (
+                <span className="bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                  Flash Sale
+                </span>
+              )}
             </p>
-            <p className="mt-1.5 text-xs text-[#74736e]">{variantDisplay}</p>
+            <p className="mt-1.5 text-xs text-[#74736e]">
+              {variantDisplay} • {formatCurrency(currentPrice)} 
+              {activeFlashSale && <span className="line-through ml-1 text-neutral-400">{formatCurrency(originalPrice)}</span>}
+            </p>
           </div>
           <button
             onClick={handleRemove}

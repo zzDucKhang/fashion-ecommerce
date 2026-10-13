@@ -1,6 +1,8 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Flame, ShoppingCart, Check, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { FlashSaleItem } from '@/types/inventory-sale';
@@ -15,12 +17,22 @@ interface FlashSaleCardProps {
 }
 
 export function FlashSaleCard({ item, imageUrl, className }: FlashSaleCardProps) {
+  const router = useRouter();
+  
+  // Vẫn giữ nguyên các state gốc của bạn
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
 
   const productName = item.variant?.product?.defaultName || `Biến thể #${item.variantId}`;
   const sku = item.variant?.sku || `SKU-${item.variantId}`;
   
+  // Tự động lấy ảnh: Ưu tiên ảnh truyền vào -> Ảnh biến thể -> Ảnh sản phẩm gốc -> Fallback
+  const resolvedImage = imageUrl || item.variant?.imageUrl || item.variant?.product?.thumbnailUrl || 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=800&q=80';
+  
+  // Khởi tạo link URL chi tiết sản phẩm
+  const productId = item.variant?.productId || item.variant?.product?.id || '';
+  const productHref = `/products/${productId}?variantId=${item.variantId}`;
+
   const flashPrice = Number(item.flashSalePrice);
   const originalPrice = Number(item.variant?.sellingPrice || item.variant?.originalPrice || flashPrice * 1.3);
   
@@ -37,6 +49,7 @@ export function FlashSaleCard({ item, imageUrl, className }: FlashSaleCardProps)
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
   };
 
+  // Vẫn giữ nguyên hàm gốc đề phòng sau này bạn muốn dùng lại chức năng Thêm vào giỏ
   const handleAddToCart = async () => {
     if (isSoldOut || adding) return;
     setAdding(true);
@@ -54,6 +67,12 @@ export function FlashSaleCard({ item, imageUrl, className }: FlashSaleCardProps)
     }
   };
 
+  // Hàm chuyển hướng trang chi tiết
+  const handleBuyNow = () => {
+    if (isSoldOut || !productId) return;
+    router.push(productHref);
+  };
+
   return (
     <article
       className={cn(
@@ -62,11 +81,11 @@ export function FlashSaleCard({ item, imageUrl, className }: FlashSaleCardProps)
       )}
     >
       <div>
-        {/* Image & Discount Badge Container */}
-        <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-900">
-          {imageUrl && (
+        {/* Image & Discount Badge Container (Đã bọc thẻ Link) */}
+        <Link href={productHref} className="block relative aspect-square w-full overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-900">
+          {resolvedImage && (
             <Image
-              src={imageUrl}
+              src={resolvedImage}
               alt={productName}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
@@ -95,16 +114,20 @@ export function FlashSaleCard({ item, imageUrl, className }: FlashSaleCardProps)
               </span>
             </div>
           )}
-        </div>
+        </Link>
 
         {/* Content */}
         <div className="mt-3 flex flex-col gap-1.5">
           <div className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">
             SKU: {sku}
           </div>
-          <h3 className="line-clamp-2 text-sm font-semibold text-zinc-900 transition-colors group-hover:text-red-600 dark:text-zinc-100 dark:group-hover:text-red-400">
-            {productName}
-          </h3>
+          
+          {/* Tiêu đề sản phẩm (Đã bọc thẻ Link) */}
+          <Link href={productHref}>
+            <h3 className="line-clamp-2 text-sm font-semibold text-zinc-900 transition-colors group-hover:text-red-600 dark:text-zinc-100 dark:group-hover:text-red-400">
+              {productName}
+            </h3>
+          </Link>
 
           {/* Pricing */}
           <div className="mt-1 flex items-baseline gap-2">
@@ -133,10 +156,10 @@ export function FlashSaleCard({ item, imageUrl, className }: FlashSaleCardProps)
           </span>
         </div>
 
+        {/* Nút bấm xử lý theo yêu cầu mới (Chuyển trang) */}
         <Button
-          onClick={handleAddToCart}
+          onClick={handleBuyNow}
           disabled={isSoldOut || adding}
-          variant={added ? 'secondary' : 'default'}
           className={cn(
             'w-full font-bold transition-all shadow-sm',
             !isSoldOut && !added && 'bg-red-600 !text-white [&_*]:!text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700'
@@ -145,12 +168,7 @@ export function FlashSaleCard({ item, imageUrl, className }: FlashSaleCardProps)
           {adding ? (
             <>
               <Loader2 className="mr-1.5 size-4 animate-spin" />
-              Đang xử lý...
-            </>
-          ) : added ? (
-            <>
-              <Check className="mr-1.5 size-4 text-green-600" />
-              Đã thêm vào giỏ
+              Đang tải...
             </>
           ) : isSoldOut ? (
             'Tạm hết hàng'

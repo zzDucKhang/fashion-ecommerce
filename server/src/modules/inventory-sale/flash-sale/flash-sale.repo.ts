@@ -6,13 +6,17 @@ const flashSaleItemsInclude = {
         include: {
             variant: {
                 select: {
+                    id: true,
+                    productId: true, 
                     sku: true,
                     stockQuantity: true,
                     originalPrice: true,
                     sellingPrice: true,
+                    imageUrl: true, 
                     product: {
                         select: {
                             defaultName: true,
+                            thumbnailUrl: true, 
                         },
                     },
                 },

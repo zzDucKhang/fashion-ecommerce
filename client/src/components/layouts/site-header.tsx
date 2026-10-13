@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Search,
   ShoppingBag,
@@ -24,6 +24,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
+
 // Snapshot kiểm tra SSR Client / Server tránh lỗi Hydration
 const emptySubscribe = () => () => {};
 function useIsMounted() {
@@ -40,6 +41,8 @@ export function SiteHeader() {
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const router = useRouter();
 
   const { data: cartResponse } = useCart();
   const cartItems = cartResponse?.data?.cartItems || [];
@@ -76,6 +79,12 @@ export function SiteHeader() {
     setIsSettingsOpen(false);
   }, [pathname]);
 
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      router.push(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-[#EAE6DF] bg-[#FBF9F4]/95 backdrop-blur select-none">
       <div className="mx-auto flex h-[72px] max-w-[1440px] items-center gap-5 px-4 sm:px-8 lg:px-12">
@@ -91,8 +100,11 @@ export function SiteHeader() {
         <div className="hidden h-11 max-w-[700px] flex-1 items-center rounded-full border border-[#EAE6DF] bg-white px-4 shadow-[0_5px_20px_rgba(29,31,32,.04)] sm:flex">
           <Search size={17} className="mr-3 text-[#74736e]" />
           <input
+            value={searchQuery} // <-- LIÊN KẾT STATE
+            onChange={(e) => setSearchQuery(e.target.value)} // <-- LẮNG NGHE THAY ĐỔI
+            onKeyDown={handleSearch} // <-- LẮNG NGHE NÚT ENTER
             aria-label="Search products"
-            placeholder="Search for an object, a feeling..."
+            placeholder="Tìm kiếm sản phẩm, danh mục..."
             className="w-full bg-transparent text-sm outline-none placeholder:text-[#9b9991]"
           />
         </div>
@@ -101,7 +113,7 @@ export function SiteHeader() {
         <div className="ml-auto flex items-center gap-2">
           {/* Mobile Search */}
           <Link
-            href="/search"
+            href="/products" 
             className="rounded-full p-2.5 hover:bg-white sm:hidden transition"
           >
             <Search size={20} />
