@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "prisma generate",
     "dev": "tsx watch src/server.ts",
-    "build": "prisma generate && tsc",
+    "build": "prisma generate && tsc && tsc-alias",
     "start": "node dist/server.js",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
@@ -52,6 +52,7 @@
     "@types/nodemailer": "^8.0.2",
     "@types/uuid": "^10.0.0",
     "pino-pretty": "^13.2.0",
+    "tsc-alias": "^1.9.7",
     "tsx": "^4.19.3",
     "typescript": "^5.9.2"
   },
