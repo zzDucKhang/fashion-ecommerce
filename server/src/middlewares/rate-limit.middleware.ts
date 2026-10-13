@@ -33,8 +33,8 @@ export const otpLimiter = rateLimit({
  * 30 request / 15 phút / IP
  */
 export const generalAuthLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 30,
+    windowMs: 60 * 1000,
+    max: 100,
     standardHeaders: true,
     legacyHeaders: false,
     message: {

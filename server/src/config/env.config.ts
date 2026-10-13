@@ -28,6 +28,8 @@ const envSchema = z.object({
 
   MAIL_USER: z.string().email(),
   MAIL_PASS: z.string().min(1),
+  BREVO_API_KEY: z.string().min(1),
+  BREVO_SENDER_EMAIL: z.string().email().optional(),
 })
 
 const parseResult = envSchema.safeParse(process.env)
