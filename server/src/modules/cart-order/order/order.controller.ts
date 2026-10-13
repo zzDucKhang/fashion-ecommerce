@@ -72,7 +72,19 @@ export class OrderController {
       const userId = getRequiredUserId(req)
       const orderId = parseOrderId(req.params.orderId)
 
-      const data = await this.service.findById(userId, orderId)
+      // Kiểm tra xem người dùng hiện tại có phải ADMIN không
+      let isAdmin = false
+      if ((req as any).user?.roleId) {
+        const role = await prisma.role.findFirst({
+          where: { id: (req as any).user.roleId, isActive: true, deletedAt: null },
+        })
+        isAdmin = role?.code === 'ADMIN'
+      }
+
+      // Nếu là ADMIN, truyền undefined để lấy mọi đơn hàng. Nếu là khách, truyền userId để bảo mật.
+      const queryUserId = isAdmin ? undefined : userId;
+
+      const data = await this.service.findById(queryUserId, orderId)
       return res.status(200).json({ statusCode: 200, data })
     } catch (error) {
       next(error)

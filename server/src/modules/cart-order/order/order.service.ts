@@ -81,7 +81,7 @@ export class OrderService {
     return this.orderRepo.getDashboardStats();
   }
 
-  async findById(userId: number, orderId: number) {
+  async findById(userId: number | undefined, orderId: number) {
     const order = await this.orderRepo.findById(orderId, userId);
     if (!order) throw new NotFoundError("Đơn hàng không tồn tại");
     return order;

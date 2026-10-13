@@ -57,6 +57,7 @@ export class UserRepo {
                 avatarUrl: true,
                 status: true,
                 role: { select: { id: true, name: true, code: true } },
+                rewardPoints: true,
                 shippingAddresses: true,
                 createdAt: true,
                 updatedAt: true,
