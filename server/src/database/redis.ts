@@ -6,6 +6,14 @@ export const redisClient = new Redis(envConfig.REDIS_URL, {
   maxRetriesPerRequest: null, // Giữ nguyên cho BullMQ / Worker
   tls: envConfig.REDIS_URL.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined,
   connectTimeout: 10000,
+  retryStrategy: (times) => Math.min(times * 200, 3000),
+  reconnectOnError: (err) => {
+    const targetError = 'READONLY'
+    if (err.message.includes(targetError)) {
+      return true
+    }
+    return false
+  },
 })
 
 redisClient.on('connect', () => {

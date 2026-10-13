@@ -9,6 +9,6 @@ export const prisma =
     log: envConfig.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   })
 
-if (envConfig.NODE_ENV !== 'production') {
+if (!globalForPrisma.prisma) {
   globalForPrisma.prisma = prisma
 }

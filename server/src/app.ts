@@ -12,13 +12,17 @@ import { inventorySaleRouter } from '@/modules/inventory-sale/inventory-sale.rou
 import { fulfillmentRouter } from '@/modules/fulfillment/fulfillment.routes'
 import { loyaltyEngageRouter } from '@/modules/loyalty-engage/loyalty-engage.routes'
 import { sepayWebhookRouter } from '@/modules/fulfillment/payment/payment.routes'
+import path from 'path'
 import { uploadRouter } from './modules/upload/upload.routes'
 
 export const createApp = (): Express => {
   const app = express()
 
-  app.use(helmet())
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
   app.use(cors())
+
+  // Serve static files uploaded locally
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
 
   // QUAN TRONG QUAN TRONG QUAN TRONG. 
   // SePay webhook khong dung express.json()

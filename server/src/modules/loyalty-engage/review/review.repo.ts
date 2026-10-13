@@ -73,6 +73,31 @@ export class ReviewRepo {
     return review
   }
 
+  async findAllReviews(skip: number, take: number, rating?: number, productId?: number) {
+    const where = {
+      deletedAt: null,
+      ...(productId !== undefined ? { productId } : {}),
+      ...(rating !== undefined ? { rating } : {}),
+    }
+
+    const [data, total] = await prisma.$transaction([
+      prisma.productReview.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+        include: {
+          medias: true,
+          user: { select: { id: true, fullName: true, avatarUrl: true } },
+          product: { select: { id: true, defaultName: true, thumbnailUrl: true } },
+        },
+      }),
+      prisma.productReview.count({ where }),
+    ])
+
+    return { data, total }
+  }
+
   async findReviewsByProductId(productId: number, skip: number, take: number, rating?: number) {
     const where = {
       productId,

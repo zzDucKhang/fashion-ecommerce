@@ -35,8 +35,9 @@ export const reviewIdParamSchema = z.object({
 export const getReviewsQuerySchema = z.object({
   productId: z
     .string()
-    .regex(/^\d+$/, 'productId phải là số nguyên dương')
-    .transform(Number),
+    .optional()
+    .transform((v) => (v ? parseInt(v, 10) : undefined))
+    .pipe(z.number().int().positive().optional()),
   page: z
     .string()
     .optional()

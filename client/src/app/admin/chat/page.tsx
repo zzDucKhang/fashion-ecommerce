@@ -469,7 +469,17 @@ export default function AdminChatPage() {
                               : 'rounded-bl-sm border border-[#EAE6DF] bg-white text-neutral-800'
                           }`}
                         >
-                          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                          {message.content.startsWith('http') && (message.content.includes('/uploads/') || message.content.includes('unsplash') || /\.(jpeg|jpg|gif|png|webp)($|\?)/i.test(message.content)) ? (
+                            <a href={message.content} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={message.content}
+                                alt="Ảnh gửi"
+                                className="max-h-56 max-w-full rounded-lg object-cover hover:opacity-90 transition cursor-pointer"
+                              />
+                            </a>
+                          ) : (
+                            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                          )}
                           <time
                             className={`mt-1 block text-[10px] ${
                               isMe ? 'text-white/60' : 'text-neutral-400'

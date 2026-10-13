@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { catalogApi } from '@/api/catalog.api';
 import { Button } from '@/components/ui/button';
+import { ImageUpload } from '@/components/ui/image-upload';
 import { cn } from '@/lib/utils';
 import type { Tag } from '@/types';
 
@@ -123,7 +124,7 @@ export default function AdminEditProductPage() {
           if (typeof t === 'number') return t;
           return t?.id ?? t?.tag?.id ?? t?.tagId ?? null;
         })
-        .filter((id): id is number => typeof id === 'number' && !isNaN(id));
+        .filter((id: unknown): id is number => typeof id === 'number' && !isNaN(id));
     } else if (Array.isArray(product.tagIds)) {
       resolvedTagIds = product.tagIds.map(Number).filter((id: number) => !isNaN(id));
     }
@@ -394,12 +395,13 @@ export default function AdminEditProductPage() {
           {/* Thumbnail */}
           <div className="space-y-1.5 pt-1 border-t border-[#EAE6DF]">
             <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600">
-              Ảnh đại diện Thumbnail (URL)
+              Ảnh đại diện Thumbnail sản phẩm
             </label>
-            <input
-              {...register('thumbnailUrl')}
-              placeholder="https://images.unsplash.com/... hoặc đường dẫn ảnh"
-              className="w-full rounded-xl border border-[#EAE6DF] bg-white px-4 py-2.5 text-sm outline-none focus:border-neutral-900 shadow-xs"
+            <ImageUpload
+              value={watch('thumbnailUrl')}
+              onChange={(url) => setValue('thumbnailUrl', url, { shouldDirty: true })}
+              folder="products"
+              placeholder="Chọn tệp ảnh từ máy tính hoặc kéo thả vào đây"
             />
           </div>
 

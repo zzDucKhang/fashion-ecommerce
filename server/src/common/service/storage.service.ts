@@ -1,6 +1,7 @@
 // src/common/service/storage.service.ts
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import path from 'path';
+import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { envConfig } from '@/config/env.config';
 import { s3Client } from '@/config/s3.config';
@@ -79,32 +80,51 @@ export class StorageService {
     const uniqueFileName = `${Date.now()}-${uuidv4()}${ext}`;
     const fileKey = `${folder}${uniqueFileName}`;
 
-    // 5. Gửi lệnh PutObject tải trực tiếp lên Supabase S3
-    try {
-      const command = new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: fileKey,
-        Body: buffer,
-        ContentType: mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
-      });
+    // 5. Thử tải lên S3 nếu có cấu hình, nếu không (hoặc lỗi) thì lưu vào đĩa cục bộ (Local Fallback)
+    const hasS3Config = !!(envConfig.S3_ACCESS_KEY && envConfig.S3_SECRET_KEY && envConfig.S3_ENDPOINT);
+    if (hasS3Config) {
+      try {
+        const command = new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: fileKey,
+          Body: buffer,
+          ContentType: mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
+        });
 
-      await s3Client.send(command);
-    } catch (err: any) {
-      logger.error({ err, fileKey }, 'Lỗi khi upload file lên S3 Storage');
-      throw new AppError(`Tải file lên cloud thất bại: ${err.message}`, 500);
+        await s3Client.send(command);
+        const publicUrl = `https://kqerbvhdttbncfydmuii.supabase.co/storage/v1/object/public/${this.bucketName}/${fileKey}`;
+        return {
+          url: publicUrl,
+          type,
+          key: fileKey,
+        };
+      } catch (err: any) {
+        logger.warn({ err: err.message, fileKey }, 'S3 upload failed, falling back to local filesystem storage');
+      }
     }
 
-    // 6. Xây dựng Public URL từ Supabase Project URL
-    // Với Public Bucket của Supabase, link truy cập trực tiếp có dạng:
-    // https://<project-ref>.supabase.co/storage/v1/object/public/<bucket-name>/<fileKey>
-    const baseUrl = (envConfig.S3_ENDPOINT || '').replace('/s3', '').replace(/\/$/, '');
-    const publicUrl = `https://kqerbvhdttbncfydmuii.supabase.co/storage/v1/object/public/${this.bucketName}/${fileKey}`
+    // 6. Lưu trữ đĩa cục bộ (Local Storage Fallback)
+    try {
+      const uploadDir = path.join(process.cwd(), 'uploads', folder);
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      const localFilePath = path.join(uploadDir, uniqueFileName);
+      fs.writeFileSync(localFilePath, buffer);
 
-    return {
-      url: publicUrl,
-      type,
-      key: fileKey,
-    };
+      const host = `http://localhost:${envConfig.PORT || 5000}`;
+      const localUrl = `${host}/uploads/${fileKey}`;
+      logger.info({ localUrl, fileKey }, 'Tệp tin đã lưu cục bộ thành công');
+
+      return {
+        url: localUrl,
+        type,
+        key: fileKey,
+      };
+    } catch (localErr: any) {
+      logger.error({ localErr, fileKey }, 'Lỗi khi lưu tệp tin vào đĩa cục bộ');
+      throw new AppError(`Tải file lên hệ thống thất bại: ${localErr.message}`, 500);
+    }
   }
 }
 

@@ -18,8 +18,19 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
+    let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && socketUrl.startsWith('http://') && !socketUrl.includes('localhost') && !socketUrl.includes('127.0.0.1')) {
+      socketUrl = socketUrl.replace('http://', 'https://');
+    }
+
+    const socketInstance = io(socketUrl, {
       autoConnect: false,
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
+      timeout: 20000,
     });
 
     const onConnect = () => setIsConnected(true);

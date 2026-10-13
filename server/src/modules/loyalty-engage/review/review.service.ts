@@ -85,6 +85,19 @@ export class ReviewService {
     const { productId, page, limit, rating } = query
     const skip = (page - 1) * limit
 
+    if (!productId) {
+      const { data, total } = await this.reviewRepo.findAllReviews(skip, limit, rating)
+      return {
+        data,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      }
+    }
+
     const product = await this.reviewRepo.findProductById(productId)
     if (!product) {
       throw new NotFoundError('Sản phẩm không tồn tại')

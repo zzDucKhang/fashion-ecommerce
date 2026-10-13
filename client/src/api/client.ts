@@ -2,11 +2,19 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_ENDPOINTS } from './endpoints';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+const getBaseUrl = (): string => {
+  let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://') && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+    url = url.replace('http://', 'https://');
+  }
+  return url.replace(/\/+$/, '');
+};
+
+const BASE_URL = getBaseUrl();
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 30000,
+  timeout: 60000, // 60s tolerance for free tier cold starts (Render/Railway/Supabase)
   headers: {
     'Content-Type': 'application/json',
   },

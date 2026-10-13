@@ -9,6 +9,7 @@ export interface FlashSaleItemVariant {
   sellingPrice: number | string;
   imageUrl?: string | null; 
   product?: {
+    id?: number;
     defaultName: string;
     thumbnailUrl?: string | null; 
   };

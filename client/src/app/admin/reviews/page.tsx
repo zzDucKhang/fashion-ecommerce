@@ -221,8 +221,8 @@ export default function AdminReviewsPage() {
         data={reviews}
         isLoading={isLoading}
         page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems || 0}
+        totalPages={data?.pagination?.totalPages || data?.totalPages || 1}
+        totalItems={data?.pagination?.total || data?.totalItems || 0}
         onPageChange={setPage}
         emptyMessage="Chưa có đánh giá nào."
       />

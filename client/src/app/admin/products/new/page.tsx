@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Loader2, Plus, Sparkles, Upload } from 'lucide-react';
 import { catalogApi } from '@/api/catalog.api';
 import { Button } from '@/components/ui/button';
+import { ImageUpload } from '@/components/ui/image-upload';
 
 interface CreateProductFormValues {
   defaultName: string;
@@ -34,7 +35,7 @@ export default function AdminNewProductPage() {
   const categories = (catRes?.data as any) || [];
   const brands = (brandRes?.data as any) || [];
 
-  const { register, handleSubmit, formState: { errors } } = useForm<CreateProductFormValues>({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<CreateProductFormValues>({
     defaultValues: {
       defaultName: '',
       status: 'PUBLISHED',
@@ -131,12 +132,13 @@ export default function AdminNewProductPage() {
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600">
-              Ảnh đại diện Thumbnail (URL)
+              Ảnh đại diện Thumbnail sản phẩm
             </label>
-            <input
-              {...register('thumbnailUrl')}
-              placeholder="https://images.unsplash.com/... hoặc đường dẫn ảnh"
-              className="w-full rounded-xl border border-[#EAE6DF] bg-white px-4 py-2.5 text-sm outline-none focus:border-neutral-900 shadow-xs"
+            <ImageUpload
+              value={watch('thumbnailUrl')}
+              onChange={(url) => setValue('thumbnailUrl', url, { shouldValidate: true })}
+              folder="products"
+              placeholder="Chọn tệp ảnh từ máy tính hoặc kéo thả vào đây"
             />
           </div>
 
