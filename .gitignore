@@ -2,3 +2,5 @@
 **/.agents
 *.txt
 docs/
+*.md
+!README.md

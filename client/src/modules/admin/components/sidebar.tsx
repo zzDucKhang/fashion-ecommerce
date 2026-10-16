@@ -87,13 +87,13 @@ export function AdminSidebar() {
   const { user, logout } = useAuth();
   const isStaff = user?.role?.code === 'STAFF';
   const visibleNavGroups = isStaff
-    ? navGroups
-        .map((group) => ({
-          ...group,
-          items: group.items.filter((item) => item.href === '/admin/chat'),
-        }))
-        .filter((group) => group.items.length > 0)
-    : navGroups;
+  ? navGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => item.href === '/admin/chat' || item.href === '/admin/dashboard'),
+      }))
+      .filter((group) => group.items.length > 0)
+  : navGroups;
 
   return (
     <aside className="w-64 shrink-0 bg-white border-r border-[#EAE6DF] min-h-screen flex flex-col justify-between sticky top-0 h-screen select-none">

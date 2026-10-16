@@ -26,15 +26,18 @@ export default function AdminLayout({
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FBF9F4]">
-        <div className="animate-pulse text-sm text-neutral-500">Đang khởi tạo quyền quản trị...</div>
+        <div className="animate-pulse text-sm text-neutral-500">
+          Đang khởi tạo quyền quản trị...
+        </div>
       </div>
     );
   }
 
-  const canAccessStaffChat =
-    isAuthenticated && user?.role?.code === 'STAFF' && pathname === '/admin/chat';
+  const isStaff = isAuthenticated && user?.role?.code === 'STAFF';
+  const canAccessStaffRoutes =
+    isStaff && (pathname === '/admin/chat' || pathname === '/admin/dashboard');
 
-  if (canAccessStaffChat) {
+  if (canAccessStaffRoutes) {
     return (
       <div className="flex min-h-screen bg-[#FBF9F4]">
         <AdminSidebar />
@@ -53,7 +56,8 @@ export default function AdminLayout({
           Truy cập bị từ chối
         </h2>
         <p className="text-xs text-neutral-500 max-w-sm mb-6 leading-relaxed">
-          Khu vực này chỉ dành cho tài khoản có quyền Quản trị viên (Admin). Bạn không có quyền truy cập vào nội dung này.
+          Khu vực này chỉ dành cho tài khoản có quyền Quản trị viên (Admin). Bạn
+          không có quyền truy cập vào nội dung này.
         </p>
         <div className="flex gap-3">
           <Button
@@ -84,7 +88,9 @@ export default function AdminLayout({
         {/* Topbar */}
         <header className="h-16 bg-white/80 backdrop-blur border-b border-[#EAE6DF] px-6 sm:px-8 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <span className="eyebrow text-[#74736E]">ADMINISTRATION CONSOLE</span>
+            <span className="eyebrow text-[#74736E]">
+              ADMINISTRATION CONSOLE
+            </span>
           </div>
 
           <div className="flex items-center gap-4">

@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       isAuthenticated: !!user,
-      isAdmin: user?.role?.code === 'ADMIN',
+      isAdmin: user?.role?.code === 'ADMIN' || user?.role?.code === 'STAFF',
       login,
       logout,
     }),
